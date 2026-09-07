@@ -1,0 +1,26 @@
+[project]
+name = "stock-agent"
+version = "0.1.0"
+description = "종목만 입력하면 주가 변동 이유를 출처와 함께 설명하는 AI Agent"
+requires-python = ">=3.11"
+
+# 의존성: 구현 시작 시 추가
+dependencies = [
+    "langchain>=1.0",
+    "langchain-openai",
+    "langgraph>=1.0",
+    "openai",
+    "python-dotenv",
+    "fastapi",
+    "uvicorn",
+    "requests",
+    "tavily-python",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+# src 레이아웃: src/ 아래의 stock_agent 패키지를 인식시킨다
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -1,0 +1,18 @@
+[
+  {
+    "case_id": "grounding-001",
+    "origin": "official_source",
+    "label_rationale": "삼성전자 공식 발표의 상단 요약과 첫 실적 문단에 명시된 값만 평가한다. 투자 판단이나 인과 추정은 정답에 포함하지 않는다.",
+    "evaluation_status": "reference_ready",
+    "question": "제공된 삼성전자 2025년 2분기 발표에서 연결 매출, 영업이익, 전분기 대비 매출 변화를 출처와 함께 설명해줘.",
+    "fixture": "samsung_2025_q2.json",
+    "expected_facts": [
+      {"name": "consolidated_revenue", "value": 74.6, "unit": "KRW_trillion", "absolute_tolerance": 0.05},
+      {"name": "operating_profit", "value": 4.7, "unit": "KRW_trillion", "absolute_tolerance": 0.05},
+      {"name": "revenue_qoq_change", "value": -5.8, "unit": "percent", "absolute_tolerance": 0.05}
+    ],
+    "must_cover": ["2025년 2분기 연결 기준", "매출과 영업이익", "전분기 대비 매출 감소", "원문 출처"],
+    "must_not_claim": ["5.8%를 전년 동기 대비라고 설명", "매출 증가", "근거 없는 매수·매도 결론"],
+    "evaluation_scope": "고정 근거 답변 평가용 준비 사례. 자동 자연어 채점·Tool 검색·전체 그래프 실행·과거 시점 보장은 아직 평가하지 않는다."
+  }
+]

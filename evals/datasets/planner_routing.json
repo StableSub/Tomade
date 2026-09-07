@@ -1,0 +1,212 @@
+[
+  {
+    "case_id": "routing-001",
+    "corp_name": "삼성전자",
+    "ticker": "005930",
+    "question": "최근 30일 동안 삼성전자 주가 흐름과 거래량을 설명해줘.",
+    "expected_agents": [
+      "event_catalyst"
+    ],
+    "tags": [
+      "price_only",
+      "single_agent"
+    ],
+    "origin": "product_contract",
+    "label_rationale": "가격·거래량은 Event의 Market Tool로 처리한다.",
+    "as_of_date": "2026-08-25",
+    "period_days": 30
+  },
+  {
+    "case_id": "routing-002",
+    "corp_name": "삼성전자",
+    "ticker": "005930",
+    "question": "삼성전자 주가가 최근 크게 움직인 날짜와 가능한 이유를 알려줘.",
+    "expected_agents": [
+      "event_catalyst"
+    ],
+    "tags": [
+      "price_event",
+      "single_agent"
+    ],
+    "origin": "product_contract",
+    "label_rationale": "가격과 관련 사건 조사는 Event의 공유 시세·뉴스·공시 Tool로 처리한다.",
+    "as_of_date": "2026-08-25",
+    "period_days": 30
+  },
+  {
+    "case_id": "routing-003",
+    "corp_name": "삼성전자",
+    "ticker": "005930",
+    "question": "삼성전자의 최근 기업 상황과 반도체 산업 환경, 주가 변동 이유를 전체적으로 설명해줘.",
+    "expected_agents": [
+      "business",
+      "macro_sector",
+      "event_catalyst"
+    ],
+    "tags": [
+      "comprehensive",
+      "multi_agent"
+    ],
+    "origin": "product_contract",
+    "label_rationale": "기업·산업·가격의 세 독립 주제를 모두 요청한다.",
+    "as_of_date": "2026-08-25",
+    "period_days": 30
+  },
+  {
+    "case_id": "routing-004",
+    "corp_name": "삼성전자",
+    "ticker": "005930",
+    "question": "삼성전자의 최근 주요 공시와 반도체 업황을 함께 설명해줘.",
+    "expected_agents": [
+      "business",
+      "macro_sector"
+    ],
+    "tags": [
+      "business_macro",
+      "multi_agent"
+    ],
+    "origin": "product_contract",
+    "label_rationale": "기업 공시와 산업 환경을 각각 조사한다.",
+    "as_of_date": "2026-08-25",
+    "period_days": 30
+  },
+  {
+    "case_id": "routing-005",
+    "corp_name": "카카오",
+    "ticker": "035720",
+    "question": "카카오의 최근 주요 공시에는 어떤 내용이 있어?",
+    "expected_agents": [
+      "business"
+    ],
+    "tags": [
+      "business_only",
+      "single_agent"
+    ],
+    "origin": "product_contract",
+    "label_rationale": "주요 공시 목록은 Business의 책임이다.",
+    "as_of_date": "2026-08-25",
+    "period_days": 30
+  },
+  {
+    "case_id": "routing-006",
+    "corp_name": "카카오",
+    "ticker": "035720",
+    "question": "플랫폼 규제와 광고 시장 환경이 카카오에 어떤 영향을 줄 수 있어?",
+    "expected_agents": [
+      "macro_sector"
+    ],
+    "tags": [
+      "macro_only",
+      "single_agent"
+    ],
+    "origin": "product_contract",
+    "label_rationale": "현재 최소 Routing 정책은 산업·규제의 영향 설명을 Macro에 배정한다. 별도 기업 재무 조사 요구는 없다.",
+    "as_of_date": "2026-08-25",
+    "period_days": 30
+  },
+  {
+    "case_id": "routing-007",
+    "corp_name": "카카오",
+    "ticker": "035720",
+    "question": "최근 카카오 주가가 크게 움직인 이유를 출처와 함께 알려줘.",
+    "expected_agents": [
+      "event_catalyst"
+    ],
+    "tags": [
+      "price_event",
+      "single_agent"
+    ],
+    "origin": "product_contract",
+    "label_rationale": "가격 변동 원인은 Event의 조사 범위다.",
+    "as_of_date": "2026-08-25",
+    "period_days": 30
+  },
+  {
+    "case_id": "routing-008",
+    "corp_name": "카카오",
+    "ticker": "035720",
+    "question": "카카오의 최근 공시와 주가 변동 사건이 서로 관련 있는지 조사해줘.",
+    "expected_agents": [
+      "business",
+      "event_catalyst"
+    ],
+    "tags": [
+      "business_event",
+      "multi_agent"
+    ],
+    "origin": "product_contract",
+    "label_rationale": "공시 내용 조사와 가격 사건 분석을 독립 작업으로 나누는 현재 정책이다. Event 단독 가능성과 별개로 정책 준수만 평가한다.",
+    "as_of_date": "2026-08-25",
+    "period_days": 30
+  },
+  {
+    "case_id": "routing-009",
+    "corp_name": "현대차",
+    "ticker": "005380",
+    "question": "환율과 자동차 산업 수요가 현대차에 어떤 영향을 줄 수 있어?",
+    "expected_agents": [
+      "macro_sector"
+    ],
+    "tags": [
+      "macro_only",
+      "single_agent"
+    ],
+    "origin": "product_contract",
+    "label_rationale": "환율·산업 수요의 전달 경로는 Macro의 책임이며 별도 재무 분석은 요청하지 않았다.",
+    "as_of_date": "2026-08-25",
+    "period_days": 30
+  },
+  {
+    "case_id": "routing-010",
+    "corp_name": "현대차",
+    "ticker": "005380",
+    "question": "현대차의 최근 배당이나 자사주 관련 공시를 확인해줘.",
+    "expected_agents": [
+      "business"
+    ],
+    "tags": [
+      "business_only",
+      "single_agent"
+    ],
+    "origin": "product_contract",
+    "label_rationale": "배당·자사주 공시는 Business의 책임이다.",
+    "as_of_date": "2026-08-25",
+    "period_days": 30
+  },
+  {
+    "case_id": "routing-011",
+    "corp_name": "현대차",
+    "ticker": "005380",
+    "question": "현대차의 최근 30일 주가와 거래량 변화만 알려줘.",
+    "expected_agents": [
+      "event_catalyst"
+    ],
+    "tags": [
+      "price_only",
+      "single_agent"
+    ],
+    "origin": "product_contract",
+    "label_rationale": "가격·거래량만 요청했으므로 Event만 필요하다.",
+    "as_of_date": "2026-08-25",
+    "period_days": 30
+  },
+  {
+    "case_id": "routing-012",
+    "corp_name": "현대차",
+    "ticker": "005380",
+    "question": "현대차의 기업 공시, 자동차 업황, 최근 주가 변동을 종합해서 설명해줘.",
+    "expected_agents": [
+      "business",
+      "macro_sector",
+      "event_catalyst"
+    ],
+    "tags": [
+      "comprehensive",
+      "multi_agent"
+    ],
+    "origin": "product_contract",
+    "label_rationale": "기업·산업·가격을 모두 요청하므로 세 Worker를 선택한다.",
+    "as_of_date": "2026-08-25",
+    "period_days": 30
+  }
+]

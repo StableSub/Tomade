@@ -1,0 +1,239 @@
+[
+  {
+    "case_id": "parsing-001",
+    "raw_user_input": "삼성전자 최근 30일 주가 변동 이유를 알려줘",
+    "expected": {
+      "corp_name": "삼성전자",
+      "ticker": "005930",
+      "period_days": 30,
+      "as_of_date": "2026-08-25"
+    },
+    "expected_question_intent": [
+      "주가 변동 이유"
+    ],
+    "expected_error": null,
+    "tags": [
+      "official_name",
+      "days"
+    ],
+    "origin": "product_contract",
+    "label_rationale": "명시된 최근 30일을 보존하고 기준일은 고정된 오늘로 기본 설정한다.",
+    "today": "2026-08-25"
+  },
+  {
+    "case_id": "parsing-002",
+    "raw_user_input": "005930 최근 3개월 주요 공시를 설명해줘",
+    "expected": {
+      "corp_name": "삼성전자",
+      "ticker": "005930",
+      "period_days": 90,
+      "as_of_date": "2026-08-25"
+    },
+    "expected_question_intent": [
+      "주요 공시"
+    ],
+    "expected_error": null,
+    "tags": [
+      "ticker",
+      "months"
+    ],
+    "origin": "product_contract",
+    "label_rationale": "005930은 삼성전자이며 제품 기간 규칙상 3개월은 90일이다.",
+    "today": "2026-08-25"
+  },
+  {
+    "case_id": "parsing-003",
+    "raw_user_input": "삼전 지난 석 달 동안 주가가 왜 움직였어?",
+    "expected": {
+      "corp_name": "삼성전자",
+      "ticker": "005930",
+      "period_days": 90,
+      "as_of_date": "2026-08-25"
+    },
+    "expected_question_intent": [
+      "주가 변동 이유"
+    ],
+    "expected_error": null,
+    "tags": [
+      "alias",
+      "natural_period"
+    ],
+    "origin": "product_contract",
+    "label_rationale": "삼전은 삼성전자 별칭이며 석 달은 90일이다.",
+    "today": "2026-08-25"
+  },
+  {
+    "case_id": "parsing-004",
+    "raw_user_input": "2026-08-21 기준 현대차 최근 1년 상황을 설명해줘",
+    "expected": {
+      "corp_name": "현대차",
+      "ticker": "005380",
+      "period_days": 365,
+      "as_of_date": "2026-08-21"
+    },
+    "expected_question_intent": [
+      "전체 상황"
+    ],
+    "expected_error": null,
+    "tags": [
+      "official_name",
+      "explicit_date",
+      "years"
+    ],
+    "origin": "product_contract",
+    "label_rationale": "명시된 기준일을 유지하고 1년은 365일로 변환한다. 표시 회사명은 현대차로 고정한다.",
+    "today": "2026-08-25"
+  },
+  {
+    "case_id": "parsing-005",
+    "raw_user_input": "카카오 최근 한 달 주요 공시를 알려줘",
+    "expected": {
+      "corp_name": "카카오",
+      "ticker": "035720",
+      "period_days": 30,
+      "as_of_date": "2026-08-25"
+    },
+    "expected_question_intent": [
+      "주요 공시"
+    ],
+    "expected_error": null,
+    "tags": [
+      "official_name",
+      "natural_period"
+    ],
+    "origin": "product_contract",
+    "label_rationale": "한 달은 30일이며 기준일만 기본 설정한다.",
+    "today": "2026-08-25"
+  },
+  {
+    "case_id": "parsing-006",
+    "raw_user_input": "SK하이닉스 최근 2주 동안 주가 흐름은?",
+    "expected": {
+      "corp_name": "SK하이닉스",
+      "ticker": "000660",
+      "period_days": 14,
+      "as_of_date": "2026-08-25"
+    },
+    "expected_question_intent": [
+      "주가 흐름"
+    ],
+    "expected_error": null,
+    "tags": [
+      "official_name",
+      "weeks"
+    ],
+    "origin": "product_contract",
+    "label_rationale": "2주는 14일이다.",
+    "today": "2026-08-25"
+  },
+  {
+    "case_id": "parsing-007",
+    "raw_user_input": "현차 환율 영향을 알려줘",
+    "expected": {
+      "corp_name": "현대차",
+      "ticker": "005380",
+      "period_days": 30,
+      "as_of_date": "2026-08-25"
+    },
+    "expected_question_intent": [
+      "환율 영향"
+    ],
+    "expected_error": null,
+    "tags": [
+      "alias",
+      "default_period"
+    ],
+    "origin": "product_contract",
+    "label_rationale": "현차는 현대차이며 기간 미지정 시 30일을 적용한다.",
+    "today": "2026-08-25"
+  },
+  {
+    "case_id": "parsing-008",
+    "raw_user_input": "삼성전자와 SK하이닉스를 비교해줘",
+    "expected": null,
+    "expected_question_intent": [
+      "기업 비교"
+    ],
+    "expected_error": "현재는 한 번에 한 종목만 지원",
+    "tags": [
+      "multiple_companies",
+      "clarification"
+    ],
+    "origin": "product_contract",
+    "label_rationale": "두 회사를 비교하는 입력은 단일 종목 계약 밖이므로 복수 종목 사유로 거부한다.",
+    "today": "2026-08-25",
+    "expected_error_pattern": "복수|여러.{0,10}(회사|종목)|두.{0,5}(회사|종목)|한 번에 한 종목|한 종목만"
+  },
+  {
+    "case_id": "parsing-009",
+    "raw_user_input": "최근 30일 주가가 왜 움직였어?",
+    "expected": null,
+    "expected_question_intent": [
+      "주가 변동 이유"
+    ],
+    "expected_error": "상장 회사명 또는 6자리 종목코드를 찾지 못함",
+    "tags": [
+      "missing_company",
+      "clarification"
+    ],
+    "origin": "product_contract",
+    "label_rationale": "대상 회사가 없으므로 회사 식별 필요 사유로 거부한다.",
+    "today": "2026-08-25",
+    "expected_error_pattern": "회사|종목|대상"
+  },
+  {
+    "case_id": "parsing-010",
+    "raw_user_input": "999999 최근 공시를 알려줘",
+    "expected": null,
+    "expected_question_intent": [
+      "최근 공시"
+    ],
+    "expected_error": "상장 회사 또는 종목코드로 확인할 수 없음",
+    "tags": [
+      "invalid_ticker",
+      "validation"
+    ],
+    "origin": "product_contract",
+    "label_rationale": "테스트 회사 매핑에 없는 코드이므로 종목 식별 불가 사유로 거부한다.",
+    "today": "2026-08-25",
+    "expected_error_pattern": "회사|종목|코드|999999"
+  },
+  {
+    "case_id": "parsing-011",
+    "raw_user_input": "2099-01-01 기준 삼성전자 주가를 알려줘",
+    "expected": null,
+    "expected_question_intent": [
+      "주가"
+    ],
+    "expected_error": "분석 기준일은 오늘보다 미래일 수 없음",
+    "tags": [
+      "future_date",
+      "validation"
+    ],
+    "origin": "product_contract",
+    "label_rationale": "고정된 오늘 이후 기준일이므로 미래 날짜 사유로 거부한다.",
+    "today": "2026-08-25",
+    "expected_error_pattern": "미래|오늘보다|오늘 이후"
+  },
+  {
+    "case_id": "parsing-012",
+    "raw_user_input": "035720 플랫폼 규제 영향을 알려줘",
+    "expected": {
+      "corp_name": "카카오",
+      "ticker": "035720",
+      "period_days": 30,
+      "as_of_date": "2026-08-25"
+    },
+    "expected_question_intent": [
+      "플랫폼 규제 영향"
+    ],
+    "expected_error": null,
+    "tags": [
+      "ticker",
+      "default_period"
+    ],
+    "origin": "product_contract",
+    "label_rationale": "035720은 카카오이며 기간 미지정 시 30일을 적용한다.",
+    "today": "2026-08-25"
+  }
+]

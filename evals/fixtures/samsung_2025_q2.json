@@ -1,0 +1,12 @@
+{
+  "fixture_id": "samsung-2025-q2",
+  "origin": "official_source",
+  "source_url": "https://news.samsung.com/global/samsung-electronics-announces-second-quarter-2025-results",
+  "published_at": "2025-07-31",
+  "period_end": "2025-06-30",
+  "retrieved_at": "2026-09-06",
+  "source_locator": "기사 상단 분기 요약과 첫 번째 실적 설명 문단",
+  "source_excerpt": "Quarterly revenue of KRW 74.6 trillion, operating profit at KRW 4.7 trillion",
+  "content": "삼성전자 2025년 2분기 연결 실적. 매출 74.6조 원, 영업이익 4.7조 원. 매출은 전분기 대비 5.8% 감소했다.",
+  "limitations": "현재 공개 페이지에서 확인한 요약 수치이며 과거 시점의 불변 스냅샷은 아니다. 실제 DART Tool 응답이 아니라 공식 발표에서 추출한 고정 근거다."
+}

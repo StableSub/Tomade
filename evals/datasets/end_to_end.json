@@ -1,0 +1,99 @@
+[
+  {
+    "case_id": "e2e-001",
+    "corp_name": "삼성전자",
+    "ticker": "005930",
+    "as_of_date": "2026-08-21",
+    "period_days": 30,
+    "question": "최근 삼성전자 주가가 크게 움직인 날짜와 가능한 이유를 출처와 함께 알려줘.",
+    "expected_agents": [
+      "event_catalyst"
+    ],
+    "must_cover": [
+      "분석 기간의 가격 흐름",
+      "주요 급등락 날짜",
+      "관련 뉴스 또는 공시",
+      "인과관계의 불확실성"
+    ],
+    "must_not_claim": [
+      "확인되지 않은 직접적 인과관계",
+      "출처에 없는 수치",
+      "근거 없는 투자 판단"
+    ],
+    "required_source_types": [
+      "market",
+      "news_or_disclosure"
+    ],
+    "mode": "live",
+    "evidence_fixture_status": "pending",
+    "origin": "product_contract",
+    "label_rationale": "제품 요구사항에서 작성한 복합 질문 초안. 실제 근거 연결 전이며 금융 정답으로 검증하지 않았다.",
+    "evaluation_status": "pending"
+  },
+  {
+    "case_id": "e2e-002",
+    "corp_name": "카카오",
+    "ticker": "035720",
+    "as_of_date": "2026-08-21",
+    "period_days": 30,
+    "question": "카카오의 최근 주요 공시와 플랫폼 산업 환경을 함께 설명해줘.",
+    "expected_agents": [
+      "business",
+      "macro_sector"
+    ],
+    "must_cover": [
+      "최근 주요 공시",
+      "공시 원문 URL",
+      "플랫폼 산업 또는 규제 환경",
+      "회사와 외부 환경의 관련성"
+    ],
+    "must_not_claim": [
+      "공시에서 확인되지 않은 재무 수치",
+      "출처 없는 산업 전망",
+      "근거 없는 투자 판단"
+    ],
+    "required_source_types": [
+      "disclosure",
+      "web"
+    ],
+    "mode": "live",
+    "evidence_fixture_status": "pending",
+    "origin": "product_contract",
+    "label_rationale": "제품 요구사항에서 작성한 복합 질문 초안. 실제 근거 연결 전이며 금융 정답으로 검증하지 않았다.",
+    "evaluation_status": "pending"
+  },
+  {
+    "case_id": "e2e-003",
+    "corp_name": "현대차",
+    "ticker": "005380",
+    "as_of_date": "2026-08-21",
+    "period_days": 30,
+    "question": "현대차의 최근 기업 변화, 자동차 업황, 주가 움직임을 종합해서 설명해줘.",
+    "expected_agents": [
+      "business",
+      "macro_sector",
+      "event_catalyst"
+    ],
+    "must_cover": [
+      "최근 기업 공시",
+      "자동차 산업 또는 환율 환경",
+      "기간 가격 흐름",
+      "주요 사건과 불확실성"
+    ],
+    "must_not_claim": [
+      "시간적 일치만으로 확정한 인과관계",
+      "출처에 없는 수치",
+      "투자 수익 보장"
+    ],
+    "required_source_types": [
+      "market",
+      "disclosure",
+      "web"
+    ],
+    "mode": "live",
+    "evidence_fixture_status": "pending",
+    "origin": "product_contract",
+    "label_rationale": "제품 요구사항에서 작성한 복합 질문 초안. 실제 근거 연결 전이며 금융 정답으로 검증하지 않았다.",
+    "evaluation_status": "pending"
+  }
+]

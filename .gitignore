@@ -1,0 +1,46 @@
+# 환경변수 (API 키 — 절대 커밋 금지)
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Python 패키징 산출물
+*.egg-info/
+build/
+dist/
+
+# Frontend
+node_modules/
+
+# 테스트 / 커버리지
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# 정적 분석 / 린터 캐시
+.mypy_cache/
+.ruff_cache/
+
+# 런타임 로그
+*.log
+evals/results/
+traces/
+data/chat.sqlite3*
+
+# IDE / OS
+.gjc/
+.obsidian/
+.DS_Store
+.idea/
+.vscode/
+
+# 로컬 설계 메모 (공개 문서는 README·architecture·schema·api·evals 중심)
+/docs/prd.md
+/docs/design.md
+/docs/data-plan.md
+/docs/conventions.md
