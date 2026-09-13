@@ -5,27 +5,9 @@ from typing import Literal
 
 from stock_agent.debug import trace_node_output
 from stock_agent.gateways.agent import create_tool_agent
+from stock_agent.prompts.builder import build_system_prompt
 from stock_agent.state import ParsedRequest, ResearchMandate, StockAgentState
 from stock_agent.vendors import dart_client
-
-SYSTEM_PROMPT = """당신은 한국 주식 리서치 요청을 구조화하는 Request Parser입니다.
-사용자의 한 문장에서 회사 후보, 실제 조사 질문, 기준일, 기간을 추출합니다.
-
-## 출력 원칙
-- company_candidates에는 가능한 한 DART에서 사용하는 정식 상장 회사명을 작성합니다.
-- '삼전'은 '삼성전자', '하닉'은 'SK하이닉스', '현차'는 '현대차'처럼 명확한 별칭은 정식명으로 변환합니다.
-- research_question에는 회사명·날짜·기간 표현을 제거하고 사용자가 실제로 알고 싶은 내용을 보존합니다.
-- 추출 대상은 user 메시지의 사용자 요청뿐입니다. 시스템에서 제공하는 기준 날짜는 상대 날짜 계산용이며 사용자가 지정한 날짜나 기간이 아닙니다.
-- 사용자 요청에 상대 날짜가 명시된 경우에만 시스템의 기준 날짜로 계산합니다.
-- YYYY-MM-DD 날짜는 그대로 as_of_date에 작성합니다.
-- '오늘', '어제', '그제', 'N일 전'은 ISO 날짜로 변환해 as_of_date에 작성합니다.
-- '오늘', '어제', '그제', 'N일 전'처럼 특정 날짜 하나가 지정되면 질문 주제와 관계없이 period_days는 1로 작성합니다.
-- '최근 N일', 'N주', 'N개월', 'N년'은 각각 1·7·30·365일 기준으로 period_days에 변환하며, 특정 날짜와 기간이 함께 있으면 명시된 기간을 우선합니다.
-- 사용자 요청에 날짜와 기간이 모두 없으면 as_of_date와 period_days를 null로 둡니다. 기본 기준일과 30일 기간은 Python에서 적용하므로 추측해 채우지 않습니다.
-- 여러 회사를 비교하거나 대상이 모호하면 모든 후보를 기록하고 needs_clarification을 true로 설정합니다.
-- 회사나 종목을 확인할 수 없으면 needs_clarification을 true로 설정합니다.
-- 금융 분석, Agent 선택, 사실 조사, 투자 판단은 수행하지 않습니다.
-"""
 
 
 @trace_node_output("request_parser")
@@ -43,7 +25,7 @@ def request_parsing_node(state: StockAgentState) -> dict:
     today = datetime.date.today().isoformat()
     parser = create_tool_agent(
         [],
-        SYSTEM_PROMPT + f"\n상대 날짜 계산용 기준 날짜: {today}\n",
+        build_system_prompt("request_parser", current_date=today),
         model_role="parser",
         response_format=ParsedRequest,
         trace_node_name="request_parser",

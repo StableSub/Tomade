@@ -65,7 +65,11 @@ class UpperAgentTest(unittest.TestCase):
         response = self.post("삼성전자 분석")
         self.assertIn("최종 조사 답변", response.text)
         self.assertEqual(self.factory.call_count, 2)
-        self.assertEqual(self.factory.call_args_list[0].args[1], self.factory.call_args_list[1].args[1])
+        initial_prompt = self.factory.call_args_list[0].args[1]
+        synthesis_prompt = self.factory.call_args_list[1].args[1]
+        self.assertIn("실행 단계: initial", initial_prompt)
+        self.assertEqual(initial_prompt.replace("실행 단계: initial", "실행 단계: synthesis"),
+                         synthesis_prompt)
         for call in self.factory.call_args_list:
             self.assertEqual(call.kwargs["model_role"], "planner")
             self.assertEqual([tool.name for tool in call.args[0]], ["update_memory"])
