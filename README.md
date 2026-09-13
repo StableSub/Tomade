@@ -37,7 +37,7 @@ AI Engineering 학습을 목적으로 **질문 라우팅, 역할별 Tool 권한,
 | 대화 기록 | 대화 생성·선택·삭제, SQLite 저장과 새로고침 후 복원 |
 | 실행 추적 | 직접 지정한 종목 조사의 Tool 호출·모델 호출 횟수·노드 시간·실패 기록 |
 
-**대화 기록 저장과 모델 메모리는 다릅니다.** 현재 이전 메시지는 모델에 전달하지 않으며, 매 질문을 독립 처리합니다.
+**세션별 단기 메모리:** 최근 완료된 질문·답변 10턴을 상위 Agent에 전달합니다. 초과한 오래된 턴은 `gpt-5.6-luna`로 기존 요약과 통합하며 원문은 DB에 보존합니다.
 
 ### 이렇게 질문하세요
 
@@ -87,6 +87,7 @@ npm --prefix frontend install
 | --- | --- |
 | `LLM_PROVIDER` | `openai` 또는 `openrouter` 선택 |
 | `OPENAI_API_KEY` / `OPENROUTER_API_KEY` | 선택한 모델 공급자의 API 인증 |
+| `SUMMARY_MODEL` | 단기 요약 전용. 기본 `gpt-5.6-luna`, OpenRouter는 `openai/gpt-5.6-luna`. `LLM_MODEL`과 별도 |
 | `PARSER_MODEL` · `PLANNER_MODEL` · `WORKER_MODEL` | 역할별 모델. 공통 기본값은 `LLM_MODEL` |
 | `DART_OPENAPI_KEY` | 회사 확인·공시 조회 |
 | `TAVILY_API_KEY` | 웹 검색 |
@@ -123,7 +124,7 @@ bash scripts/dev.sh
 .venv/bin/python evals/scripts/validate_datasets.py
 
 # 외부 API 없이 주요 회귀 테스트
-.venv/bin/python -m unittest tests.test_eval_contract tests.test_portfolio tests.test_conversations tests.test_chat_router
+.venv/bin/python -m unittest tests.test_eval_contract tests.test_portfolio tests.test_conversations tests.test_short_term_memory tests.test_chat_router
 
 # 유료 LLM 평가: 실행 시 API 비용 발생
 .venv/bin/python evals/scripts/run_eval.py --suite parsing,routing --label baseline --runs 3

@@ -53,6 +53,11 @@ def initialize_database() -> None:
             );
             CREATE INDEX IF NOT EXISTS messages_conversation ON messages(conversation_id, id);
         """)
+        columns = {row["name"] for row in db.execute("PRAGMA table_info(conversations)")}
+        if "summary" not in columns:
+            db.execute("ALTER TABLE conversations ADD COLUMN summary TEXT NOT NULL DEFAULT ''")
+        if "last_summarized_message_id" not in columns:
+            db.execute("ALTER TABLE conversations ADD COLUMN last_summarized_message_id INTEGER")
         db.execute("UPDATE messages SET status = 'interrupted', content = ? WHERE status = 'pending'",
                    ("서버가 재시작되어 응답이 중단되었습니다. 다시 질문해주세요.",))
 
@@ -89,7 +94,7 @@ def create_conversation() -> dict:
     now = datetime.now(timezone.utc).isoformat()
     conversation_id = str(uuid4())
     with _connection() as db:
-        db.execute("INSERT INTO conversations VALUES (?, ?, ?, ?, ?)",
+        db.execute("INSERT INTO conversations (id, user_id, title, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
                    (conversation_id, LOCAL_USER, "새 대화", now, now))
         return _conversation(db, conversation_id)
 
@@ -148,3 +153,48 @@ def finish_turn(message_id: int, content: str, status: str) -> None:
     with _connection() as db:
         db.execute("UPDATE messages SET content = ?, status = ? WHERE id = ? AND status = 'pending'",
                    (content, status, message_id))
+
+
+def load_memory_turns(message_id: int) -> tuple[dict, list[list[dict]]]:
+    """현재 pending 답변 ID로 세션 요약과 그 이전의 미요약 완료 턴을 읽는다.
+
+    실패·중단된 답변과 현재 질문은 제외한다. 소유 세션/pending 요청이 없으면
+    404/409를 반환하며 DB 오류는 전달한다. 파일·모델 호출은 없다.
+    """
+    with _connection() as db:
+        pending = db.execute("SELECT * FROM messages WHERE id = ? AND role = 'assistant' AND status = 'pending'",
+                             (message_id,)).fetchone()
+        if pending is None:
+            raise HTTPException(409, "진행 중인 대화 요청이 없습니다.")
+        conversation = _conversation(db, pending["conversation_id"])
+        rows = db.execute(
+            "SELECT * FROM messages WHERE conversation_id = ? AND id > ? AND id < ? ORDER BY id",
+            (conversation["id"], conversation["last_summarized_message_id"] or 0, message_id),
+        ).fetchall()
+    turns = []
+    question = None
+    for row in rows:
+        if row["role"] == "user":
+            question = dict(row)
+        else:
+            if question is not None and row["status"] == "completed":
+                turns.append([question, dict(row)])
+            question = None
+    return conversation, turns
+
+
+def save_memory_summary(conversation_id: str, summary: str, boundary: int) -> None:
+    """동일 세션의 완료 답변 경계와 요약을 하나의 트랜잭션으로 저장한다.
+
+    원문을 삭제하지 않는다. 잘못된 경계는 ValueError, DB 오류는 호출자에 전달한다.
+    호출자는 해당 세션의 pending 요청을 유지하여 동시 갱신을 차단해야 한다.
+    """
+    with _connection() as db:
+        _conversation(db, conversation_id)
+        if not db.execute(
+            "SELECT 1 FROM messages WHERE id = ? AND conversation_id = ? AND role = 'assistant' AND status = 'completed'",
+            (boundary, conversation_id),
+        ).fetchone():
+            raise ValueError("요약 경계는 해당 세션의 완료된 답변이어야 합니다.")
+        db.execute("UPDATE conversations SET summary = ?, last_summarized_message_id = ? WHERE id = ?",
+                   (summary, boundary, conversation_id))

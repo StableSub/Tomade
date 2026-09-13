@@ -10,15 +10,15 @@ from langchain_openai import ChatOpenAI
 
 load_dotenv()
 
-ModelRole = Literal["parser", "planner", "worker", "reviewer"]
+ModelRole = Literal["parser", "planner", "worker", "reviewer", "summary"]
 
 
-@lru_cache(maxsize=4)
+@lru_cache(maxsize=5)
 def get_chat_model(role: ModelRole = "worker") -> BaseChatModel:
     """공급자 설정에 맞는 역할별 Chat Model을 생성하고 캐시한다.
 
     Args:
-        role: `parser`, `planner`, `worker`, `reviewer` 중 사용할 모델 역할.
+        role: `parser`, `planner`, `worker`, `reviewer`, `summary` 중 사용할 모델 역할.
 
     Returns:
         OpenAI 또는 OpenRouter에 연결된 LangChain `BaseChatModel`.
@@ -26,7 +26,8 @@ def get_chat_model(role: ModelRole = "worker") -> BaseChatModel:
     Raises:
         ValueError: 공급자 이름이 잘못됐거나 필요한 API 키가 없는 경우.
 
-    역할별 모델 환경변수가 없으면 공통 `LLM_MODEL`로 대체한다. Parser는
+    summary는 SUMMARY_MODEL 또는 gpt-5.6-luna를 사용하며 공통 기본값을 따르지 않는다.
+    나머지 역할별 모델 환경변수가 없으면 공통 `LLM_MODEL`로 대체한다. Parser는
     `PARSER_MODEL`이 없을 때 `WORKER_MODEL`도 fallback으로 사용한다.
     """
     provider = _resolve_provider()
@@ -53,8 +54,11 @@ def _resolve_model(provider: str, role: ModelRole) -> str:
         "planner": "PLANNER_MODEL",
         "worker": "WORKER_MODEL",
         "reviewer": "REVIEWER_MODEL",
+        "summary": "SUMMARY_MODEL",
     }[role]
     configured = os.environ.get(role_env)
+    if role == "summary":
+        return configured or ("gpt-5.6-luna" if provider == "openai" else "openai/gpt-5.6-luna")
     if role == "parser" and not configured:
         configured = os.environ.get("WORKER_MODEL")
     configured = configured or os.environ.get("LLM_MODEL")

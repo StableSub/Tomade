@@ -11,7 +11,7 @@
 
 | 테이블 | 필드 |
 | --- | --- |
-| conversations | id(UUID), user_id, title, created_at, updated_at |
+| conversations | id(UUID), user_id, title, created_at, updated_at, summary, last_summarized_message_id |
 | messages | id(정수), conversation_id(FK), role(user/assistant), content, status, created_at |
 
 status는 pending/completed/error/interrupted다. 질문은 completed로, 답변은 pending으로
@@ -20,7 +20,14 @@ status는 pending/completed/error/interrupted다. 질문은 completed로, 답변
 대화 삭제는 메시지에 CASCADE된다. 실행 그래프·포트폴리오 상세 표·장기 선호는 저장하지 않는다.
 
 `ChatRequest`는 message(1~300자)와 선택적 conversation_id(UUID)를 받는다.
-ID를 생략한 기존 호출은 저장 없는 독립 실행이다. 저장된 기록은 모델 입력에 포함하지 않는다.
+ID를 생략하면 대화 저장·단기 맥락 없이 실행한다. ID가 있으면 요약과 최근 완료된 10턴을 상위 Agent 입력에 포함한다.
+
+`summary`는 기본 빈 문자열인 TEXT, `last_summarized_message_id`는 기본 null인 INTEGER다.
+서버 시작 시 기존 DB에 누락된 두 컬럼만 추가한다. 경계는 마지막으로 요약한 완료 턴의 assistant 메시지 ID다.
+요약과 경계는 함께 갱신하며 원문은 남긴다. API 대화 객체에도 두 필드가 포함된다.
+
+`backend/short_term_memory.py`의 `SessionSummary`는 goal, constraints, active_state,
+resolved_questions의 네 문자열을 요구한다. 공백만 있는 값은 거부하고 검증 후 Markdown으로 변환한다.
 
 ### 상위 Agent 결정
 
@@ -29,7 +36,7 @@ ID를 생략한 기존 호출은 저장 없는 독립 실행이다. 저장된 �
 - general: 비어 있지 않은 final_answer, research_plan은 null.
 - research: ResearchPlan 필수, final_answer는 null.
 - 조사 이후 같은 상위 Agent가 final_answer를 반환하면 종료한다. Router의 intent-only 계약과 별도 ChatState는 제거했다.
-- 현재 요청 상태에는 세션 메모리가 없다.
+- `short_term_summary`는 요약 문자열, `recent_messages`는 역할·내용 튜플 목록(최대 20개 메시지)이다. 현재 질문은 포함하지 않는다.
 
 ## 종목 조사
 
@@ -41,7 +48,7 @@ ID를 생략한 기존 호출은 저장 없는 독립 실행이다. 저장된 �
 | ResearchMandate | original_question, research_question, ticker, corp_name, as_of_date, period_days, purpose, constraints |
 | ResearchTask | agent, objective, questions, completion_criteria |
 | ResearchPlan | planning_summary, tasks |
-| StockAgentState | raw_user_input, intent, research_only, run_id, parsed_request, input_error, research_mandate, research_plan, business_report, macro_sector_report, event_catalyst_report, final_answer |
+| StockAgentState | short_term_summary, recent_messages, raw_user_input, intent, research_only, run_id, parsed_request, input_error, research_mandate, research_plan, business_report, macro_sector_report, event_catalyst_report, final_answer |
 
 ParsedRequest·ResearchTask·ResearchPlan은 Pydantic 모델이다. 날짜·기간 후보는 null이 가능하며 이후 Python이 검증·기본값 처리를 한다. ResearchMandate와 StockAgentState는 TypedDict이므로 그 자체가 런타임 검증을 실행하지 않는다.
 

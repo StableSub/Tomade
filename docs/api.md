@@ -6,13 +6,13 @@
 
 ### Chat Routing — 구현
 
-`POST /api/chat/stream`은 `{message: 1~300자, conversation_id?: UUID}`를 받고 SSE로 답한다. 공백·잘못된 UUID는 422, 외부 접근은 403이다. ID가 있으면 질문과 최종 답변을 저장한다. 없는 대화는 404, 같은 대화에서 답변 생성 중이면 409이며 모델 호출 전에 거부한다. ID 생략 시 기존 저장 없는 독립 실행이다. 프론트 Chat은 선택 대화의 ID를 전달하며 기존 `/api/research/stream`은 직접 종목 조사 전용으로 유지한다.
+`POST /api/chat/stream`은 `{message: 1~300자, conversation_id?: UUID}`를 받고 SSE로 답한다. 공백·잘못된 UUID는 422, 외부 접근은 403이다. ID가 있으면 질문과 최종 답변을 저장한다. 없는 대화는 404, 같은 대화에서 답변 생성 중이면 409이며 모델 호출 전에 거부한다. ID 생략 시 대화 기록·단기 맥락 없이 실행한다. 프론트 Chat은 선택 대화의 ID를 전달하며 기존 `/api/research/stream`은 직접 종목 조사 전용으로 유지한다.
 
 - `upper_agent`가 첫 호출에서 직접 답변하거나 `intent: research`와 `research_plan`을 반환한다.
 - 일반 답변은 구조화 출력 완료 후 전달하며 Parser·Worker를 skipped로 표시한다.
 - 조사 요청은 `request_parser` → 선택 Worker → 같은 `upper_agent` 순서다. 상위 Agent는 계획과 종합에서 같은 노드 ID를 사용하므로 node.started/completed가 두 번 발생한다.
 - 조사 후 종합은 node.delta로 스트리밍한다. run.completed는 최종 답변이 완성된 뒤 한 번만 전달한다.
-- Chat은 계좌 조회·진단을 실행하지 않는다. 메모리 주입은 아직 없다.
+- Chat은 계좌 조회·진단을 실행하지 않는다. 세션 ID가 있으면 단기 메모리를 주입한다.
 - 상위 Agent는 PLANNER_MODEL을 사용한다. Mock 검증은 실행 계약을 확인하며 실제 모델 판단 품질은 별도 평가 대상이다.
 
 ### 대화방 API — 구현
@@ -26,7 +26,7 @@
 | GET /api/conversations/{id} | 대화 객체와 messages 배열(ID 오름차순) |
 | DELETE /api/conversations/{id} | 대화·메시지 삭제 후 204. 생성 중이면 409 |
 
-대화 객체: `id, user_id, title, created_at, updated_at`. 메시지 객체:
+대화 객체: `id, user_id, title, created_at, updated_at, summary, last_summarized_message_id`. 메시지 객체:
 `id, conversation_id, role, content, status, created_at`. 필드 계약은 [스키마](schema.md)를 따른다.
 없는 대화 또는 다른 소유자의 대화는 404, 잘못된 UUID는 422다. 초기 사용자 ID는 서버에서
 `local`로 고정하며 클라이언트가 사용자를 지정하지 않는다. 인증/공개 배포는 지원하지 않는다.
@@ -34,7 +34,9 @@
 Chat은 사용자 질문과 pending 답변을 먼저 저장한다. run.completed/run.error의 최종 내용은
 이벤트를 보내기 전에 저장한다. 연결 중단·서버 재시작은 interrupted로 표시한다.
 서버는 한 프로세스로 실행한다. 자동 재실행·재연결·다른 탭의 실시간 갱신은 없다.
-UI는 URL의 대화 ID로 복원하며 이전 메시지를 LLM 컨텍스트로 보내지는 않는다.
+UI는 URL의 대화 ID로 복원한다. 서버는 최근 완료된 10턴과 세션 요약을 상위 Agent에 전달한다.
+10턴 초과 시 SUMMARY_MODEL로 오래된 구간을 통합 요약한다. 요약 실패 시 기존 요약·경계를 보존하고
+run.error(code=node_execution_failed)를 전송하며 현재 답변을 error로 저장한다. 원문과 내부 오류는 응답에 노출하지 않는다.
 기록은 사용자 메시지·최종 답변·정제된 오류만이며 토큰·노드 출력·포트폴리오 상세 표는 제외한다.
 
 ### 독립 포트폴리오 API — 구현
@@ -64,7 +66,7 @@ UI는 URL의 대화 ID로 복원하며 이전 메시지를 LLM 컨텍스트로 �
 - 선택되지 않은 Worker 상태
 - Orchestrator의 최종 마크다운 답변
 
-현재 Chat UI는 메시지마다 독립 실행하며, 상위 Agent가 계획을 만든 경우에만 검증·Worker 조사를 실행한다. 선택 대화의 기록 저장은 모델의 이전 대화 기억과 별개다.
+현재 Chat UI는 선택 세션의 요약과 최근 완료된 10턴을 사용하며, 상위 Agent가 계획을 만든 경우에만 검증·Worker 조사를 실행한다. 세션 ID 없는 Chat과 Research API는 독립 실행을 유지한다.
 
 ## 2. MVP 범위
 
@@ -80,7 +82,7 @@ UI는 URL의 대화 ID로 복원하며 이전 메시지를 LLM 컨텍스트로 �
 
 ### 제외
 
-- 이전 대화의 모델 컨텍스트 전달과 후속 질문 해석
+- 종목명을 생략한 후속 조사 요청의 Parser 해석 확장
 - 실행 결과 재조회
 - 실행 취소
 - 로그인과 사용자별 세션

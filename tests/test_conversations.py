@@ -50,8 +50,8 @@ class ConversationTest(unittest.TestCase):
         self.assertEqual(listed.json()[0]["title"], "PER가 뭐야?")
         conversations.initialize_database()
         self.assertEqual([m["content"] for m in self.messages(first)], expected)
-        # 저장된 이전 대화는 아직 Router/모델에 전달하지 않는다.
-        self.assertEqual(self.answer.call_args.args[0]["messages"], [("user", "배당이 뭐야?")])
+        # 해당 세션의 완료된 대화만 역할을 유지해 전달한다.
+        self.assertEqual(self.answer.call_args.args[0]["messages"], [("user", "PER가 뭐야?"), ("assistant", "일반 답변입니다."), ("user", "배당이 뭐야?")])
 
     def test_delete_cascades_and_missing_chat_never_calls_model(self):
         conversation_id = self.create()

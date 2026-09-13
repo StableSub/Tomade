@@ -77,6 +77,8 @@ class StockAgentState(TypedDict, total=False):
     """각 노드가 필요한 필드를 읽고 자신의 산출물만 병합하는 공유 상태."""
 
     # 사용자 요청과 Parser 산출물
+    short_term_summary: str
+    recent_messages: list[tuple[str, str]]
     raw_user_input: str
     intent: Literal["general", "research"]
     research_only: bool

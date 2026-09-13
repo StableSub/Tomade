@@ -19,6 +19,7 @@ from stock_agent.graph import graph
 from stock_agent.trajectory import TrajectoryRecorder, trajectory_run
 from backend.portfolio import router as portfolio_router, require_local
 from backend import conversations
+from backend.short_term_memory import prepare_short_term_memory
 
 logger = logging.getLogger(__name__)
 WORKER_NODES = {"business", "macro_sector", "event_catalyst"}
@@ -53,7 +54,7 @@ async def stream_chat(request: ChatRequest) -> StreamingResponse:
     """상위 Chat Graph를 실행하고 일반 답변·종목 조사 SSE를 반환한다.
 
     message는 1~300자이며 공백은 422로 거부한다. 대화 기록 보호를 위해 로컬 접근만 허용한다.
-    conversation_id가 있으면 질문·답변을 저장한다. 이전 메시지는 모델에 전달하지 않는다.
+    conversation_id가 있으면 질문·답변을 저장한다. 세션 요약과 최근 완료된 10턴을 상위 Agent에 전달한다.
     없는 대화는 404, 같은 대화의 실행 중 요청은 409로 거부한다.
     """
     message = request.message.strip()
@@ -71,7 +72,7 @@ async def _stream_saved_chat_events(message: str, message_id: int) -> AsyncItera
     """종료 SSE를 전달하기 전에 답변을 저장하고 연결 중단은 별도 상태로 기록한다."""
     finished = False
     try:
-        async with aclosing(_stream_chat_events(message)) as events:
+        async with aclosing(_stream_chat_events(message, message_id=message_id)) as events:
             async for frame in events:
                 if frame.startswith(("event: run.completed\n", "event: run.error\n")):
                     data = json.loads(frame.split("\ndata: ", 1)[1])
@@ -87,9 +88,9 @@ async def _stream_saved_chat_events(message: str, message_id: int) -> AsyncItera
             conversations.finish_turn(message_id, "연결이 끊겨 응답이 중단되었습니다. 다시 질문해주세요.", "interrupted")
 
 
-async def _stream_chat_events(message: str) -> AsyncIterator[str]:
+async def _stream_chat_events(message: str, *, message_id: int | None = None) -> AsyncIterator[str]:
     """Chat Graph 이벤트를 SSE로 변환한다. 실행 분기는 LangGraph가 담당한다."""
-    async for event in _stream_research_events_traced(message, str(uuid4()), None, chat=True):
+    async for event in _stream_research_events_traced(message, str(uuid4()), None, chat=True, message_id=message_id):
         yield event
 
 
@@ -139,7 +140,7 @@ async def _stream_research_events_traced(
     message: str,
     run_id: str,
     trajectory: TrajectoryRecorder | None,
-    *, chat: bool = False,
+    *, chat: bool = False, message_id: int | None = None,
 ) -> AsyncIterator[str]:
     """LangGraph의 custom·update Stream을 SSE와 파일 Trace로 변환한다."""
     first_node = "upper_agent"
@@ -156,8 +157,9 @@ async def _stream_research_events_traced(
     )
 
     try:
+        context = await run_in_threadpool(prepare_short_term_memory, message_id) if message_id is not None else {}
         async for namespace, mode, chunk in graph.astream(
-            {"raw_user_input": message, "research_only": not chat, "run_id": run_id},
+            {"raw_user_input": message, "research_only": not chat, "run_id": run_id, **context},
             stream_mode=["custom", "updates"], subgraphs=True,
         ):
             if mode == "custom":
