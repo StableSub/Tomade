@@ -44,7 +44,7 @@ def build_graph():
     async def research(state: StockAgentState) -> dict:
         """검증·병렬 조사 결과를 반환한다. Chat 조사 Trace를 저장하고 외부 오류는 전달한다."""
         worker_state = {key: value for key, value in state.items()
-                        if key not in {"short_term_summary", "recent_messages"}}
+                        if key not in {"short_term_summary", "recent_messages", "memory_enabled"}}
         if state.get("research_only"):
             return await worker_graph.ainvoke(worker_state)
         with trajectory_run(state["run_id"]) as trajectory:

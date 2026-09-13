@@ -37,6 +37,7 @@ def test_graph(input_error=None):
 class UpperAgentTest(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app, base_url="http://localhost", client=("127.0.0.1", 5000))
+        self.enterContext(patch("stock_agent.agents.orchestrator.read_user_memory", return_value=""))
         self.trace = self.enterContext(patch("stock_agent.graph.trajectory_run"))
         self.factory = self.enterContext(patch("stock_agent.agents.orchestrator.create_tool_agent"))
         self.answer = self.factory.return_value.invoke
@@ -67,7 +68,7 @@ class UpperAgentTest(unittest.TestCase):
         self.assertEqual(self.factory.call_args_list[0].args[1], self.factory.call_args_list[1].args[1])
         for call in self.factory.call_args_list:
             self.assertEqual(call.kwargs["model_role"], "planner")
-            self.assertEqual(call.args[0], [])
+            self.assertEqual([tool.name for tool in call.args[0]], ["update_memory"])
         self.finish.assert_called_once()
         payload = str(self.finish.call_args.args[1])
         for name, worker in self.workers.items():

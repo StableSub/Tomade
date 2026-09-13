@@ -20,7 +20,7 @@ status는 pending/completed/error/interrupted다. 질문은 completed로, 답변
 대화 삭제는 메시지에 CASCADE된다. 실행 그래프·포트폴리오 상세 표·장기 선호는 저장하지 않는다.
 
 `ChatRequest`는 message(1~300자)와 선택적 conversation_id(UUID)를 받는다.
-ID를 생략하면 대화 저장·단기 맥락 없이 실행한다. ID가 있으면 요약과 최근 완료된 10턴을 상위 Agent 입력에 포함한다.
+ID를 생략하면 대화 저장·단기 맥락 없이 실행하며 로컬 장기 기억은 공유한다. ID가 있으면 요약과 최근 완료된 10턴을 상위 Agent 입력에 포함한다.
 
 `summary`는 기본 빈 문자열인 TEXT, `last_summarized_message_id`는 기본 null인 INTEGER다.
 서버 시작 시 기존 DB에 누락된 두 컬럼만 추가한다. 경계는 마지막으로 요약한 완료 턴의 assistant 메시지 ID다.
@@ -38,6 +38,14 @@ resolved_questions의 네 문자열을 요구한다. 공백만 있는 값은 거
 - 조사 이후 같은 상위 Agent가 final_answer를 반환하면 종료한다. Router의 intent-only 계약과 별도 ChatState는 제거했다.
 - `short_term_summary`는 요약 문자열, `recent_messages`는 역할·내용 튜플 목록(최대 20개 메시지)이다. 현재 질문은 포함하지 않는다.
 
+### 장기 메모리 Tool
+
+`memory_enabled`는 서버가 로컬 Chat에서만 true로 설정한다. 클라이언트 요청 필드가 아니다.
+`update_memory` 입력: action(add/replace/remove), content(추가·교체 시 필수), old_text(교체·삭제 시 필수).
+성공은 success=true, action, changed, message를 반환한다. 실패는 success=false와 message,
+호출 한도 도달 시 done=true를 추가한다. 파일은 `memory/local/USER.md`이며 항목 구분자는 `\n§\n`이다.
+새 API·DB 컬럼은 추가하지 않는다.
+
 ## 종목 조사
 
 `src/stock_agent/state.py`가 현재 정의다.
@@ -48,7 +56,7 @@ resolved_questions의 네 문자열을 요구한다. 공백만 있는 값은 거
 | ResearchMandate | original_question, research_question, ticker, corp_name, as_of_date, period_days, purpose, constraints |
 | ResearchTask | agent, objective, questions, completion_criteria |
 | ResearchPlan | planning_summary, tasks |
-| StockAgentState | short_term_summary, recent_messages, raw_user_input, intent, research_only, run_id, parsed_request, input_error, research_mandate, research_plan, business_report, macro_sector_report, event_catalyst_report, final_answer |
+| StockAgentState | memory_enabled, short_term_summary, recent_messages, raw_user_input, intent, research_only, run_id, parsed_request, input_error, research_mandate, research_plan, business_report, macro_sector_report, event_catalyst_report, final_answer |
 
 ParsedRequest·ResearchTask·ResearchPlan은 Pydantic 모델이다. 날짜·기간 후보는 null이 가능하며 이후 Python이 검증·기본값 처리를 한다. ResearchMandate와 StockAgentState는 TypedDict이므로 그 자체가 런타임 검증을 실행하지 않는다.
 

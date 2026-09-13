@@ -18,6 +18,7 @@ class ConversationTest(unittest.TestCase):
     def setUp(self):
         temporary = self.enterContext(tempfile.TemporaryDirectory())
         self.enterContext(patch.object(conversations, "DB_PATH", Path(temporary) / "chat.sqlite3"))
+        self.enterContext(patch("stock_agent.tools.user_memory.MEMORY_PATH", Path(temporary) / "USER.md"))
         self.enterContext(patch("stock_agent.graph.trajectory_run"))
         self.factory = self.enterContext(patch("stock_agent.agents.orchestrator.create_tool_agent"))
         self.answer = self.factory.return_value.invoke

@@ -159,7 +159,7 @@ async def _stream_research_events_traced(
     try:
         context = await run_in_threadpool(prepare_short_term_memory, message_id) if message_id is not None else {}
         async for namespace, mode, chunk in graph.astream(
-            {"raw_user_input": message, "research_only": not chat, "run_id": run_id, **context},
+            {"raw_user_input": message, "research_only": not chat, "run_id": run_id, "memory_enabled": chat, **context},
             stream_mode=["custom", "updates"], subgraphs=True,
         ):
             if mode == "custom":

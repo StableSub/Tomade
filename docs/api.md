@@ -6,13 +6,13 @@
 
 ### Chat Routing — 구현
 
-`POST /api/chat/stream`은 `{message: 1~300자, conversation_id?: UUID}`를 받고 SSE로 답한다. 공백·잘못된 UUID는 422, 외부 접근은 403이다. ID가 있으면 질문과 최종 답변을 저장한다. 없는 대화는 404, 같은 대화에서 답변 생성 중이면 409이며 모델 호출 전에 거부한다. ID 생략 시 대화 기록·단기 맥락 없이 실행한다. 프론트 Chat은 선택 대화의 ID를 전달하며 기존 `/api/research/stream`은 직접 종목 조사 전용으로 유지한다.
+`POST /api/chat/stream`은 `{message: 1~300자, conversation_id?: UUID}`를 받고 SSE로 답한다. 공백·잘못된 UUID는 422, 외부 접근은 403이다. ID가 있으면 질문과 최종 답변을 저장한다. 없는 대화는 404, 같은 대화에서 답변 생성 중이면 409이며 모델 호출 전에 거부한다. ID 생략 시 대화 기록·단기 맥락 없이 실행하되 로컬 사용자의 장기 기억은 공유한다. 프론트 Chat은 선택 대화의 ID를 전달하며 기존 `/api/research/stream`은 직접 종목 조사 전용으로 유지한다.
 
 - `upper_agent`가 첫 호출에서 직접 답변하거나 `intent: research`와 `research_plan`을 반환한다.
 - 일반 답변은 구조화 출력 완료 후 전달하며 Parser·Worker를 skipped로 표시한다.
 - 조사 요청은 `request_parser` → 선택 Worker → 같은 `upper_agent` 순서다. 상위 Agent는 계획과 종합에서 같은 노드 ID를 사용하므로 node.started/completed가 두 번 발생한다.
 - 조사 후 종합은 node.delta로 스트리밍한다. run.completed는 최종 답변이 완성된 뒤 한 번만 전달한다.
-- Chat은 계좌 조회·진단을 실행하지 않는다. 세션 ID가 있으면 단기 메모리를 주입한다.
+- Chat은 계좌 조회·진단을 실행하지 않는다. 세션 ID가 있으면 단기 메모리를 주입한다. 장기 기억은 세션 ID와 관계없이 로컬 Chat에 자동 주입하며 필요 시 상위 Agent가 갱신한다.
 - 상위 Agent는 PLANNER_MODEL을 사용한다. Mock 검증은 실행 계약을 확인하며 실제 모델 판단 품질은 별도 평가 대상이다.
 
 ### 대화방 API — 구현

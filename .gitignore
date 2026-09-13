@@ -44,3 +44,6 @@ data/chat.sqlite3*
 /docs/design.md
 /docs/data-plan.md
 /docs/conventions.md
+
+# 개인 장기 기억
+/memory/

@@ -21,7 +21,7 @@
 - 상위 Agent는 직접 답변하거나 Structured Plan으로 필요한 Worker·질문·완료 기준을 정하고, LangGraph가 실행을 제어한다.
 - 고정 역할·절차·금지 사항은 시스템 프롬프트에, Tool 권한은 코드에 둔다. Worker는 배정된 영역 안에서만 조사한다.
 - 필수 선행 조사는 해당 Worker의 Tool·절차에 포함한다. Market은 별도 Agent가 아닌 공유 Tool로 유지한다.
-- Parser·Planner·Worker 모델 역할을 분리한다. 상위 Agent의 일반 답변·계획·종합은 같은 Planner 모델과 시스템 프롬프트를 쓰며, 상위 Agent에는 현재 Tool을 제공하지 않는다.
+- Parser·Planner·Worker 모델 역할을 분리한다. 상위 Agent의 일반 답변·계획·종합은 같은 Planner 모델과 시스템 프롬프트를 쓰며, Chat 상위 Agent에만 장기 메모리 갱신 Tool을 제공하며, Parser·Worker에는 사용자 메모리를 전달하지 않는다.
 
 ## 작업 범위와 완료
 
