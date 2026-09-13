@@ -1,6 +1,6 @@
 # 현재 스키마 — stock_agent
 
-> 2026-09-07 코드 기준. 목표 설계와 현재 계약을 구분한다.
+> 2026-09-13 코드 대조. 목표 설계와 현재 계약을 구분한다.
 
 ## Chat
 
@@ -61,6 +61,22 @@ resolved_questions의 네 문자열을 요구한다. 공백만 있는 값은 거
 ParsedRequest·ResearchTask·ResearchPlan은 Pydantic 모델이다. 날짜·기간 후보는 null이 가능하며 이후 Python이 검증·기본값 처리를 한다. ResearchMandate와 StockAgentState는 TypedDict이므로 그 자체가 런타임 검증을 실행하지 않는다.
 
 AgentName은 business / macro_sector / event_catalyst다. Plan tasks와 Task questions·completion_criteria는 최소 1개다. 같은 Agent 작업의 병합과 질문·완료 기준 최대 4개 처리는 스키마가 아니라 `_normalize_plan()`에서 수행한다.
+
+### 입력 검증 순서와 계획 정규화
+
+상위 Agent가 조사 계획을 만든 뒤 Parser가 현재 질문에서 후보를 추출한다. 검증 코드는 다음 순서로 처리한다.
+
+| 순서 | 코드 검증·정규화 |
+| --- | --- |
+| 1 | needs_clarification이면 사유와 함께 조기 종료 |
+| 2 | 회사 후보를 DART에서 확인; 미확인·0개·복수 회사 거부 |
+| 3 | 기준일 미지정은 오늘; 잘못된 ISO 날짜·미래 날짜 거부 |
+| 4 | 기간 기본값 30일, 허용 범위 1~3650일 |
+| 5 | 공백을 제거한 조사 질문이 비면 거부; 성공 시 Mandate 생성 |
+
+현재 기간 기본값은 `parsed.period_days or 30`으로 처리하므로 0도 30으로 바뀐다. 0을 오류로 거부하는 구현은 아니다. 상대 날짜·별칭·질문 의미의 정확한 추출은 프롬프트에 의존한다.
+
+`ResearchMandate.original_question`은 Parser에 전달한 현재 원문이다. `_normalize_plan()`은 같은 Worker 작업을 병합하고 첫 objective를 유지하며 questions·completion_criteria를 중복 제거해 각각 최대 4개로 제한한다. 완료 기준의 실제 충족 여부를 독립 검증하는 코드는 없다.
 
 Worker 보고서와 최종 답변은 문자열이다. WorkerReport·Evidence·Confidence 구조화 모델과 심볼릭 검증 노드는 미구현이다.
 

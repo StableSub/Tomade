@@ -1,6 +1,6 @@
 # API 명세 — Tomade
 
-> 2026-09-07 현재 구현 기준. Chat·대화 저장·포트폴리오와 기존 Research SSE 계약.
+> 2026-09-13 코드 대조 기준. Chat·대화 저장·포트폴리오와 기존 Research SSE 계약.
 
 ## 1. 목적
 
@@ -51,7 +51,7 @@ run.error(code=node_execution_failed)를 전송하며 현재 답변을 error로 
 - `excluded`: 종목코드·이름·제외 사유. `explanation`: 요약·관찰 목록·한계 목록. 계좌 식별자는 진단 응답에 포함하지 않는다.
 - 보유분 손익: 종목별 `purchase_amount`, `profit_loss`, `profit_loss_pct`, 전체 `total_purchase_amount`, `total_profit_loss`, `total_profit_loss_pct` 추가. 금액과 손익률은 문자열, 매입금액 0의 손익률은 null이다. 합산 손익률은 종목별 평균이 아닌 합산 매입금액 기준이다. Toss `marketValue.purchaseAmount`와 `amount`를 사용하며 별도 세금·수수료 공제 전, 매도 실현손익·배당 미포함이다.
 - SSE가 아닌 독립 요청/응답이다. 계좌를 본인 목록과 검증하고 Toss 조회와 업종·해설 LLM 호출을 수행한다. 페이지 진입당 한 번 자동 실행하며 폴링·자동 재시도·취소·재개는 없다. 새로고침하면 새 호출 비용이 발생한다.
-- 오류: 403 외부 접근, 422 입력·계좌/분류 검증 실패, 503 설정/응답 필드 누락, 502 공급자 실행 실패. 공급자 오류 원문은 반환하거나 로그로 남기지 않는다.
+- `/diagnose` 오류: 403 외부 접근, 422 입력·계좌/분류 검증 실패, 503 API 경계의 설정/응답 필드 누락, 502 공급자 실행 실패, upstream 429는 429. 서비스 단계에서 포장된 오류는 원인에 따라 502/429로 반환하므로 모든 설정 누락이 503인 것은 아니다. 공급자 오류 원문은 반환하거나 로그로 남기지 않는다.
 - 로컬 개인 실행만 허용한다. 성공 응답 `Cache-Control: no-store`, 클라이언트 캐시·영속 저장 없음. 공개 배포 전 사용자 인증과 계좌 권한 분리가 필요하다.
 
 기존 `/api/research/stream`에는 Chat·대화·포트폴리오 API의 `require_local` 검사가 붙어 있지 않다. 개발 서버의 loopback 바인딩을 유지해야 하며 공개 배포용 인증은 없다.
@@ -75,7 +75,7 @@ run.error(code=node_execution_failed)를 전송하며 현재 답변을 error로 
 - 단일 자연어 질문 전송
 - 노드 단위 Server-Sent Events Streaming
 - 노드 시작·완료·선택 안 됨 상태
-- Worker와 Synthesis의 Token Streaming
+- Worker와 상위 Agent 종합의 Token Streaming
 - 노드 산출물
 - 최종 답변
 - 입력 및 실행 오류
@@ -162,27 +162,19 @@ data: {"run_id":"run-123"}
 
 ### 5.2 `node.started`
 
-노드 실행 시작 상태를 알린다.
+`{run_id, node}`. 노드 실행 단계를 표시한다. 조사 경로의 upper_agent는 계획과 종합에서 각각 발생한다.
 
-```text
-event: node.started
-data: {"run_id":"run-123","node":"upper_agent"}
+### 5.3 `node.delta`
 
-event: node.completed
-data: {"run_id":"run-123","node":"upper_agent","output":{"intent":"research","research_plan":{"planning_summary":"사건 조사","tasks":[{"agent":"event_catalyst","objective":"변동 원인 확인","questions":["변동 원인은?"],"completion_criteria":["가격과 사건 근거 확인"]}]}}}
+`{run_id, node, delta}`. Worker 보고서와 상위 Agent 종합의 텍스트 조각이다. 일반 답변은 구조화 출력 완료 후 전달하므로 같은 방식의 토큰 스트림을 보장하지 않는다.
 
-event: node.started
-data: {"run_id":"run-123","node":"request_parser"}
+### 5.4 `node.completed`
 
-event: node.completed
-data: {"run_id":"run-123","node":"request_parser","output":{"parsed_request":{},"research_mandate":{}}}
+`{run_id, node, output}`. 노드의 State Update를 전달한다. 상위 Agent의 첫 조사 출력에는 intent와 research_plan, 종합 출력에는 final_answer가 들어간다.
 
-event: node.skipped
-data: {"run_id":"run-123","node":"macro_sector"}
+### 5.5 `node.skipped`
 
-```
-
-Research Graph에서는 선택되지 않은 Worker가 대상이다. Chat의 general 경로에서는 `request_parser`와 세 Worker를 skipped로 전달한다.
+`{run_id, node}`. 조사에서는 선택하지 않은 Worker, 일반 답변에서는 request_parser와 세 Worker를 표시한다.
 
 ### 5.6 `run.completed`
 
@@ -250,10 +242,11 @@ data: {"run_id":"run-123","node":"business","code":"node_execution_failed","mess
 }
 ```
 
-### 6.2 Orchestrator Plan
+### 6.2 상위 Agent — 조사 계획
 
 ```json
 {
+  "intent": "research",
   "research_plan": {
     "planning_summary": "가격 변동 이유 조사이므로 Event/Catalyst를 선택했다.",
     "tasks": [
@@ -304,7 +297,7 @@ Event/Catalyst:
 
 Worker가 둘 이상 선택되면 병렬로 실행되므로 `node.delta`와 완료 이벤트 순서는 고정하지 않는다. 프론트엔드는 `node`별 Buffer를 분리한다.
 
-### 6.4 Orchestrator Synthesis
+### 6.4 같은 상위 Agent — 종합
 
 ```json
 {
@@ -312,27 +305,27 @@ Worker가 둘 이상 선택되면 병렬로 실행되므로 `node.delta`와 완�
 }
 ```
 
-Synthesis의 `node.delta`는 Chat Assistant Bubble에 즉시 추가한다. 같은 `final_answer`를 `node.completed`와 `run.completed`에 포함해 최종 Markdown을 확정한다.
+상위 Agent 종합의 `node.delta`는 Chat Assistant Bubble에 즉시 추가한다. 같은 `final_answer`를 `node.completed`와 `run.completed`에 포함해 최종 Markdown을 확정한다.
 
 ## 7. 정상 Stream 예시
 
-Event/Catalyst만 선택된 경우:
+Event/Catalyst만 선택된 경우. Parser 산출물은 흐름 설명을 위해 빈 객체로 생략했다.
 
 ```text
 event: run.started
 data: {"run_id":"run-123"}
 
 event: node.started
+data: {"run_id":"run-123","node":"upper_agent"}
+
+event: node.completed
+data: {"run_id":"run-123","node":"upper_agent","output":{"intent":"research","research_plan":{"planning_summary":"가격 변동 조사","tasks":[{"agent":"event_catalyst","objective":"변동 원인 확인","questions":["변동 원인은?"],"completion_criteria":["가격과 사건 근거 확인"]}]}}}
+
+event: node.started
 data: {"run_id":"run-123","node":"request_parser"}
 
 event: node.completed
 data: {"run_id":"run-123","node":"request_parser","output":{"parsed_request":{},"research_mandate":{}}}
-
-event: node.started
-data: {"run_id":"run-123","node":"upper_agent"}
-
-event: node.completed
-data: {"run_id":"run-123","node":"upper_agent","output":{"research_plan":{}}}
 
 event: node.skipped
 data: {"run_id":"run-123","node":"business"}
