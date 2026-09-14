@@ -3,119 +3,69 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Tomade — 질문에서 근거까지, 함께하는 종목 리서치" />
-    <title>Tomade — 종목 리서치</title>
+    <meta name="description" content="Tomade — 도트 사무실에서 함께하는 주식 리서치" />
+    <meta name="theme-color" content="#263b28" />
+    <title>Tomade</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <div class="app-shell">
-      <header class="topbar">
-        <a class="brand" href="#" aria-label="Tomade 홈">
-          <span class="brand-name">Tomade</span>
-          <span class="brand-tomatoes" aria-hidden="true">
-            <img src="./assets/tomato-mascot.png" alt="" />
-            <img src="./assets/tomato-mascot.png" alt="" />
-            <img src="./assets/tomato-mascot.png" alt="" />
-          </span>
-        </a>
-        <span class="brand-description">종목 리서치</span>
-        <span class="topbar-note">A little curiosity. A clearer picture.</span>
+    <main class="office-app">
+      <div class="office-scroll" id="officeScroll">
+        <div class="office-world" id="officeWorld" aria-label="네 명의 Agent가 일하는 리서치 사무실">
+          <img class="office-background" src="./assets/research-office.png" alt="토마토 러그와 빨간 의자가 있는 정사각형 Tomade 도트 사무실. 위쪽은 부장, 왼쪽은 비즈니스, 오른쪽은 매크로, 오른쪽 아래는 이벤트 담당 자리입니다." draggable="false" />
+          <button class="report-book" id="openReport" type="button" aria-label="부장 Agent의 종합 보고서 열기" title="종합 보고서"><span class="sr-only">종합 보고서</span></button>
+        </div>
+      </div>
+
+      <header class="office-hud">
+        <h1 class="sr-only">Tomade</h1>
+        <div class="hud-right">
+          <button class="wood-button icon-button" id="openHistory" type="button" aria-label="대화 기록 열기" title="대화 기록"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h14v18H5zM8 7h8M8 11h8M8 15h5" /></svg></button>
+          <button class="wood-button icon-button" id="openPortfolio" type="button" aria-label="내 포트폴리오 열기" title="내 포트폴리오"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h18v14H3zM8 7V3h8v4M3 12h18M10 12v3h4v-3" /></svg></button>
+        </div>
       </header>
 
-      <div class="workspace-intro" id="researchIntro">
-        <div><p class="intro-kicker">YOUR RESEARCH WORKSPACE</p><h2>궁금한 종목, <span>근거 있는 시선.</span></h2></div>
-        <p>질문 하나에서 시작하는 리서치.<br />에이전트의 조사 과정을 함께 살펴보세요.</p>
+      <div class="office-footer">
+        <button class="wood-button talk-shortcut" id="talkToManager" type="button">부장에게 말 걸기 <span aria-hidden="true">↵</span></button>
       </div>
 
-      <section class="portfolio-summary" aria-labelledby="portfolioTitle">
-        <div class="panel-heading"><h1 id="portfolioTitle">내 포트폴리오</h1></div>
-        <p id="portfolioStatus" role="status" aria-live="polite">Toss 연결 설정을 확인하고 있습니다…</p>
-        <div id="portfolioResult"></div>
+      <section class="manager-dialog parchment" id="managerDialog" role="dialog" aria-labelledby="managerTitle" tabindex="-1" hidden>
+        <h2 class="dialog-name wood-sign" id="managerTitle">부장 Agent</h2>
+        <button class="close-button" id="closeManager" type="button" aria-label="부장 대화창 닫기">×</button>
+        <div class="manager-portrait"><canvas id="managerPortrait" width="32" height="40" aria-label="부장 도트 캐릭터" role="img"></canvas><span>리서치 총괄</span></div>
+        <div class="dialog-content">
+          <p class="dialog-eyebrow" id="dialogEyebrow">어서 오세요, 리서치 오피스입니다.</p>
+          <div class="manager-speech markdown-body" id="managerSpeech" role="status" aria-live="polite"><p>어떤 기업이 궁금한가요?<br />질문을 주시면 팀원들과 조사해 드릴게요.</p></div>
+          <form class="question-form" id="researchForm">
+            <label class="sr-only" for="researchInput">부장에게 전달할 질문</label>
+            <textarea id="researchInput" rows="1" maxlength="300" placeholder="어떤 기업이 궁금하세요?" disabled></textarea>
+            <button class="wood-button send-button" id="runButton" type="submit" disabled>말하기 <span aria-hidden="true">↵</span></button>
+          </form>
+          <div class="dialog-footnote"><span id="composerHint">Enter로 전달 · Shift + Enter로 줄바꿈</span><button class="text-button" id="dialogHistory" type="button">지난 대화 보기</button></div>
+        </div>
       </section>
 
-      <main class="workspace" id="researchWorkspace">
-        <section class="graph-panel" aria-labelledby="graph-title">
-          <div class="panel-heading">
-            <h1 id="graph-title">리서치 실행 그래프</h1>
-            <span class="panel-hint" id="chatRouteStatus">질문에 따라 일반 답변·조사로 분기</span>
-          </div>
+      <dialog class="journal parchment" id="agentJournal" aria-labelledby="journalTitle">
+        <header class="journal-heading"><div><p class="eyebrow">RESEARCH NOTES</p><h2 id="journalTitle">조사 노트</h2></div><button class="close-button" data-close="agentJournal" aria-label="조사 노트 닫기">×</button></header>
+        <p class="journal-state" id="journalState"></p>
+        <div class="journal-body markdown-body" id="journalOutput"></div>
+        <p class="journal-footnote">조사 노트는 현재 실행에 한해 표시됩니다.</p>
+      </dialog>
 
-          <div class="workflow" id="workflow">
-            <svg class="connectors" viewBox="0 0 1000 530" preserveAspectRatio="none" aria-hidden="true">
-              <defs>
-                <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
-                  <path d="M0,0 L8,4 L0,8 Z" />
-                </marker>
-              </defs>
-              <path d="M500 104 V160" />
-              <path class="connector-stem" d="M500 224 V260 H170" />
-              <path class="connector-stem" d="M500 260 H830" />
-              <path d="M170 260 V300" />
-              <path d="M500 260 V300" />
-              <path d="M830 260 V300" />
-              <path class="connector-stem" d="M170 364 V402 H500" />
-              <path class="connector-stem" d="M500 364 V402" />
-              <path class="connector-stem" d="M830 364 V402 H500" />
-              <path d="M500 402 V438" />
-            </svg>
+      <dialog class="journal parchment history-journal" id="historyDialog" aria-labelledby="historyTitle">
+        <header class="journal-heading"><div><p class="eyebrow">OFFICE JOURNAL</p><h2 id="historyTitle">대화 기록</h2></div><button class="close-button" data-close="historyDialog" aria-label="대화 기록 닫기">×</button></header>
+        <div class="conversation-controls"><label class="sr-only" for="conversationSelect">저장된 대화</label><select id="conversationSelect" disabled></select><button class="wood-button" id="newConversation" disabled>새 대화</button><button class="text-button" id="deleteConversation" disabled>삭제</button></div>
+        <p class="history-note" id="historyNote">질문과 최종 답변은 이 기기에 저장됩니다.</p>
+        <div class="history-entries" id="historyEntries"></div>
+      </dialog>
 
-            <div class="graph-node result-node request-node" data-node="upper_agent" tabindex="0" aria-describedby="nodePopover">상위 Agent</div>
-            <div class="graph-node result-node plan-node" data-node="request_parser" tabindex="0" aria-describedby="nodePopover">입력 검증</div>
-
-            <div class="worker-row">
-              <div class="graph-node result-node" data-node="business" tabindex="0" aria-describedby="nodePopover">Business</div>
-              <div class="graph-node result-node" data-node="macro_sector" tabindex="0" aria-describedby="nodePopover">Macro / Sector</div>
-              <div class="graph-node result-node" data-node="event_catalyst" tabindex="0" aria-describedby="nodePopover">Event / Catalyst</div>
-            </div>
-
-            <div class="graph-node result-node synthesis-node" >상위 Agent로 결과 반환</div>
-          </div>
-        </section>
-
-        <aside class="request-panel" aria-labelledby="request-title">
-          <div class="request-heading">
-            <h1 id="request-title">Chat</h1>
-            <span class="session-state" id="sessionState"><i></i><span>준비</span></span>
-          </div>
-
-          <div class="conversation-controls">
-            <label class="sr-only" for="conversationSelect">저장된 대화</label>
-            <select id="conversationSelect" aria-label="저장된 대화" disabled></select>
-            <button id="newConversation" type="button" disabled>새 대화</button>
-            <button id="deleteConversation" type="button" disabled>삭제</button>
-          </div>
-          <p class="conversation-note">대화는 이 기기에 저장됩니다. AI의 이전 대화 참조는 아직 지원하지 않습니다.</p>
-          <div class="chat-messages" id="chatMessages" aria-live="polite">
-            <div class="chat-row assistant">
-              <div class="chat-bubble">저장된 대화를 불러오고 있습니다…</div>
-            </div>
-          </div>
-
-          <form class="chat-composer" id="researchForm">
-            <label class="sr-only" for="researchInput">종목과 질문</label>
-            <textarea id="researchInput" rows="1" maxlength="300" placeholder="예: PER가 뭐야? / 삼성전자 분석해줘 / 내 보유 기업 분석해줘" disabled></textarea>
-            <button class="run-button" id="runButton" type="submit" disabled>
-              <svg viewBox="0 0 24 24"><path d="M12 19V5M6.5 10.5 12 5l5.5 5.5"/></svg>
-              <span class="sr-only">메시지 보내기</span>
-            </button>
-          </form>
-        </aside>
-      </main>
-
-      <div class="node-popover" id="nodePopover" role="tooltip" hidden>
-        <header class="popover-header">
-          <h2 id="popoverTitle">Request / Mandate</h2>
-          <span class="popover-state" id="popoverState">실행 전</span>
-        </header>
-        <div class="popover-output markdown-body" id="popoverOutput"></div>
-      </div>
-
-      <footer class="disclaimer">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 10v6M12 7h.01"/></svg>
-        <span>분석과 투자 의견은 참고용이며 수익을 보장하지 않습니다. 실제 주문은 사용자가 직접 판단하고 실행해야 합니다.</span>
-      </footer>
-    </div>
-
+      <dialog class="journal parchment portfolio-journal" id="portfolioDialog" aria-labelledby="portfolioTitle">
+        <header class="journal-heading"><div><p class="eyebrow">MY PORTFOLIO</p><h2 id="portfolioTitle">내 포트폴리오</h2></div><button class="close-button" data-close="portfolioDialog" aria-label="포트폴리오 닫기">×</button></header>
+        <p id="portfolioStatus" role="status">포트폴리오를 불러오는 중입니다…</p><div id="portfolioResult"></div>
+      </dialog>
+      <div class="sr-only" id="sessionState" role="status"><span>사무실을 여는 중</span></div>
+      <div class="sr-only" id="announcement" role="status" aria-live="polite"></div>
+    </main>
     <script type="module" src="/app.ts"></script>
   </body>
 </html>

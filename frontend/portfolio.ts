@@ -117,5 +117,5 @@ async function loadPortfolio(): Promise<void> {
   }
 }
 
-// 페이지 진입당 한 번 실행한다. 폴링·자동 재시도·종목 조사에 따른 재호출은 없다.
+// app.ts가 포트폴리오 창을 처음 열 때만 이 모듈을 불러온다. 폴링·자동 재시도는 없다.
 void loadPortfolio();
