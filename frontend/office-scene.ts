@@ -240,15 +240,21 @@ export function paintPortrait(canvas: HTMLCanvasElement, id: AgentId): void {
 /** Animate accessible office characters; only supplied activities describe real work. */
 export class OfficeScene {
   private readonly characters = new Map<AgentId, Character>();
-  private readonly reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   private readonly clicks = new AbortController();
   private frameId = 0;
   private lastTime = 0;
   private elapsed = 0;
   private disposed = false;
+  // Keep animation frames on the last preference event instead of polling the media query.
+  private motionReduced: boolean;
 
-  /** Add character buttons to an office world and report native click/keyboard selection. */
-  constructor(container: HTMLElement, onSelect: (id: AgentId, trigger: HTMLButtonElement) => void) {
+  /** Add clickable characters and share the app's motion preference for both room and sprite transitions. */
+  constructor(
+    container: HTMLElement,
+    onSelect: (id: AgentId, trigger: HTMLButtonElement) => void,
+    private readonly reducedMotion: MediaQueryList,
+  ) {
+    this.motionReduced = reducedMotion.matches;
     (Object.keys(NAMES) as AgentId[]).forEach((id, index) => {
       const button = document.createElement('button');
       button.type = 'button';
@@ -352,7 +358,7 @@ export class OfficeScene {
       character.walkDistance = 0;
     }
     character.motion = 'idle';
-    if (this.reducedMotion.matches) {
+    if (this.motionReduced) {
       character.node = destination;
       character.edgeStart = destination;
       character.position = { x: WAYPOINTS[destination].x, y: WAYPOINTS[destination].y };
@@ -455,7 +461,7 @@ export class OfficeScene {
       character.status.textContent = label;
       button.setAttribute('aria-label', `${NAMES[id]} · ${label} · 클릭하여 대화 또는 조사 내용 보기`);
     }
-    const frame = this.reducedMotion.matches || motion === 'idle' ? 0
+    const frame = this.motionReduced || motion === 'idle' ? 0
       : motion === 'walking' ? Math.floor(character.walkDistance / WALK_CYCLE_DISTANCE * 4) % 4
         : Math.floor(this.elapsed / 340) % 4;
     const signature = `${character.direction}-${motion}-${frame}`;
@@ -466,14 +472,14 @@ export class OfficeScene {
   }
 
   private start(): void {
-    if (this.disposed || this.frameId || document.hidden || this.reducedMotion.matches) return;
+    if (this.disposed || this.frameId || document.hidden || this.motionReduced) return;
     this.lastTime = 0;
     this.frameId = requestAnimationFrame(this.tick);
   }
 
   private readonly tick = (now: number): void => {
     this.frameId = 0;
-    if (this.disposed || document.hidden || this.reducedMotion.matches) return;
+    if (this.disposed || document.hidden || this.motionReduced) return;
     const delta = this.lastTime ? Math.min(now - this.lastTime, 50) : 0;
     this.lastTime = now;
     this.elapsed += delta;
@@ -491,10 +497,11 @@ export class OfficeScene {
     if (!document.hidden) this.start();
   };
 
-  private readonly onMotionPreference = (): void => {
+  private readonly onMotionPreference = (event: MediaQueryListEvent): void => {
+    this.motionReduced = event.matches;
     cancelAnimationFrame(this.frameId);
     this.frameId = 0;
-    if (this.reducedMotion.matches) {
+    if (this.motionReduced) {
       for (const character of this.characters.values()) {
         if (character.path.length) {
           if (character.purpose !== 'wander') {

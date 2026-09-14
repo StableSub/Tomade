@@ -4,44 +4,58 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Tomade — 도트 사무실에서 함께하는 주식 리서치" />
-    <meta name="theme-color" content="#263b28" />
+    <meta name="theme-color" content="#fcfcfa" />
     <title>Tomade</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <main class="office-app">
       <div class="office-scroll" id="officeScroll">
+        <div class="office-map">
+        <p class="minimap-label" aria-hidden="true">오피스</p>
         <div class="office-world" id="officeWorld" aria-label="네 명의 Agent가 일하는 리서치 사무실">
           <img class="office-background" src="./assets/research-office.png" alt="토마토 러그와 빨간 의자가 있는 정사각형 Tomade 도트 사무실. 위쪽은 부장, 왼쪽은 비즈니스, 오른쪽은 매크로, 오른쪽 아래는 이벤트 담당 자리입니다." draggable="false" />
           <button class="report-book" id="openReport" type="button" aria-label="부장 Agent의 종합 보고서 열기" title="종합 보고서"><span class="sr-only">종합 보고서</span></button>
+          <button class="return-to-office" id="returnToOffice" type="button" aria-label="사무실로 돌아가기" hidden><span class="map-expand"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7" /></svg></span></button>
+        </div>
+        <p class="minimap-caption" aria-hidden="true">사무실로 돌아가기 <span>↗</span></p>
         </div>
       </div>
 
       <header class="office-hud">
-        <h1 class="sr-only">Tomade</h1>
+        <h1 class="brand"><svg viewBox="0 0 32 32" aria-hidden="true"><path fill="#cb5545" d="M7 10h18v3h4v13h-4v3H7v-3H3V13h4z"/><path fill="#4f7553" d="M15 2h3v6l7-3-3 7-6-2-6 3-2-7 7 2z"/></svg>Tomade</h1>
         <div class="hud-right">
-          <button class="wood-button icon-button" id="openHistory" type="button" aria-label="대화 기록 열기" title="대화 기록"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h14v18H5zM8 7h8M8 11h8M8 15h5" /></svg></button>
-          <button class="wood-button icon-button" id="openPortfolio" type="button" aria-label="내 포트폴리오 열기" title="내 포트폴리오"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h18v14H3zM8 7V3h8v4M3 12h18M10 12v3h4v-3" /></svg></button>
+          <button class="icon-button" id="openHistory" type="button" aria-label="대화 기록 열기" title="대화 기록"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V3M4 8h5M4 8a9 9 0 1 1-1 8M12 7v5l4 2" /></svg></button>
+          <button class="icon-button" id="openPortfolio" type="button" aria-label="내 포트폴리오 열기" title="내 포트폴리오"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h18v14H3zM8 7V3h8v4M3 12h18M10 12v3h4v-3" /></svg></button>
         </div>
       </header>
 
       <div class="office-footer">
-        <button class="wood-button talk-shortcut" id="talkToManager" type="button">부장에게 말 걸기 <span aria-hidden="true">↵</span></button>
+        <button class="talk-shortcut" id="talkToManager" type="button">부장에게 말 걸기 <span aria-hidden="true">↗</span></button>
       </div>
 
-      <section class="manager-dialog parchment" id="managerDialog" role="dialog" aria-labelledby="managerTitle" tabindex="-1" hidden>
-        <h2 class="dialog-name wood-sign" id="managerTitle">부장 Agent</h2>
-        <button class="close-button" id="closeManager" type="button" aria-label="부장 대화창 닫기">×</button>
-        <div class="manager-portrait"><canvas id="managerPortrait" width="32" height="40" aria-label="부장 도트 캐릭터" role="img"></canvas><span>리서치 총괄</span></div>
-        <div class="dialog-content">
-          <p class="dialog-eyebrow" id="dialogEyebrow">어서 오세요, 리서치 오피스입니다.</p>
-          <div class="manager-speech markdown-body" id="managerSpeech" role="status" aria-live="polite"><p>어떤 기업이 궁금한가요?<br />질문을 주시면 팀원들과 조사해 드릴게요.</p></div>
+      <section class="manager-dialog" id="managerDialog" role="region" aria-labelledby="managerTitle" tabindex="-1" hidden>
+        <header class="chat-header">
+          <canvas class="chat-avatar" id="managerPortrait" width="192" height="192" aria-label="부장 도트 캐릭터" role="img"></canvas>
+          <h2 id="managerTitle">부장</h2>
+          <p id="conversationTitle" class="conversation-title"></p>
+          <button class="icon-button" id="closeManager" type="button" aria-label="부장 대화창 닫기" title="사무실로 돌아가기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg></button>
+        </header>
+        <div class="chat-messages" id="chatMessages" tabindex="0" role="region" aria-label="부장과 나눈 대화">
+          <div id="chatHistory" class="chat-history"></div>
+          <article class="chat-message" id="currentReply" data-role="assistant" aria-label="부장 답변">
+            <canvas class="chat-avatar" id="replyPortrait" width="192" height="192" aria-hidden="true"></canvas>
+            <div class="manager-speech markdown-body" id="managerSpeech" role="status" aria-live="polite"></div>
+          </article>
+        </div>
+        <div class="chat-composer">
           <form class="question-form" id="researchForm">
             <label class="sr-only" for="researchInput">부장에게 전달할 질문</label>
-            <textarea id="researchInput" rows="1" maxlength="300" placeholder="어떤 기업이 궁금하세요?" disabled></textarea>
-            <button class="wood-button send-button" id="runButton" type="submit" disabled>말하기 <span aria-hidden="true">↵</span></button>
+            <textarea id="researchInput" rows="1" maxlength="300" placeholder="이어서 물어보세요" aria-describedby="composerHint" disabled></textarea>
+            <button class="send-button" id="runButton" type="submit" aria-label="질문 보내기" title="보내기 (Enter)" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 4 15 8-15 8 3-8-3-8Zm3 8h12" /></svg></button>
           </form>
-          <div class="dialog-footnote"><span id="composerHint">Enter로 전달 · Shift + Enter로 줄바꿈</span><button class="text-button" id="dialogHistory" type="button">지난 대화 보기</button></div>
+          <p class="sr-only" id="composerHint">Enter로 전달 · Shift + Enter로 줄바꿈</p>
+          <p class="composer-status" id="composerStatus" hidden></p>
         </div>
       </section>
 

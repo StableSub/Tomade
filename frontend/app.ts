@@ -11,7 +11,7 @@ const workers: AgentId[] = ["business", "macro_sector", "event_catalyst"];
 const nodes: NodeName[] = ["upper_agent", "request_parser", ...workers];
 const labels: Record<NodeName, string> = { upper_agent: "부장 Agent", request_parser: "질문 확인", business: "비즈니스", macro_sector: "매크로 / 섹터", event_catalyst: "이벤트 / 카탈리스트" };
 const reportFields: Partial<Record<NodeName, string>> = { business: "business_report", macro_sector: "macro_sector_report", event_catalyst: "event_catalyst_report", upper_agent: "final_answer" };
-const welcome = "어떤 기업이 궁금한가요?\n질문을 주시면 팀원들과 조사해 드릴게요.";
+const welcome = "어떤 기업을 함께 살펴볼까요?";
 
 function element<T extends HTMLElement>(id: string): T {
   const found = document.getElementById(id);
@@ -23,6 +23,11 @@ const researchInput = element<HTMLTextAreaElement>("researchInput");
 const runButton = element<HTMLButtonElement>("runButton");
 const managerDialog = element("managerDialog");
 const managerSpeech = element("managerSpeech");
+const chatMessages = element("chatMessages");
+const officeApp = document.querySelector<HTMLElement>(".office-app")!;
+const officeWorld = element("officeWorld");
+const returnToOffice = element<HTMLButtonElement>("returnToOffice");
+const motionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
 const sessionState = element("sessionState");
 const conversationSelect = element<HTMLSelectElement>("conversationSelect");
 const newConversation = element<HTMLButtonElement>("newConversation");
@@ -44,12 +49,14 @@ let nodeStates: Partial<Record<NodeName, NodeState>> = {};
 let managerTrigger: HTMLElement | null = null;
 let portfolioLoaded = false;
 let planSeen = false;
+let roomTransition: Animation | null = null;
 
 const scene = new OfficeScene(element("officeWorld"), (id, trigger) => {
   if (id === "upper_agent") openManager(trigger, true);
   else openAgentJournal(id);
-});
+}, motionPreference);
 paintPortrait(element<HTMLCanvasElement>("managerPortrait"), "upper_agent");
+paintPortrait(element<HTMLCanvasElement>("replyPortrait"), "upper_agent");
 
 function escapeHtml(value: string): string {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
@@ -90,35 +97,83 @@ function renderMarkdown(source: string): string {
   return html;
 }
 function setSpeech(text: string, markdown = false): void {
+  const followLatest = chatMessages.scrollHeight - chatMessages.scrollTop - chatMessages.clientHeight < 80;
   latestAnswer = text;
   latestIsMarkdown = markdown;
   if (markdown) managerSpeech.innerHTML = renderMarkdown(text);
   else { managerSpeech.replaceChildren(); const p = document.createElement("p"); p.textContent = text; p.style.whiteSpace = "pre-line"; managerSpeech.append(p); }
+  if (followLatest) chatMessages.scrollTop = chatMessages.scrollHeight;
 }
+
+// Saved turns and the current question share one transcript; streaming only updates the final reply.
+function renderTranscript(): void {
+  const history = element("chatHistory");
+  history.replaceChildren();
+  const priorMessages = messages.at(-1)?.role === "assistant" ? messages.slice(0, -1) : messages;
+  for (const message of priorMessages) {
+    const article = document.createElement("article");
+    article.className = "chat-message";
+    article.dataset.role = message.role;
+    article.setAttribute("aria-label", message.role === "user" ? "나의 질문" : "부장 답변");
+    if (message.role === "assistant") {
+      const avatar = document.createElement("canvas");
+      avatar.className = "chat-avatar";
+      avatar.setAttribute("aria-hidden", "true");
+      paintPortrait(avatar, "upper_agent");
+      article.append(avatar);
+    }
+    const content = document.createElement("div");
+    content.className = "message-content";
+    if (message.role === "assistant") {
+      content.classList.add("markdown-body");
+      if (message.status === "completed") content.innerHTML = renderMarkdown(message.content);
+      else content.textContent = message.content;
+    } else content.textContent = message.content;
+    article.append(content);
+    history.append(article);
+  }
+}
+
+// Animate the same live room between its full view and miniature, without cloning the agents.
+function setOfficeMode(chatting: boolean): void {
+  if (officeApp.classList.contains("is-chatting") === chatting) return;
+  const before = officeWorld.getBoundingClientRect();
+  roomTransition?.cancel();
+  officeApp.classList.toggle("is-chatting", chatting);
+  returnToOffice.hidden = !chatting;
+  for (const actor of officeWorld.querySelectorAll<HTMLElement>(".office-agent, #openReport")) actor.inert = chatting;
+  if (motionPreference.matches) return;
+  const after = officeWorld.getBoundingClientRect();
+  roomTransition = officeWorld.animate([
+    { transform: `translate(${before.left - after.left}px, ${before.top - after.top}px) scale(${before.width / after.width})` },
+    { transform: "translate(0, 0) scale(1)" },
+  ], { duration: 350, easing: "cubic-bezier(.22,.68,0,1)" });
+}
+
 function openManager(trigger: HTMLElement | null = null, focusInput = false): void {
   if (agentJournal.open) agentJournal.close();
   managerTrigger = trigger ?? managerTrigger;
   scene.setSelected("upper_agent");
   setSpeech(latestAnswer, latestIsMarkdown);
   managerDialog.hidden = false;
+  setOfficeMode(true);
   element("talkToManager").hidden = true;
+  chatMessages.scrollTop = chatMessages.scrollHeight;
   if (focusInput && !researchInput.disabled) researchInput.focus({ preventScroll: true });
   else managerDialog.focus({ preventScroll: true });
 }
 function closeManager(): void {
   managerDialog.hidden = true;
+  setOfficeMode(false);
   element("talkToManager").hidden = false;
   scene.setSelected(null);
   (managerTrigger ?? element("talkToManager")).focus({ preventScroll: true });
 }
 function announceAnswer(): void {
   // Native modal dialogs otherwise cover the manager and prevent the arrival focus.
+  const hadModal = [agentJournal, historyDialog, portfolioDialog].some(dialog => dialog.open);
   for (const dialog of [agentJournal, historyDialog, portfolioDialog]) if (dialog.open) dialog.close();
-  openManager();
-  managerDialog.classList.remove("arrival");
-  void managerDialog.offsetWidth;
-  managerDialog.classList.add("arrival");
-  managerSpeech.scrollTop = 0;
+  if (managerDialog.hidden || hadModal) openManager();
   element("announcement").textContent = phase === "done" ? "부장의 답변이 도착했습니다." : "요청을 완료하지 못했습니다. 부장의 안내를 확인하세요.";
 }
 function updateStatus(): void {
@@ -130,8 +185,6 @@ function updateStatus(): void {
   };
   sessionState.querySelector("span")!.textContent = text[phase];
   sessionState.dataset.state = ["ready", "done", "error"].includes(phase) ? phase : "running";
-  element("dialogEyebrow").textContent = phase === "done" ? "조사 결과를 함께 살펴볼까요?" : phase === "ready" ? "어서 오세요, 리서치 오피스입니다." : text[phase];
-  managerDialog.classList.toggle("has-report", phase === "done" && latestAnswer.length > 170);
   managerDialog.dataset.busy = String(chatBusy && phase !== "ready");
 }
 function setChatBusy(busy: boolean): void {
@@ -141,8 +194,10 @@ function setChatBusy(busy: boolean): void {
   deleteConversation.disabled = busy || !conversationId || pendingResponse;
   researchInput.disabled = busy || !conversationId || pendingResponse;
   runButton.disabled = researchInput.disabled;
-  runButton.firstChild!.textContent = busy ? "확인 중 " : "말하기 ";
-  element("composerHint").textContent = pendingResponse ? "이전 답변을 생성 중입니다. 대화를 다시 열어 확인하세요." : busy ? "팀원들이 확인하고 있어요. 사무실을 둘러보세요." : "Enter로 전달 · Shift + Enter로 줄바꿈";
+  runButton.setAttribute("aria-label", busy ? "답변을 기다리는 중" : "질문 보내기");
+  element("composerHint").textContent = pendingResponse ? "이전 답변을 생성 중입니다. 대화 기록을 다시 열어 확인하세요." : busy ? "답변을 기다리고 있습니다." : "Enter로 전달 · Shift + Enter로 줄바꿈";
+  element("composerStatus").hidden = !pendingResponse;
+  element("composerStatus").textContent = pendingResponse ? "이전 답변을 생성 중입니다. 대화 기록을 다시 열어 확인해 주세요." : "";
   updateStatus();
 }
 function resetResearch(): void {
@@ -215,6 +270,7 @@ async function refreshConversationList(): Promise<Conversation[]> {
     const option = document.createElement("option"); option.value = conversation.id; option.textContent = conversation.title; return option;
   }));
   if (conversationId) conversationSelect.value = conversationId;
+  element("conversationTitle").textContent = messages.length ? conversations.find(item => item.id === conversationId)?.title ?? "" : "";
   return conversations;
 }
 async function openConversation(id: string): Promise<void> {
@@ -229,7 +285,9 @@ async function openConversation(id: string): Promise<void> {
   setSpeech(last?.status === "pending" ? "이전 답변을 생성 중입니다. 잠시 후 대화를 다시 열어주세요." : last?.content || welcome, last?.status === "completed");
   phase = pendingResponse ? "pending" : last?.status === "completed" ? "done" : last ? "error" : "ready";
   researchInput.value = ""; researchInput.style.height = "auto";
-  renderHistory(); updateStatus();
+  element("conversationTitle").textContent = messages.length ? conversation.title : "";
+  renderTranscript(); renderHistory(); updateStatus();
+  chatMessages.scrollTop = chatMessages.scrollHeight;
   if (!managerDialog.hidden) scene.setSelected("upper_agent");
 }
 async function loadConversations(preferred?: string): Promise<void> {
@@ -339,7 +397,8 @@ async function runGraph(event: SubmitEvent): Promise<void> {
   researchInput.value = ""; researchInput.style.height = "auto";
   phase = "planning"; scene.setActivity("upper_agent", "working");
   setSpeech("질문을 확인하고 있어요. 필요한 조사를 정해볼게요.");
-  setChatBusy(true); closeManager(); renderHistory();
+  setChatBusy(true); renderTranscript(); renderHistory();
+  chatMessages.scrollTop = chatMessages.scrollHeight;
   let terminal = false;
   try {
     const response = await fetch("/api/chat/stream", {
@@ -374,8 +433,8 @@ researchInput.addEventListener("keydown", event => {
 element("talkToManager").addEventListener("click", event => openManager(event.currentTarget as HTMLElement, true));
 element("openReport").addEventListener("click", event => openManager(event.currentTarget as HTMLElement));
 element("closeManager").addEventListener("click", closeManager);
+returnToOffice.addEventListener("click", closeManager);
 element("openHistory").addEventListener("click", openHistory);
-element("dialogHistory").addEventListener("click", openHistory);
 for (const button of document.querySelectorAll<HTMLButtonElement>("[data-close]")) button.addEventListener("click", () => element<HTMLDialogElement>(button.dataset.close!).close());
 agentJournal.addEventListener("close", () => scene.setSelected(managerDialog.hidden ? null : "upper_agent"));
 document.addEventListener("keydown", event => {
@@ -402,5 +461,7 @@ deleteConversation.addEventListener("click", () => {
   });
 });
 void changeConversation(() => loadConversations(new URLSearchParams(location.hash.slice(1)).get("conversation") ?? undefined))
-  .then(() => { if (!messages.length || phase === "error") openManager(); });
+  .then(() => { if (phase === "error") openManager(); });
+window.addEventListener("resize", () => roomTransition?.cancel());
+motionPreference.addEventListener("change", () => { if (motionPreference.matches) roomTransition?.cancel(); });
 window.addEventListener("pagehide", event => { if (!event.persisted) scene.dispose(); });

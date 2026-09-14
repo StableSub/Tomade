@@ -200,6 +200,7 @@ async function waitReady(page) {
 }
 
 async function openWorker(page, id) {
+  if (await page.locator('#managerDialog').isVisible()) await page.locator('#returnToOffice').click();
   // Native keyboard activation is deterministic even when the character is walking.
   await page.locator(agent(id)).focus();
   await page.locator(agent(id)).press('Enter');
@@ -344,6 +345,7 @@ async function walkingMotion(browser) {
     await qaPage.setContent(contactSheet);
     await qaPage.screenshot({ path: `${screenshots}/walking-frames.png`, fullPage: true });
     await qaPage.close();
+    await page.bringToFront();
     await page.screenshot({ path: `${screenshots}/desktop-walking-larger.png` });
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.waitForFunction(() => !document.querySelector('.office-agent[data-motion="walking"]'));
@@ -476,6 +478,96 @@ async function desktop(browser) {
   } finally { await f.dispose(); }
 }
 
+async function focusMode(browser) {
+  const f = await fixture(browser);
+  const { page } = f;
+  try {
+    assert.equal(await page.locator('#managerDialog').isVisible(), false, 'The office is the initial view');
+    const fullRoom = await page.locator('#officeWorld').boundingBox();
+    await page.evaluate(() => {
+      window.__originalOffice = document.querySelector('#officeWorld');
+      window.__originalCharacters = [...document.querySelectorAll('.office-agent')];
+      window.__roomFrames = [];
+      window.__roomProbeDone = false;
+      const stop = performance.now() + 700;
+      const sample = () => {
+        window.__roomFrames.push(document.querySelector('#officeWorld').getBoundingClientRect().width);
+        if (performance.now() < stop) requestAnimationFrame(sample);
+        else window.__roomProbeDone = true;
+      };
+      requestAnimationFrame(sample);
+    });
+    await page.locator(agent('upper_agent')).focus();
+    await page.locator(agent('upper_agent')).press('Enter');
+    await page.waitForFunction(() => window.__roomProbeDone);
+    const miniRoom = await page.locator('#officeWorld').boundingBox();
+    const chat = await page.locator('#managerDialog').boundingBox();
+    assert.ok(Math.abs(chat.width / page.viewportSize().width - 0.64) < 0.01, 'The first split design reserves 64% for chat and 36% for the office');
+    assert.ok(miniRoom.x >= chat.x + chat.width && miniRoom.width < fullRoom.width * 0.6, 'The same office shrinks into the right pane');
+    assert.equal(await page.evaluate(({ from, to }) => window.__roomFrames.some(width => width < from - 10 && width > to + 10),
+      { from: fullRoom.width, to: miniRoom.width }), true, 'Real animation frames include intermediate room sizes');
+    assert.equal(await page.evaluate(() => document.querySelector('#officeWorld') === window.__originalOffice
+      && [...document.querySelectorAll('.office-agent')].every((node, i) => node === window.__originalCharacters[i])), true,
+    'Switching views preserves the original room and all four live characters');
+    assert.equal(await page.locator('.office-agent').evaluateAll(nodes => nodes.every(node => node.inert)), true, 'Minimap characters leave keyboard navigation; the whole map is one return target');
+    await page.locator('#researchInput').fill('아직 보내지 않은 질문');
+    await page.locator('#returnToOffice').click();
+    await page.waitForFunction(() => !document.querySelector('#officeWorld').getAnimations().length);
+    assert.equal(await page.locator('#managerDialog').isVisible(), false);
+    assert.ok(Math.abs((await page.locator('#officeWorld').boundingBox()).width - fullRoom.width) < 1, 'Clicking the miniature restores the full office');
+    assert.equal(await page.locator('.office-agent').evaluateAll(nodes => nodes.every(node => !node.inert)), true);
+    await page.locator('#talkToManager').click();
+    assert.equal(await page.locator('#researchInput').inputValue(), '아직 보내지 않은 질문', 'Returning to the office preserves the draft');
+
+    const firstQuestion = '삼성전자 실적에서 무엇을 먼저 보면 좋을까?';
+    await submit(page, firstQuestion);
+    assert.equal(await page.locator('#managerDialog').isVisible(), true, 'Sending keeps the focused conversation open');
+    assert.equal(await page.locator('#chatHistory [data-role="user"]').last().textContent(), firstQuestion, 'The current user message is visible immediately');
+    const firstReply = '사업별 영업이익의 흐름부터 살펴보세요.\n\n어느 사업에서 이익이 늘었는지 함께 보면 실적의 변화를 이해하기 쉬워요.';
+    await emit(page, [started('upper_agent'), event('run.completed', { final_answer: firstReply })], true);
+    await waitReady(page);
+    await submit(page, '반도체 사업부터 같이 볼까?');
+    await emit(page, [event('run.completed', { final_answer: '좋아요. 최근 분기의 흐름부터 살펴볼게요.' })], true);
+    await waitReady(page);
+    assert.equal(await page.locator('.chat-message[data-role="user"]').count(), 2, 'The transcript retains both questions without duplication');
+    assert.equal(await page.locator('.chat-message[data-role="assistant"]').count(), 2, 'Each question has one assistant reply');
+    assert.ok((await page.locator('#chatMessages').textContent()).includes(firstReply.split('\n')[0]));
+
+    for (const viewport of [{ width: 1440, height: 1000 }, { width: 900, height: 900 }, { width: 390, height: 844 }, { width: 844, height: 390 }]) {
+      await page.setViewportSize(viewport);
+      for (const selector of ['#managerDialog', '#researchInput', '#runButton', '#returnToOffice', '.office-background']) await containedInViewport(page, selector);
+      const edges = await page.locator('#chatMessages').evaluate(transcript => {
+        const style = getComputedStyle(transcript);
+        const right = transcript.getBoundingClientRect().left + transcript.clientWidth - parseFloat(style.paddingRight);
+        return [...transcript.querySelectorAll('[data-role="user"] .message-content')].map(bubble => ({ expected: right, actual: bubble.getBoundingClientRect().right }));
+      });
+      assert.ok(edges.every(edge => Math.abs(edge.expected - edge.actual) < 2), 'Every user bubble reaches the right edge of the chat content column');
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false, 'The split view has no horizontal overflow');
+      await page.screenshot({ path: `${screenshots}/focus-chat-${viewport.width}x${viewport.height}.png` });
+    }
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await submit(page, '긴 답변과 스크롤을 확인해줘.');
+    const longReply = Array.from({ length: 45 }, (_, i) => `문단 ${i + 1}. 사용자 화면 확인용 예시 문장입니다.`).join('\n\n');
+    await emit(page, [started('upper_agent'), event('node.delta', { node: 'upper_agent', delta: longReply })]);
+    await page.waitForFunction(() => document.querySelector('#managerSpeech').textContent.includes('문단 45'));
+    await page.locator('#chatMessages').evaluate(node => { node.scrollTop = 0; });
+    await emit(page, [event('run.completed', { final_answer: longReply + '\n\n마지막 문장.' })], true);
+    await waitReady(page);
+    assert.ok(await page.locator('#chatMessages').evaluate(node => node.scrollTop < 5), 'A completed answer does not pull a reader away from earlier messages');
+    await page.reload();
+    await waitReady(page);
+    await page.locator('#talkToManager').click();
+    assert.equal(await page.locator('.chat-message[data-role="user"]').count(), 3, 'Reloading restores the complete saved conversation');
+    assert.equal(await page.locator('.chat-message[data-role="assistant"]').count(), 3, 'Reloaded replies do not duplicate the current reply');
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.locator('#returnToOffice').click();
+    await page.locator('#talkToManager').click();
+    assert.equal(await page.locator('#officeWorld').evaluate(node => node.getAnimations().length), 0, 'Reduced motion skips the scaling transition');
+    f.check();
+    console.log('PASS focus mode: live-room scale transition, minimap return, draft preservation, right-aligned user messages, multi-turn streaming, saved history and responsive layouts');
+  } finally { await f.dispose(); }
+}
+
 async function mobile(browser) {
   const f = await fixture(browser, { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const { page } = f;
@@ -521,6 +613,7 @@ async function reducedMotion(browser) {
     await state(page, 'upper_agent', 'working', 'seated');
     await emit(page, workers.map(started));
     for (const id of workers) await state(page, id, 'working', 'seated');
+    await page.locator('#returnToOffice').click();
     const seats = { business: [21.5, 54.5], macro_sector: [79.5, 54.5], event_catalyst: [71.5, 79.5] };
     for (const id of workers) {
       const position = await page.locator(agent(id)).evaluate(node => [Number(node.dataset.x), Number(node.dataset.y)]);
@@ -558,6 +651,7 @@ const browser = await playwright.chromium.launch({ headless: true, channel: proc
 try {
   await fullRoomFitting(browser);
   await walkingMotion(browser);
+  await focusMode(browser);
   await desktop(browser);
   await mobile(browser);
   await reducedMotion(browser);

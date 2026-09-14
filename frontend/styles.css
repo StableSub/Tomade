@@ -1,6 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Noto+Sans+KR:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap');
 :root {
-  font-family: "Gowun Dodum","Noto Sans KR",sans-serif;
+  font-family: -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;
   color: #3d2b20;
   background: #1f3323;
   font-synthesis: none;
@@ -56,32 +56,38 @@ h1,h2,p {
   border: 0;
 }
 .office-app {
+  --header-height: 64px;
+  --chat-width: 64%;
   height: 100dvh;
   min-height: 0;
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  background: radial-gradient(ellipse at center, #758b59, #263d2a);
+  color: #272c32;
+  background: #f2f4ef;
 }
 .office-scroll {
   position: absolute;
-  inset: 8px;
+  inset: 80px 16px 76px;
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
-  scrollbar-width: none;
-  scrollbar-color: #9c8a4a #263b28;
   container-type: size;
+  z-index: 2;
+  pointer-events: none;
+}
+.office-map {
+  flex: none;
+  width: min(100cqw, 100cqh);
 }
 .office-world {
   position: relative;
-  flex: none;
-  width: min(100cqw, 100cqh);
-  max-width: 100%;
+  width: 100%;
   aspect-ratio: 1;
   container-type: inline-size;
   isolation: isolate;
+  transform-origin: top left;
+  pointer-events: auto;
 }
 .office-background {
   display: block;
@@ -93,16 +99,37 @@ h1,h2,p {
 }
 .office-hud {
   position: absolute;
-  inset: 22px 26px auto;
+  inset: 0 0 auto;
+  height: var(--header-height);
   display: flex;
-  justify-content: flex-end;
-  gap: 20px;
-  pointer-events: none;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 28px;
+  background: #fcfcfa;
+  border-bottom: 1px solid #e3e5e0;
   z-index: 20;
 }
-.office-hud>* {
-  pointer-events: auto;
+.brand { display: flex; align-items: center; gap: 10px; font-size: 23px; font-weight: 600; letter-spacing: -.5px; }
+.brand svg { width: 28px; height: 28px; }
+.minimap-label, .minimap-caption { display: none; }
+.office-app.is-chatting .office-scroll {
+  inset: var(--header-height) 0 0 var(--chat-width);
+  padding: 40px 32px;
+  border-left: 1px solid #e3e5e0;
+  align-items: flex-start;
 }
+.office-app.is-chatting .office-map { width: min(100cqw, calc(100cqh - 72px)); }
+.office-app.is-chatting .office-background { border-radius: 10px; }
+.office-app.is-chatting .minimap-label { display: block; font-size: 15px; color: #666d72; margin: 0 0 14px; }
+.office-app.is-chatting .minimap-caption { display: block; text-align: center; font-size: 13px; color: #747a7d; margin-top: 16px; }
+.minimap-caption span { margin-left: 5px; }
+.return-to-office { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; border-radius: 10px; background: transparent; z-index: 2000; }
+.map-expand { position: absolute; top: 8px; right: 8px; display: grid; place-items: center; width: 38px; height: 38px; background: #fcfcfa; border: 1px solid #e3e5e0; border-radius: 7px; }
+.map-expand svg { width: 20px; height: 20px; fill: none; stroke: #555e63; stroke-width: 1.7; }
+.return-to-office:hover { outline: 2px solid #7e967d; outline-offset: 3px; }
+.office-app.is-chatting .office-agent { min-width: 0; min-height: 0; }
+.office-app.is-chatting .agent-name, .office-app.is-chatting .agent-status, .office-app.is-chatting .office-agent::before { display: none; }
+.office-app.is-chatting .agent-sprite { filter: none; }
 .wood-sign,.wood-button {
   border: 2px solid #39271b;
   border-radius: 3px;
@@ -131,22 +158,13 @@ h1,h2,p {
 .wood-button:active:not(:disabled) {
   translate: 0 2px;
 }
-.icon-button {
-  width: 50px;
-  height: 51px;
-  padding: 13px;
-}
-.icon-button svg {
-  width: 23px;
-  height: 23px;
-  fill: none;
-  stroke: #edd5a6;
-  stroke-width: 1.5;
-  stroke-linejoin: miter;
-}
+.icon-button { display: grid; place-items: center; width: 44px; height: 44px; padding: 10px; border: 0; border-radius: 8px; background: transparent; color: #646b70; }
+.icon-button:hover { background: #eeefeb; }
+.office-app :is(.icon-button,.talk-shortcut,.return-to-office,.send-button):focus-visible, .chat-messages:focus-visible { outline: 2px solid #748c74; outline-offset: 3px; }
+.icon-button svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; }
 .report-book {
   position: absolute;
-  left: 58%;
+  left: 56.5%;
   top: 25%;
   z-index: 3;
   border: 0;
@@ -275,12 +293,10 @@ h1,h2,p {
 .office-footer>* {
   pointer-events: auto;
 }
-.talk-shortcut {
-  font-size: 14px;
-}
+.talk-shortcut { font-size: 14px; padding: 12px 18px; border: 1px solid #d5dcd2; border-radius: 8px; background: #fcfcfa; color: #414c43; }
 .talk-shortcut span {
   margin-left: 20px;
-  color: #d5be93;
+  color: #698167;
 }
 .parchment {
   background: linear-gradient(115deg,#f3dfb3,#fff3d8 47%,#f3dfb5);
@@ -291,145 +307,43 @@ h1,h2,p {
 }
 .manager-dialog {
   position: absolute;
-  z-index: 30;
-  bottom: 70px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(1000px,calc(100% - 96px));
-  min-height: 185px;
-  display: grid;
-  grid-template-columns: 128px minmax(0,1fr);
-  gap: 23px;
-  padding: 28px 30px 17px;
-  outline: none;
-}
-.manager-dialog.arrival {
-  animation: dialog-arrival .35s ease-out;
-}
-.dialog-name {
-  position: absolute;
-  left: 25px;
-  top: -23px;
-  padding: 7px 23px;
-  font-size: 18px;
-  font-weight: 700;
-}
-.close-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: 2px solid #583c24;
-  background: #68482a;
-  box-shadow: inset 0 0 0 2px #c49b58;
-  color: #f5d987;
-  font: 700 26px/1 sans-serif;
-  cursor: pointer;
-}
-.manager-dialog>.close-button {
-  position: absolute;
-  right: 12px;
-  top: 11px;
-}
-.manager-portrait {
-  align-self: center;
+  inset: var(--header-height) auto 0 0;
+  width: var(--chat-width);
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 9px 12px 5px;
-  background: #dbc19366;
-  border: 2px solid #b78f55;
-  box-shadow: inset 0 0 0 3px #edcf9e;
+  background: #fcfcfa;
+  outline: none;
+  min-height: 0;
+  z-index: 1;
+  animation: chat-enter .35s ease-out;
 }
-.manager-portrait canvas {
-  width: 80px;
-  height: auto;
-  image-rendering: pixelated;
-  aspect-ratio: 1;
-}
-.manager-portrait>span {
-  font-size: 10px;
-  color: #796040;
-  letter-spacing: 2px;
-}
-.dialog-content {
-  min-width: 0;
-}
-.dialog-eyebrow {
-  font-size: 11px;
-  color: #967a4f;
-  letter-spacing: .04em;
-  padding-right: 24px;
-  margin-bottom: 7px;
-}
-.manager-speech {
-  max-height: 140px;
-  overflow: auto;
-  padding: 0 22px 0 0;
-  scrollbar-color: #b29764 transparent;
-  scrollbar-width: thin;
-  font-size: 17px!important;
-  line-height: 1.6!important;
-}
-.manager-dialog.has-report .manager-speech {
-  max-height: min(42dvh,380px);
-  font-size: 14px!important;
-  line-height: 1.85!important;
-}
-.manager-speech>p:last-child {
-  margin-bottom: 0;
-}
-.manager-dialog[data-busy=true] .manager-portrait {
-  animation: lamp-pulse 2s infinite;
-}
-.question-form {
-  display: flex;
-  gap: 12px;
-  align-items: stretch;
-  margin-top: 16px;
-}
-.question-form textarea {
-  resize: none;
-  width: 100%;
-  min-height: 46px;
-  max-height: 96px;
-  min-width: 0;
-  border: 2px solid #8b6941;
-  border-radius: 3px;
-  box-shadow: inset 2px 2px #d2b681,0 1px #fff7dc;
-  background: #fff9e9;
-  color: #362b20;
-  padding: 11px 12px;
-  font-size: 14px;
-  line-height: 1.5;
-}
-.question-form textarea::placeholder {
-  color: #9c8b6c;
-}
-.question-form textarea:focus {
-  outline: 2px solid #788c4d;
-  outline-offset: 1px;
-}
-.send-button {
-  min-width: 103px;
-  padding: 10px 17px;
-  white-space: nowrap;
-  font-size: 15px;
-}
-.send-button span {
-  margin-left: 7px;
-  color: #d6bb85;
-}
-.dialog-footnote {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  margin-top: 8px;
-  font-size: 10px;
-  color: #99825d;
-}
+.chat-header { display: flex; align-items: center; flex: none; gap: 14px; min-height: 112px; padding: 28px 48px; }
+.chat-header h2 { font-size: 20px; font-weight: 600; white-space: nowrap; }
+.chat-avatar { width: 40px; height: 40px; flex: none; image-rendering: pixelated; }
+.conversation-title { min-width: 0; margin-left: 4px; padding-left: 18px; border-left: 1px solid #d8dbd8; color: #85898d; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.conversation-title:empty { display: none; }
+.chat-header .icon-button { margin-left: auto; flex: none; }
+.chat-messages { flex: 1; min-height: 0; overflow: auto; padding: 20px 48px 32px; scrollbar-width: thin; scrollbar-color: #d4d8d2 transparent; overscroll-behavior: contain; }
+.chat-message { width: 100%; margin: 0 0 34px; }
+.chat-message[data-role=assistant] { display: grid; grid-template-columns: 40px minmax(0,1fr); align-items: start; column-gap: 18px; }
+.chat-message[data-role=user] { display: flex; justify-content: flex-end; }
+.chat-message[data-role=user] .message-content { max-width: 85%; width: fit-content; padding: 13px 18px; border-radius: 14px; background: #eeefed; color: #5b626c; font-size: 16px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
+.chat-message .markdown-body { min-width: 0; max-width: 720px; color: #292e38; font-family: inherit; font-size: 17px; line-height: 1.85; }
+.chat-message .markdown-body p:last-child { margin-bottom: 0; }
+.chat-message .markdown-body h1, .chat-message .markdown-body h2, .chat-message .markdown-body h3 { color: #292e38; }
+.chat-message .markdown-body pre { background: #f1f2ef; border-radius: 6px; }
+.chat-message .markdown-body code { background: #edf0e9; }
+.chat-composer { flex: none; padding: 18px 48px 28px; }
+.question-form { display: flex; gap: 8px; align-items: flex-end; padding: 8px; border: 1px solid #dbdedb; border-radius: 12px; background: #fff; }
+.question-form:focus-within { border-color: #819681; box-shadow: 0 0 0 2px #81968118; }
+.question-form textarea { flex: 1; min-width: 0; width: 100%; min-height: 44px; max-height: 96px; resize: none; border: 0; background: transparent; color: #292e38; padding: 10px 12px; font-size: 16px; line-height: 24px; outline: none; box-shadow: none; }
+.question-form textarea::placeholder { color: #a1a6af; }
+.send-button { width: 44px; height: 44px; flex: none; display: grid; place-items: center; border: 0; border-radius: 9px; color: #fff; background: #ca5545; }
+.send-button:not(:disabled):hover { background: #b8483a; }
+.send-button svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.composer-status { margin-top: 8px; color: #747a7d; font-size: 12px; line-height: 1.6; }
+.close-button { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 2px solid #583c24; background: #68482a; box-shadow: inset 0 0 0 2px #c49b58; color: #f5d987; font: 700 26px/1 sans-serif; }
+@keyframes chat-enter { from { opacity: 0; translate: -16px 0; } to { opacity: 1; translate: 0 0; } }
 .text-button {
   background: none;
   border: 0;
@@ -654,181 +568,48 @@ h1,h2,p {
     translate: 0 0;
   }
 }
-@media(min-aspect-ratio:2/1) {
-  .manager-dialog {
-    bottom: 25px;
-  }
-  .office-hud {
-    inset: 16px 20px auto;
-    justify-content: flex-end;
-  }
+@media(max-width:1050px) {
+  .chat-header { padding: 24px 28px; gap: 12px; }
+  .chat-messages { padding: 16px 28px 24px; }
+  .chat-composer { padding: 18px 28px 24px; }
+  .office-app.is-chatting .office-scroll { padding: 32px 24px; }
 }
-@media(max-width:850px) {
-  .office-hud {
-    inset: 14px 15px auto;
-    justify-content: flex-end;
-  }
-  .icon-button {
-    width: 44px;
-    height: 46px;
-    padding: 10px;
-  }
-  .manager-dialog {
-    width: calc(100% - 36px);
-    grid-template-columns: 87px minmax(0,1fr);
-    gap: 17px;
-    padding: 27px 22px 16px;
-  }
-  .manager-portrait {
-    padding: 8px;
-  }
-  .manager-portrait canvas {
-    width: 64px;
-    height: auto;
-    aspect-ratio: 1;
-  }
-  .manager-portrait>span {
-    font-size: 8px;
-    letter-spacing: 1px;
-  }
-  .manager-speech {
-    font-size: 15px!important;
-  }
-  .office-footer {
-    left: 16px;
-    right: 16px;
-  }
-  .talk-shortcut {
-    font-size: 12px;
-    padding: 10px 13px;
-  }
+@media(max-width:760px) {
+  .office-app { --header-height: 58px; --chat-width: 100%; }
+  .office-hud { padding: 0 16px; }
+  .brand { font-size: 21px; }
+  .brand svg { width: 24px; height: 24px; }
+  .hud-right { gap: 2px; }
+  .office-scroll { inset: 70px 8px 68px; }
+  .office-footer { bottom: 16px; left: 16px; right: 16px; }
+  .talk-shortcut { font-size: 13px; padding: 10px 14px; }
+  .office-app.is-chatting .office-scroll { inset: calc(var(--header-height) + 12px) 16px auto auto; padding: 0; width: 80px; height: 80px; border: 0; }
+  .office-app.is-chatting .office-map { width: 100cqw; }
+  .office-app.is-chatting .minimap-label, .office-app.is-chatting .minimap-caption { display: none; }
+  .map-expand { top: 3px; right: 3px; width: 22px; height: 22px; border-radius: 4px; }
+  .map-expand svg { width: 15px; height: 15px; }
+  .chat-header { min-height: 106px; padding: 20px 108px 20px 20px; gap: 10px; flex-wrap: wrap; align-content: center; }
+  .chat-header h2 { font-size: 18px; }
+  .chat-header>.chat-avatar { width: 34px; height: 34px; }
+  .chat-header .conversation-title { order: 1; width: 100%; font-size: 12px; border: 0; padding: 0; margin: 0; }
+  .chat-header .icon-button { width: 36px; height: 36px; padding: 8px; }
+  .chat-messages { padding: 12px 20px 24px; }
+  .chat-message[data-role=assistant] { grid-template-columns: 30px minmax(0,1fr); column-gap: 12px; }
+  .chat-message .chat-avatar { width: 30px; height: 30px; }
+  .chat-message .markdown-body { font-size: 15px; line-height: 1.8; }
+  .chat-message[data-role=user] .message-content { font-size: 14px; padding: 11px 14px; max-width: 88%; }
+  .chat-composer { padding: 12px 16px max(16px,env(safe-area-inset-bottom)); }
+  .question-form textarea { padding-left: 8px; }
+  .journal { padding: 23px 20px 18px; max-height: 85dvh; }
+  .journal-heading h2 { font-size: 20px; }
+  .conversation-controls { gap: 8px; }
+  .conversation-controls .wood-button { padding: 9px; font-size: 11px; }
+  .history-entry .markdown-body { font-size: 12px; }
 }
-@media(max-width:600px) {
-  .office-hud {
-    inset: 12px 12px auto;
-    align-items: flex-start;
-    gap: 7px;
-    justify-content: flex-end;
-  }
-  .hud-right {
-    gap: 5px;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    max-width: 145px;
-  }
-  .icon-button {
-    width: 37px;
-    height: 39px;
-    padding: 8px;
-  }
-  .icon-button svg {
-    width: 20px;
-    height: 20px;
-  }
-  .manager-dialog {
-    bottom: 58px;
-    width: calc(100% - 20px);
-    grid-template-columns: 52px minmax(0,1fr);
-    gap: 12px;
-    padding: 27px 16px 14px;
-  }
-  .manager-portrait {
-    align-self: start;
-    margin-top: 8px;
-    padding: 3px;
-  }
-  .manager-portrait canvas {
-    width: 44px;
-    height: auto;
-    aspect-ratio: 1;
-  }
-  .manager-portrait>span {
-    display: none;
-  }
-  .dialog-name {
-    left: 15px;
-    font-size: 15px;
-    padding: 7px 16px;
-    top: -19px;
-  }
-  .manager-dialog>.close-button {
-    width: 28px;
-    height: 28px;
-    top: 8px;
-    right: 8px;
-  }
-  .dialog-eyebrow {
-    font-size: 9px;
-  }
-  .manager-speech {
-    font-size: 13px!important;
-    max-height: 125px;
-    padding-right: 8px;
-  }
-  .manager-dialog.has-report {
-    grid-template-columns: 1fr;
-  }
-  .manager-dialog.has-report .manager-portrait {
-    display: none;
-  }
-  .manager-dialog.has-report .manager-speech {
-    max-height: 38dvh;
-    font-size: 12px!important;
-  }
-  .question-form {
-    gap: 7px;
-    flex-wrap: wrap;
-    margin-top: 12px;
-  }
-  .question-form textarea {
-    font-size: 13px;
-    min-height: 44px;
-  }
-  .send-button {
-    padding: 8px 16px;
-    font-size: 12px;
-    margin-left: auto;
-    min-width: 90px;
-  }
-  .dialog-footnote>span {
-    display: none;
-  }
-  .dialog-footnote {
-    margin-top: 0;
-  }
-  .dialog-footnote .text-button {
-    font-size: 9px;
-  }
-  .office-footer {
-    bottom: 12px;
-    left: 12px;
-    right: 12px;
-    gap: 8px;
-  }
-  .talk-shortcut {
-    font-size: 11px;
-    padding: 10px;
-  }
-  .talk-shortcut span {
-    display: none;
-  }
-  .journal {
-    padding: 23px 20px 18px;
-    max-height: 85dvh;
-  }
-  .journal-heading h2 {
-    font-size: 20px;
-  }
-  .conversation-controls {
-    gap: 8px;
-  }
-  .conversation-controls .wood-button {
-    padding: 9px;
-    font-size: 11px;
-  }
-  .history-entry .markdown-body {
-    font-size: 12px;
-  }
+@media(max-height:500px) and (min-width:761px) {
+  .chat-header { min-height: 70px; padding-top: 12px; padding-bottom: 12px; }
+  .chat-messages { padding-top: 4px; padding-bottom: 12px; }
+  .chat-composer { padding-top: 8px; padding-bottom: 12px; }
 }
 @media(prefers-reduced-motion:reduce) {
   *,*::before,*::after {
@@ -845,10 +626,6 @@ h1,h2,p {
   opacity: 1;
 }
 .report-book:hover, .report-book:focus-visible { outline: 2px solid #ffe08c; outline-offset: 2px; }
-@media(max-width:600px) {
-  .office-scroll { inset: 60px 6px 64px; }
-  .office-app:has(.manager-dialog:not([hidden])) .office-scroll { align-items: flex-start; }
-}
 /* Seated sprites keep their head above the tall red chair backs. */
 .office-agent[data-motion=seated],
 .office-agent[data-motion=seated] .agent-sprite {

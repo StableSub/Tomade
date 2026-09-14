@@ -144,7 +144,7 @@ macro_sector
 event_catalyst
 ```
 
-현재 노드 식별자는 `upper_agent`, `request_parser`, `business`, `macro_sector`, `event_catalyst`다. 프론트에서는 상위 Agent를 부장 캐릭터로, 세 Worker를 조사 캐릭터로 표시하며 입력 검증은 상단 상태로 표시한다.
+현재 노드 식별자는 `upper_agent`, `request_parser`, `business`, `macro_sector`, `event_catalyst`다. 프론트에서는 상위 Agent를 부장 캐릭터로, 세 Worker를 조사 캐릭터로 표시하며 입력 검증은 현재 부장 답변 영역과 접근성 상태로 안내한다.
 
 ## 5. Event 명세
 
@@ -393,7 +393,7 @@ data: {"run_id":"run-123","node":"business","output":{"business_report":"..."}}
 
 ```text
 질문 전달 (run.started 수신 전)
-→ 이전 조사 상태 초기화, 입력 비활성화, 부장 대화창 닫기
+→ 이전 조사 상태 초기화, 입력 비활성화, 대화창 유지, 오른쪽에 사용자 질문 추가
 
 node.started
 → 노드 running, 선택된 Worker 자리 이동·착석
