@@ -1,6 +1,6 @@
 # 간소화한 사무실 배경
 
-사용자가 승인한 배경을 built-in image_gen으로 편집해 `research-office.png`에 적용했습니다. 생성 원본: `exec-34eebd55-6097-4030-8d76-f9d0b0c0f9b8.png`. 네 캐릭터는 이 배경에 포함되지 않으며 별도 Canvas로 움직입니다.
+사용자가 승인한 배경을 built-in image_gen으로 편집해 `research-office.png`에 적용했습니다. 간소화 원본: `exec-34eebd55-6097-4030-8d76-f9d0b0c0f9b8.png`. 모니터 역할 화면을 추가한 최종 원본: `/Users/anjeongseob/.codex/generated_images/01a09e8f-b7c6-7990-aeaf-b83cc9294f84/exec-27e79b7b-fb26-4659-b4b2-424efa95ed71.png`. 네 캐릭터는 이 배경에 포함되지 않으며 별도 Canvas로 움직입니다.
 
 ## 간소화 프롬프트
 
@@ -51,3 +51,19 @@ Change ONLY these two things:
 The TOP CENTER MANAGER monitor stays EXACTLY as it is showing its BACK to the viewer, since its chair sits above the desk. This manager orientation is already correct; do not change it.
 Everything else stays exactly the same. Empty chairs, no people, no new props, no labels added. Crisp intentional fine-pixel 2D game background, no gradients, no new decorative detail. Surgical cleanup, not a redesign.
 
+## 에이전트별 모니터 화면
+
+Use case: precise-object-edit.
+Asset type: production 2D pixel-art office background for the Tomade app.
+Input image 1 is the EDIT TARGET. Keep the same square dimensions, complete room layout and exact furniture footprints.
+
+Change ONLY the visible screen interiors of the THREE worker monitors. Replace their generic pale horizontal lines with tiny recognizable application windows that represent each worker's research role:
+- Middle-left desk labeled "비즈니스": a minimal business earnings dashboard. One slim muted title bar, 3 or 4 clean sage/blue vertical revenue bars on the left, two or three short dark document rows on the right, ivory screen background.
+- Middle-right desk labeled "매크로 / 섹터": a minimal market/sector dashboard. One slim muted title bar, a simple stepped market trend line in muted blue in the upper portion and a few small sage/ochre sector blocks below, ivory screen background.
+- Lower-right desk labeled "이벤트 / 카탈리스트": a minimal calendar and news window. One slim muted title bar, a small neat calendar grid with ONE tomato-red highlighted date on the left, three short news-list lines on the right, ivory screen background.
+
+Each display stays strictly inside its EXISTING dark bezel, preserving its current size, position, perspective and keyboard. These are tiny tasteful role icons rendered as coherent fine square pixel clusters, not detailed readable data. No letters, numbers, extra labels or floating UI. Enough contrast to distinguish bars, trend and calendar at the real display size, but no bright glow or clutter.
+
+CRITICAL INVARIANTS: All pixels outside these three screen interiors should remain unchanged. Preserve the "Tomade" sign and tomato logo, all four Korean desk labels exactly as supplied, plain tomato rug, pale oak floor and sparse seams, plain ivory/sage walls, windows, red chairs, sofa and single tomato plant. Do not move or resize any furniture or alter the lighting, composition or palette.
+The TOP-CENTER MANAGER monitor correctly shows its BACK to the viewer because the manager chair is behind the desk. Leave it entirely unchanged; do not draw a screen on its back or rotate it.
+No people, extra monitors, extra props, decoration, photorealism, painterly texture, gradients or redesign. Surgical monitor-content edit only.
