@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96" shape-rendering="crispEdges">
+  <title>Tomade 96px repeating parquet tile</title>
+  <desc>Four 48px blocks, three 16px planks per block, one-pixel seams. Top and left edges own the shared seam.</desc>
+  <rect width="96" height="96" fill="#efdbb0"/>
+  <g fill="#e4cca0">
+    <rect x="0" y="16" width="48" height="16"/>
+    <rect x="64" y="0" width="16" height="48"/>
+    <rect x="16" y="48" width="16" height="48"/>
+    <rect x="48" y="64" width="48" height="16"/>
+  </g>
+  <g fill="#bda57d">
+    <!-- Draw shared block edges only once; the next tile supplies right/bottom edges. -->
+    <rect x="0" y="0" width="96" height="1"/>
+    <rect x="0" y="48" width="96" height="1"/>
+    <rect x="0" y="0" width="1" height="96"/>
+    <rect x="48" y="0" width="1" height="96"/>
+    <rect x="0" y="16" width="48" height="1"/>
+    <rect x="0" y="32" width="48" height="1"/>
+    <rect x="64" y="0" width="1" height="48"/>
+    <rect x="80" y="0" width="1" height="48"/>
+    <rect x="16" y="48" width="1" height="48"/>
+    <rect x="32" y="48" width="1" height="48"/>
+    <rect x="48" y="64" width="48" height="1"/>
+    <rect x="48" y="80" width="48" height="1"/>
+  </g>
+</svg>

@@ -6,6 +6,8 @@
   "assets": [
     {
       "id": "floor-parquet",
+      "file": "floor-parquet.svg",
+      "rendering": "Native 96x96 integer-grid SVG. Four 48px blocks, three 16px planks each, one-pixel shared seams and three solid colors. Replaces the generated PNG in the viewer.",
       "name": "나무 짜임 바닥",
       "group": "바닥",
       "width": 96,
