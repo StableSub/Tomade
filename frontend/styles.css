@@ -78,12 +78,12 @@ h1,h2,p {
 }
 .office-map {
   flex: none;
-  width: min(100cqw, 100cqh);
+  width: min(100cqw, 160cqh);
 }
 .office-world {
   position: relative;
   width: 100%;
-  aspect-ratio: 1;
+  aspect-ratio: 8 / 5;
   container-type: inline-size;
   isolation: isolate;
   transform-origin: top left;
@@ -97,6 +97,11 @@ h1,h2,p {
   pointer-events: none;
   image-rendering: pixelated;
 }
+.furniture-occluder { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; image-rendering: pixelated; }
+.business-chair { clip-path: inset(38.8% 82.7% 51% 13.2%); z-index: 491; }
+.macro-chair { clip-path: inset(38.8% 56% 51% 40.2%); z-index: 491; }
+.event-chair { clip-path: inset(71.4% 80.6% 18% 14.8%); z-index: 821; }
+.manager-desk { clip-path: inset(29% 13% 56% 68.3%); z-index: 441; }
 .office-hud {
   position: absolute;
   inset: 0 0 auto;
@@ -118,7 +123,7 @@ h1,h2,p {
   border-left: 1px solid #e3e5e0;
   align-items: flex-start;
 }
-.office-app.is-chatting .office-map { width: min(100cqw, calc(100cqh - 72px)); }
+.office-app.is-chatting .office-map { width: min(100cqw, calc(160cqh - 116px)); }
 .office-app.is-chatting .office-background { border-radius: 10px; }
 .office-app.is-chatting .minimap-label { display: block; font-size: 15px; color: #666d72; margin: 0 0 14px; }
 .office-app.is-chatting .minimap-caption { display: block; text-align: center; font-size: 13px; color: #747a7d; margin-top: 16px; }
@@ -128,7 +133,7 @@ h1,h2,p {
 .map-expand svg { width: 20px; height: 20px; fill: none; stroke: #555e63; stroke-width: 1.7; }
 .return-to-office:hover { outline: 2px solid #7e967d; outline-offset: 3px; }
 .office-app.is-chatting .office-agent { min-width: 0; min-height: 0; }
-.office-app.is-chatting .agent-name, .office-app.is-chatting .agent-status, .office-app.is-chatting .office-agent::before { display: none; }
+.office-app.is-chatting .agent-name, .office-app.is-chatting .agent-status, .office-app.is-chatting .agent-talk, .office-app.is-chatting .office-agent::before { display: none; }
 .office-app.is-chatting .agent-sprite { filter: none; }
 .wood-sign,.wood-button {
   border: 2px solid #39271b;
@@ -164,23 +169,24 @@ h1,h2,p {
 .icon-button svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; }
 .report-book {
   position: absolute;
-  left: 56.5%;
-  top: 25%;
-  z-index: 3;
+  left: 80%;
+  top: 35%;
+  z-index: 450;
   border: 0;
   background: transparent;
   box-shadow: none;
   color: #52391e;
   font-size: clamp(8px,.9cqw,14px);
   padding: 0;
-  width: 5%;
-  height: 9%;
+  width: 6%;
+  height: 5%;
 }
 .report-book span {
   color: #536949;
   margin-right: .3em;
 }
 .office-agent {
+  --sprite-height: 10.8cqw;
   position: absolute;
   transform: translate(-50%,-100%);
   padding: 0;
@@ -190,22 +196,28 @@ h1,h2,p {
   align-items: center;
   justify-content: flex-end;
   flex-direction: column;
-  width: 9.6cqw;
-  height: 12cqw;
+  width: calc(var(--sprite-height) * .8);
+  height: var(--sprite-height);
   min-width: 44px;
   min-height: 44px;
   touch-action: manipulation;
   outline-offset: 0!important;
 }
+.office-agent[data-agent=upper_agent] { --sprite-height: 12cqw; }
+.office-agent[data-agent=event_catalyst] { --sprite-height: 8.4cqw; }
 .agent-sprite {
   flex-shrink: 0;
-  width: 9.6cqw;
-  height: 12cqw;
+  width: calc(var(--sprite-height) * .8);
+  height: var(--sprite-height);
   min-width: 0;
   min-height: 0;
   image-rendering: pixelated;
   filter: drop-shadow(0 3px 0 #38281755);
 }
+.agent-talk { position: absolute; bottom: 104%; left: 50%; transform: translateX(-50%); padding: .35em .75em; color: #292e38; background: #fcfcfa; border: 2px solid #505853; border-radius: 5px; font-size: clamp(10px, 1.1cqw, 16px); font-weight: 600; line-height: 1.5; white-space: nowrap; }
+.agent-talk::after { content: ''; position: absolute; left: 50%; bottom: -6px; width: 8px; height: 8px; transform: rotate(45deg); background: #fcfcfa; border-right: 2px solid #505853; border-bottom: 2px solid #505853; }
+.office-agent[data-agent=upper_agent] .agent-name { bottom: calc(105% + 35px); }
+.office-agent[data-activity=working] .agent-talk { display: none; }
 .office-agent::after {
   content: "";
   position: absolute;
@@ -654,13 +666,6 @@ h1,h2,p {
   opacity: 1;
 }
 .report-book:hover, .report-book:focus-visible { outline: 2px solid #ffe08c; outline-offset: 2px; }
-/* Seated sprites keep their head above the tall red chair backs. */
-.office-agent[data-motion=seated],
-.office-agent[data-motion=seated] .agent-sprite {
-  width: 11.52cqw;
-  height: 14.4cqw;
-}
-.office-agent[data-agent=upper_agent][data-motion=seated] .agent-sprite {
-  transform: translateY(4.2cqw);
-  clip-path: inset(0 0 35%);
-}
+/* Lift seated workers above the chair backs and hide the folded legs behind the furniture. */
+.office-agent[data-motion=seated]:not([data-agent=upper_agent]) { height: calc(var(--sprite-height) + 2cqw); }
+.office-agent[data-motion=seated]:not([data-agent=upper_agent]) .agent-sprite { transform: translateY(-2cqw); clip-path: inset(0 0 24%); }

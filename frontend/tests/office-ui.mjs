@@ -225,8 +225,8 @@ async function fullRoomFitting(browser) {
   const { page } = f;
   try {
     if (await page.locator('#managerDialog').isVisible()) await closePanel(page, '#closeManager');
-    assert.equal(await page.locator('.office-background').evaluate(image => image.naturalWidth === image.naturalHeight), true,
-      'The applied tomato office has the approved square framing');
+    const imageAspect = await page.locator('.office-background').evaluate(image => image.naturalWidth / image.naturalHeight);
+    assert.ok(Math.abs(imageAspect - 1.6) < 0.01, 'The two-room house keeps its approved landscape framing');
     const spritePixels = await page.locator('.agent-sprite, #managerPortrait').evaluateAll(canvases => canvases.map(canvas => {
       const { data } = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
       let opaque = 0, clear = 0, magenta = 0;
@@ -251,7 +251,8 @@ async function fullRoomFitting(browser) {
         await containedInViewport(page, agent(id));
         const sprite = await page.locator(`${agent(id)} .agent-sprite`).boundingBox();
         const hitArea = await page.locator(agent(id)).boundingBox();
-        assert.ok(Math.abs(sprite.height / room.width - 0.12) < 0.001, 'Characters are 20% larger at every viewport size');
+        const relativeHeight = { upper_agent: 0.12, business: 0.108, macro_sector: 0.108, event_catalyst: 0.084 }[id];
+        assert.ok(Math.abs(sprite.height / room.width - relativeHeight) < 0.001, 'Each cast member keeps its intended size relative to the furniture');
         assert.ok(Math.abs(sprite.width / sprite.height - 0.8) < 0.01, 'Larger characters retain their face and body proportions');
         assert.ok(hitArea.width + 1 >= sprite.width && hitArea.height + 1 >= sprite.height, 'The click target grows with the character');
       }
@@ -263,7 +264,7 @@ async function fullRoomFitting(browser) {
       await page.screenshot({ path: `${screenshots}/tomato-office-${viewport.width}x${viewport.height}.png` });
     }
     f.check();
-    console.log('PASS room fitting: full square office and four interactive agents fit desktop, portrait, mobile and landscape without panning');
+    console.log('PASS room fitting: both rooms and four interactive agents fit desktop, portrait, mobile and landscape without panning');
   } finally { await f.dispose(); }
 }
 
@@ -298,6 +299,8 @@ async function walkingMotion(browser) {
       return { samples, frames };
     });
     const directions = new Set(samples.filter(s => s.motion === 'walking').map(s => s.pose));
+    assert.ok(samples.filter(s => s.id === 'upper_agent').every(s => s.x >= 64), 'The manager wanders only inside the private room');
+    assert.ok(samples.filter(s => s.id !== 'upper_agent').every(s => s.x <= 55), 'Idle workers stay in their shared office');
     for (const direction of ['front', 'back', 'left', 'right']) assert.ok(directions.has(`walk-${direction}`), `Walking has actual ${direction} artwork`);
     for (const id of ['upper_agent', ...workers]) {
       const own = samples.filter(s => s.id === id);
@@ -311,7 +314,7 @@ async function walkingMotion(browser) {
       for (let i = 1; i < own.length; i++) {
         const previous = own[i - 1], current = own[i];
         if (previous.motion === 'walking' && current.motion === 'walking' && current.distance >= previous.distance) {
-          const actualTravel = Math.hypot(current.x - previous.x, current.y - previous.y);
+          const actualTravel = Math.hypot(current.x - previous.x, (current.y - previous.y) / 1.6);
           const walked = current.distance - previous.distance;
           // Crossing a corner follows two aisle segments, longer than the endpoint chord.
           const cornerAllowance = current.pose === previous.pose ? 0.01 : 0.15;
@@ -351,6 +354,57 @@ async function walkingMotion(browser) {
     await page.waitForFunction(() => !document.querySelector('.office-agent[data-motion="walking"]'));
     f.check();
     console.log('PASS walking: four directional poses, alternating full-body frames, distance-matched gait, acceleration, resting frames and larger click targets');
+  } finally { await f.dispose(); }
+}
+
+async function twoRoomReporting(browser) {
+  const f = await fixture(browser);
+  const { page } = f;
+  try {
+    await submit(page, '세 직원이 조사한 뒤 부장실로 보고해줘.');
+    await emit(page, [started('upper_agent'), ...workers.map(started)]);
+    for (const id of ['upper_agent', ...workers]) await state(page, id, 'working', 'seated');
+    await page.locator('#returnToOffice').click();
+    await page.waitForFunction(() => !document.querySelector('#officeWorld').getAnimations().length);
+    await page.screenshot({ path: `${screenshots}/two-room-working.png` });
+    // Record the real renderer while mock completion events trigger the new route.
+    await page.evaluate(() => {
+      window.__reportSamples = [];
+      window.__recordReports = true;
+      const sample = () => {
+        for (const node of document.querySelectorAll('.office-agent')) {
+          window.__reportSamples.push({ id: node.dataset.agent, x: Number(node.dataset.x), y: Number(node.dataset.y) });
+        }
+        if (window.__recordReports) requestAnimationFrame(sample);
+      };
+      requestAnimationFrame(sample);
+    });
+    await emit(page, workers.map(id => completed(id, { [`${id}_report`]: `${id} 모의 조사 결과` })));
+    await Promise.all(workers.map(id => state(page, id, 'done', 'idle')));
+    const samples = await page.evaluate(() => { window.__recordReports = false; return window.__reportSamples; });
+    for (const id of workers) {
+      const own = samples.filter(sample => sample.id === id);
+      const crossing = own.filter(sample => sample.x > 59 && sample.x < 61.4);
+      assert.ok(crossing.length > 0, `${id} actually crosses the partition to report`);
+      assert.ok(crossing.every(sample => sample.y > 48 && sample.y < 58), `${id} passes through the doorway instead of a solid wall`);
+      assert.ok(own.some(sample => sample.x >= 69), `${id} reaches a reporting position in the manager room`);
+    }
+    assert.ok(samples.filter(sample => sample.id === 'upper_agent').every(sample => sample.x >= 64), 'The manager remains in the private room during research and reporting');
+    await page.screenshot({ path: `${screenshots}/two-room-reporting.png` });
+    await emit(page, [event('run.completed', { final_answer: finalAnswer })], true);
+    await waitReady(page);
+    await page.locator('#managerDialog').waitFor({ state: 'visible' });
+    await state(page, 'upper_agent', 'done', 'idle');
+    await page.locator('#returnToOffice').click();
+    await page.waitForFunction(() => !document.querySelector('#officeWorld').getAnimations().length);
+    await page.screenshot({ path: `${screenshots}/two-room-manager-arrived.png` });
+    assert.equal(await page.locator(`${agent('upper_agent')} .agent-talk`).isVisible(), true, 'The manager has a clear conversation entry point after arriving');
+    f.check();
+    console.log('PASS two rooms: working poses, doorway-only reporting routes, private manager and final conversation');
+  } catch (error) {
+    console.error('Two-room state:', await page.locator('.office-agent').evaluateAll(nodes => nodes.map(node => ({ ...node.dataset }))));
+    await page.screenshot({ path: `${screenshots}/two-room-failure.png` });
+    throw error;
   } finally { await f.dispose(); }
 }
 
@@ -614,7 +668,7 @@ async function reducedMotion(browser) {
     await emit(page, workers.map(started));
     for (const id of workers) await state(page, id, 'working', 'seated');
     await page.locator('#returnToOffice').click();
-    const seats = { business: [21.5, 54.5], macro_sector: [79.5, 54.5], event_catalyst: [71.5, 79.5] };
+    const seats = { business: [15.3, 49], macro_sector: [42, 49], event_catalyst: [17.1, 81] };
     for (const id of workers) {
       const position = await page.locator(agent(id)).evaluate(node => [Number(node.dataset.x), Number(node.dataset.y)]);
       assert.deepEqual(position, seats[id], `${id} sits at its relocated tomato-office desk`);
@@ -651,6 +705,7 @@ const browser = await playwright.chromium.launch({ headless: true, channel: proc
 try {
   await fullRoomFitting(browser);
   await walkingMotion(browser);
+  await twoRoomReporting(browser);
   await focusMode(browser);
   await desktop(browser);
   await mobile(browser);

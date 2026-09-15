@@ -34,31 +34,35 @@ const NAMES: Record<AgentId, string> = {
   event_catalyst: '이벤트 / 카탈리스트',
 };
 
-// Feet positions follow the compact square room's tomato rug and desk aisles.
+// Feet coordinates follow the 16:10 house. The only connection between rooms is the doorway.
+const ROOM_ASPECT = 8 / 5;
 const WAYPOINTS: Record<string, Waypoint> = {
-  managerDesk: { x: 50, y: 27, edges: ['managerBack'] },
-  managerBack: { x: 50, y: 23, edges: ['managerDesk', 'managerSide'] },
-  managerSide: { x: 65, y: 23, edges: ['managerBack', 'managerAisle'] },
-  managerAisle: { x: 65, y: 32, edges: ['managerSide', 'upperRight'] },
-  upperRight: { x: 64, y: 44, edges: ['managerAisle', 'centerTop', 'rightMiddle'] },
-  managerFront: { x: 50, y: 43, edges: ['centerTop'] },
-  centerTop: { x: 50, y: 47, edges: ['upperRight', 'managerFront', 'leftTop', 'reportLeft', 'reportMacro', 'reportRight', 'center'] },
-  reportLeft: { x: 42, y: 45, edges: ['centerTop'] },
-  reportMacro: { x: 58, y: 45, edges: ['centerTop'] },
-  reportRight: { x: 50, y: 53, edges: ['centerTop'] },
-  leftTop: { x: 38, y: 47, edges: ['centerTop', 'leftMiddle'] },
-  leftMiddle: { x: 38, y: 59, edges: ['leftTop', 'businessAisle', 'center', 'leftBottom'] },
-  businessAisle: { x: 21.5, y: 59, edges: ['leftMiddle', 'businessDesk'] },
-  businessDesk: { x: 21.5, y: 54.5, edges: ['businessAisle'] },
-  center: { x: 50, y: 59, edges: ['centerTop', 'leftMiddle', 'rightMiddle', 'leftBottom'] },
-  rightMiddle: { x: 62, y: 59, edges: ['upperRight', 'center', 'macroAisle'] },
-  macroAisle: { x: 79.5, y: 59, edges: ['rightMiddle', 'macroDesk'] },
-  macroDesk: { x: 79.5, y: 54.5, edges: ['macroAisle'] },
-  leftBottom: { x: 46, y: 68, edges: ['leftMiddle', 'center', 'bottomMiddle'] },
-  bottomMiddle: { x: 47, y: 83.5, edges: ['leftBottom', 'eventAisle', 'entry'] },
-  entry: { x: 50, y: 88, edges: ['bottomMiddle'] },
-  eventAisle: { x: 71.5, y: 83.5, edges: ['bottomMiddle', 'eventDesk'] },
-  eventDesk: { x: 71.5, y: 79.5, edges: ['eventAisle'] },
+  employeeTop: { x: 32, y: 34, edges: ['employeeCenter'] },
+  employeeCenter: { x: 32, y: 55, edges: ['employeeTop', 'businessAisle', 'macroAisle', 'employeeLower'] },
+  businessAisle: { x: 15.3, y: 55, edges: ['employeeCenter', 'businessDesk'] },
+  businessDesk: { x: 15.3, y: 49, edges: ['businessAisle'] },
+  macroAisle: { x: 42, y: 55, edges: ['employeeCenter', 'macroDesk', 'employeeRight'] },
+  macroDesk: { x: 42, y: 49, edges: ['macroAisle'] },
+  employeeRight: { x: 54.5, y: 55, edges: ['macroAisle', 'doorLeft'] },
+  employeeLower: { x: 32, y: 80, edges: ['employeeCenter', 'employeeBottom'] },
+  employeeBottom: { x: 32, y: 84, edges: ['employeeLower', 'eventAisle', 'entry'] },
+  eventAisle: { x: 17.1, y: 84, edges: ['employeeBottom', 'eventDesk'] },
+  eventDesk: { x: 17.1, y: 81, edges: ['eventAisle'] },
+  entry: { x: 35.5, y: 84, edges: ['employeeBottom'] },
+  doorLeft: { x: 54.5, y: 53, edges: ['employeeRight', 'doorway'] },
+  doorway: { x: 60, y: 53, edges: ['doorLeft', 'managerEntry'] },
+  managerEntry: { x: 65, y: 53, edges: ['doorway', 'managerSide', 'reportAisle'] },
+  managerSide: { x: 65, y: 28, edges: ['managerEntry', 'managerBack'] },
+  managerBack: { x: 78, y: 28, edges: ['managerSide', 'managerDesk'] },
+  managerDesk: { x: 78, y: 34, edges: ['managerBack'] },
+  reportAisle: { x: 65, y: 58, edges: ['managerEntry', 'reportLeft', 'managerLowerLeft'] },
+  reportLeft: { x: 69, y: 58, edges: ['reportAisle', 'reportCenter'] },
+  reportCenter: { x: 77, y: 58, edges: ['reportLeft', 'reportMacro', 'reportRight'] },
+  reportMacro: { x: 77, y: 53, edges: ['reportCenter'] },
+  reportRight: { x: 85, y: 58, edges: ['reportCenter'] },
+  managerLowerLeft: { x: 65, y: 68, edges: ['reportAisle', 'managerLeft'] },
+  managerLeft: { x: 68, y: 68, edges: ['managerLowerLeft', 'managerFront'] },
+  managerFront: { x: 78, y: 68, edges: ['managerLeft'] },
 };
 
 const DESKS: Record<AgentId, string> = {
@@ -69,19 +73,19 @@ const DESKS: Record<AgentId, string> = {
 };
 const STARTS: Record<AgentId, string> = {
   upper_agent: 'managerFront',
-  business: 'leftMiddle',
-  macro_sector: 'rightMiddle',
-  event_catalyst: 'leftBottom',
+  business: 'employeeCenter',
+  macro_sector: 'employeeRight',
+  event_catalyst: 'employeeLower',
 };
 const WANDER: Record<AgentId, string[]> = {
-  upper_agent: ['centerTop', 'rightMiddle', 'center', 'leftTop', 'managerFront'],
-  business: ['leftTop', 'centerTop', 'center', 'leftMiddle', 'leftBottom', 'leftMiddle'],
-  macro_sector: ['upperRight', 'centerTop', 'center', 'rightMiddle'],
-  event_catalyst: ['center', 'leftBottom', 'bottomMiddle', 'entry', 'leftBottom'],
+  upper_agent: ['managerLeft', 'managerEntry', 'managerFront'],
+  business: ['businessAisle', 'employeeTop', 'employeeCenter', 'employeeLower'],
+  macro_sector: ['employeeTop', 'employeeRight', 'employeeCenter'],
+  event_catalyst: ['employeeCenter', 'employeeLower', 'entry', 'employeeLower'],
 };
 
 function distance(a: Point, b: Point): number {
-  return Math.hypot(a.x - b.x, a.y - b.y);
+  return Math.hypot(a.x - b.x, (a.y - b.y) / ROOM_ASPECT);
 }
 
 function route(from: string, to: string): string[] {
@@ -118,7 +122,7 @@ const WALK_IMAGES: Record<WalkDirection, string> = {
 };
 const WALK_SPEED = 8.5;
 const WALK_ACCELERATION = 22;
-// One full left/right step cycle covers 5% of the square room, regardless of frame rate.
+// One complete step cycle covers 5% of the room width, regardless of frame rate or direction.
 const WALK_CYCLE_DISTANCE = 5;
 let spriteAtlas: SpriteAtlas | null = null;
 let spriteAtlasPromise: Promise<SpriteAtlas> | null = null;
@@ -194,9 +198,7 @@ function drawCharacter(
   if (!atlas) return;
   const { image, frames } = atlas;
   const column = seated ? 3 : direction === 'back' ? 1 : direction === 'front' ? 0 : 2;
-  // The rear sheet's two contact poses are adjacent; insert each matching passing pose.
-  const walkColumn = walkDirection === 'back' ? [0, 2, 1, 3][frame] : frame;
-  const source = frames[id][walking ? walkColumn : column];
+  const source = frames[id][walking ? frame : column];
   // A shared scale per walking row preserves the original drawing's weight shift and head size.
   const referenceHeight = walking ? Math.max(...frames[id].map(pose => pose.height)) : frames[id][0].height;
   const scale = (canvas.height - 8) / referenceHeight;
@@ -225,7 +227,7 @@ export function paintPortrait(canvas: HTMLCanvasElement, id: AgentId): void {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     const face = frames[id][0];
-    const crop = Math.max(face.width, face.height * 0.49);
+    const crop = Math.max(face.width, face.height * (id === 'upper_agent' ? 0.76 : 0.49));
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(image, face.x + (face.width - crop) / 2, face.y, crop, crop,
@@ -274,6 +276,13 @@ export class OfficeScene {
       status.className = 'agent-status';
       status.setAttribute('aria-hidden', 'true');
       button.append(canvas, name, status);
+      if (id === 'upper_agent') {
+        const talk = document.createElement('span');
+        talk.className = 'agent-talk';
+        talk.textContent = '대화하기';
+        talk.setAttribute('aria-hidden', 'true');
+        button.append(talk);
+      }
       button.addEventListener('click', () => onSelect(id, button), { signal: this.clicks.signal });
       container.append(button);
       const start = STARTS[id];
@@ -423,7 +432,7 @@ export class OfficeScene {
       const dy = target.y - character.position.y;
       const remaining = distance(character.position, target);
       if (remaining > 0) {
-        character.direction = Math.abs(dx) > Math.abs(dy)
+        character.direction = Math.abs(dx) > Math.abs(dy) / ROOM_ASPECT
           ? dx > 0 ? 'right' : 'left'
           : dy > 0 ? 'front' : 'back';
       }
@@ -451,6 +460,7 @@ export class OfficeScene {
     button.dataset.y = character.position.y.toFixed(3);
     button.dataset.activity = activity;
     button.dataset.motion = motion;
+    button.dataset.purpose = character.purpose;
     button.dataset.walkDistance = character.walkDistance.toFixed(4);
     const label = activity === 'working'
       ? motion === 'seated' ? id === 'upper_agent' ? '생각 중' : '조사 중' : '자리로 이동'
