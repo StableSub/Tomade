@@ -1,0 +1,10 @@
+{
+  "id": "partition-panel",
+  "name": "연녹색 칸막이",
+  "group": "벽",
+  "width": 32,
+  "opaque": false,
+  "prompt": "ONE narrow VERTICAL interior partition-wall segment like the central divider between the rooms. Flat overhead RPG wall surface: long pale sage-green rectangular center, thin dark brown wood rails along left and right edges. Width-to-height 1:5. NO end cap blocks, doorway, door slab, handle or lintel; those will be separate modules. Simple flat two-tone sage and brown outline. Complete segment centered on SOLID MAGENTA #FF00FF with padding, no floor/shadow/text/other object.",
+  "file": "partition-panel.png",
+  "source": "/Users/anjeongseob/.codex/generated_images/01a09e8f-b7c6-7990-aeaf-b83cc9294f84/exec-c67a1fa0-9acf-4ef8-bdf9-632748c45c12.png"
+}

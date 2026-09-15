@@ -14,7 +14,7 @@
     .count { border: 1px solid #dfe4d9; border-radius: 99px; padding: 8px 14px; font-size: 12px; white-space: nowrap; }
     nav { display: flex; align-items: center; gap: 7px; margin-bottom: 28px; flex-wrap: wrap; }
     button { font: inherit; cursor: pointer; }
-    nav button { border: 1px solid #e0e4db; background: transparent; color: #647266; border-radius: 7px; padding: 9px 14px; font-size: 13px; }
+    nav button, nav a { border: 1px solid #e0e4db; background: transparent; color: #647266; border-radius: 7px; padding: 9px 14px; font-size: 13px; text-decoration: none; }
     nav button[aria-pressed=true] { background: #2e5142; color: white; border-color: #2e5142; }
     nav .spacer { flex: 1; }
     .grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
@@ -50,6 +50,7 @@
     <button data-filter="업무 가구" aria-pressed="false">업무 가구</button>
     <button data-filter="모니터" aria-pressed="false">모니터</button>
     <button data-filter="집 소품" aria-pressed="false">집 소품</button>
+    <a href="../office-environment-v1/index.html">배경 오브젝트 ↗</a>
     <span class="spacer"></span><button id="background" aria-pressed="false">어두운 배경</button>
   </nav>
   <p id="error" role="status"></p>

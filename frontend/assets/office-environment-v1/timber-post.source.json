@@ -1,0 +1,10 @@
+{
+  "id": "timber-post",
+  "name": "모서리 · 문기둥",
+  "group": "출입구",
+  "width": 36,
+  "opaque": false,
+  "prompt": "ONE small square wooden corner/end-cap post seen in flat top-down RPG projection, matching the dark brown square blocks at the source room's doorway ends and corners. A compact square honey/medium-brown face inside a dark-brown one-pixel frame, one lighter top-left band and darker bottom-right band. Front-parallel square, no diamond/isometric perspective. Complete object centered on SOLID MAGENTA #FF00FF, no surrounding wall/floor or shadow. No circle, hardware, text.",
+  "file": "timber-post.png",
+  "source": "/Users/anjeongseob/.codex/generated_images/01a09e8f-b7c6-7990-aeaf-b83cc9294f84/exec-38ee264f-46d0-4e7d-bc04-b12905233153.png"
+}

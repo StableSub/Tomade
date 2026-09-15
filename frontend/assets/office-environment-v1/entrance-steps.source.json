@@ -1,0 +1,10 @@
+{
+  "id": "entrance-steps",
+  "name": "입구 계단",
+  "group": "출입구",
+  "width": 112,
+  "opaque": false,
+  "prompt": "ONE small entrance staircase from the source bottom-center room entrance, seen from the same axis-aligned elevated RPG view. Three plain light-gray stone steps spanning a 2.3:1 wide rectangular footprint, alternating ivory top strips and medium-gray vertical risers, narrow dark gray perimeter. Horizontal straight edges, no taper or side diagonal, no rails, wall or door. Complete stair object centered on SOLID MAGENTA #FF00FF with padding. No attached floor, cast shadow, people, text or labels.",
+  "file": "entrance-steps.png",
+  "source": "/Users/anjeongseob/.codex/generated_images/01a09e8f-b7c6-7990-aeaf-b83cc9294f84/exec-3e1ff05e-38ed-4b7f-928e-5af291bf358e.png"
+}

@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tomade · 배경 오브젝트</title>
+  <style>
+    * { box-sizing: border-box; }
+    :root { font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif; color:#2c4436; background:#f7f7f2; }
+    body { margin:0; padding:30px max(22px,calc((100vw - 1180px)/2)); }
+    header { display:flex; justify-content:space-between; align-items:center; gap:16px; margin-bottom:24px; }
+    h1 { margin:0 0 7px; font-size:25px; letter-spacing:-.8px; } h1 span { font-weight:400; color:#8a9587; }
+    p { margin:0; font-size:13px; color:#7b8476; line-height:1.6; }
+    a { color:inherit; text-decoration:none; } header a { border:1px solid #dce3d6; padding:9px 13px; border-radius:7px; font-size:12px; white-space:nowrap; }
+    .workspace { display:grid; grid-template-columns:minmax(0,1fr) 214px; gap:18px; }
+    .room-shell { padding:12px; background:#f0eee3; border:1px solid #e0e4d7; border-radius:12px; }
+    #room { width:100%; aspect-ratio:8/5; position:relative; overflow:hidden; }
+    #room canvas { position:absolute; image-rendering:pixelated; }
+    #room canvas:hover { outline:1px solid #bb6250; outline-offset:-1px; }
+    .room-word { position:absolute; z-index:10; font-size:clamp(10px,1.2vw,16px); font-weight:650; pointer-events:none; color:#35533e; }
+    aside { background:white; border:1px solid #e1e6dc; border-radius:12px; padding:20px; align-self:start; }
+    h2 { font-size:14px; margin:0 0 16px; } .layers { display:flex; flex-direction:column; gap:14px; }
+    .layers label { display:flex; gap:9px; font-size:13px; align-items:center; } input { accent-color:#426647; }
+    aside p { margin-top:22px; font-size:12px; line-height:1.8; } #ready { margin-top:20px; font-size:11px; color:#8a9483; }
+    .catalog-title { margin:30px 0 14px; display:flex; justify-content:space-between; align-items:center; }
+    .catalog-title h2 { margin:0; font-size:15px; } .catalog-title span { font-size:12px; color:#929b8b; }
+    #grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; }
+    button { font:inherit; cursor:pointer; color:inherit; }
+    .card { background:white; border:1px solid #e1e6dc; border-radius:10px; padding:9px; min-width:0; text-align:left; }
+    .card:hover { border-color:#8ba181; }
+    .stage { height:116px; display:flex; justify-content:center; align-items:center; background:#eeefe5; border-radius:6px; }
+    .stage canvas { image-rendering:pixelated; max-width:90%; max-height:90%; object-fit:contain; }
+    .caption { padding:12px 6px 6px; display:block; font-size:13px; font-weight:600; }
+    .caption small { display:block; font-size:10px; color:#9aa18f; font-weight:400; margin-top:4px; }
+    footer { margin-top:24px; border-top:1px solid #e0e5d9; padding-top:18px; font-size:11px; color:#88917f; line-height:1.8; }
+    footer a { text-decoration:underline; }
+    dialog { width:min(650px,94vw); padding:22px; border:1px solid #d9e0d1; border-radius:12px; color:inherit; }
+    dialog::backdrop { background:#1f2d2590; } .dialog-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; } .dialog-head h2 { margin:0; font-size:17px; }
+    #close { border:0; background:#eef1e9; border-radius:6px; width:30px; height:30px; font-size:20px; }
+    #detail-stage { height:370px; background:#eeefe5; display:flex; justify-content:center; align-items:center; overflow:hidden; border-radius:6px; }
+    #detail-stage canvas { image-rendering:pixelated; max-width:96%; max-height:96%; object-fit:contain; }
+    #detail-note { margin-top:14px; }
+    @media(max-width:800px) { body { padding:22px 16px; } .workspace { grid-template-columns:1fr; } aside { padding:16px; } .layers { flex-direction:row; flex-wrap:wrap; } aside p { margin-top:12px; } #ready { margin-top:10px; } h1 { font-size:22px; } #grid { grid-template-columns:repeat(2,minmax(0,1fr)); } header { align-items:start; } }
+  </style>
+</head>
+<body>
+  <header><div><h1>Tomade <span>/ 배경 오브젝트</span></h1><p>바닥과 벽을 따로 놓아 만든 두 개의 방.</p></div><a href="../office-objects-v1/index.html">가구 · 소품 보기 ↗</a></header>
+  <main>
+    <div class="workspace">
+      <div class="room-shell"><div id="room" role="img" aria-label="개별 도트 타일과 벽 오브젝트로 조립한 직원 사무실과 부장실"></div></div>
+      <aside><h2>레이어</h2><div class="layers"><label><input type="checkbox" data-layer="floor" checked> 바닥</label><label><input type="checkbox" data-layer="wall" checked> 벽 · 칸막이</label><label><input type="checkbox" data-layer="entry" checked> 테두리 · 출입구</label></div><p>각 레이어를 꺼 보면<br>배경이 어떻게 나뉘는지<br>확인할 수 있습니다.</p><div id="ready" role="status">오브젝트 불러오는 중</div></aside>
+    </div>
+    <div class="catalog-title"><h2>배경을 만드는 8개 오브젝트</h2><span>클릭해서 확대</span></div><div id="grid"></div>
+  </main>
+  <footer>두 방 미리보기는 아래 에셋을 화면에서 조립한 것입니다. 실제 사무실 UI에는 아직 연결하지 않았습니다.<br>바닥·벽면은 불투명 텍스처이며 목재·계단 원본은 자홍색 배경을 표시 시 투명 처리합니다.<br><a href="prompts.json">생성 프롬프트</a> · <a href="../research-office.png" target="_blank" rel="noopener">기준 배경</a></footer>
+  <dialog id="inspect"><div class="dialog-head"><h2 id="detail-title"></h2><button id="close" aria-label="닫기">×</button></div><div id="detail-stage"></div><p id="detail-note"></p></dialog>
+  <script type="module">
+    const plan = await fetch('./prompts.json').then(r => r.json());
+    const sprites = new Map();
+    const grid = document.querySelector('#grid');
+    const room = document.querySelector('#room');
+    const dialog = document.querySelector('#inspect');
+    let errors = 0;
+
+    // Preserve every generated PNG. Crop/key only the displayed sprite in memory.
+    function decode(image, asset) {
+      const source = document.createElement('canvas'); source.width=image.naturalWidth; source.height=image.naturalHeight;
+      const ctx = source.getContext('2d', {willReadFrequently:true}); ctx.drawImage(image,0,0);
+      let left=0, top=0, right=source.width-1, bottom=source.height-1;
+      if (!asset.opaque) {
+        const pixels=ctx.getImageData(0,0,source.width,source.height);
+        left=source.width; top=source.height; right=-1; bottom=-1;
+        for (let y=0;y<source.height;y++) for(let x=0;x<source.width;x++) {
+          const i=(y*source.width+x)*4, r=pixels.data[i], g=pixels.data[i+1], b=pixels.data[i+2];
+          if(r-g>12 && b-g>12 && b>r*.6) pixels.data[i+3]=0;
+          else if(pixels.data[i+3]) {left=Math.min(left,x);top=Math.min(top,y);right=Math.max(right,x);bottom=Math.max(bottom,y);}
+        }
+        if(right<left) throw new Error('오브젝트가 비어 있습니다.');
+        ctx.putImageData(pixels,0,0);
+      }
+      const out=document.createElement('canvas'); out.width=asset.width; out.height=Math.max(1,Math.round(asset.width*(bottom-top+1)/(right-left+1)));
+      const target=out.getContext('2d'); target.imageSmoothingEnabled=false;
+      target.drawImage(source,left,top,right-left+1,bottom-top+1,0,0,out.width,out.height);
+      return out;
+    }
+
+    await Promise.all(plan.assets.map(async asset => {
+      const card=document.createElement('button'); card.className='card'; card.dataset.asset=asset.id; card.setAttribute('aria-label',asset.name+' 확대');
+      const stage=document.createElement('div'); stage.className='stage'; stage.textContent='불러오는 중';
+      const caption=document.createElement('span'); caption.className='caption'; caption.textContent=asset.name;
+      const filename=document.createElement('small'); filename.textContent=asset.id+'.png'; caption.append(filename); card.append(stage,caption); grid.append(card);
+      try {
+        const img=new Image(); img.src='./'+asset.id+'.png'; await img.decode();
+        const sprite=decode(img,asset); sprites.set(asset.id,sprite); stage.replaceChildren(sprite); card.dataset.loaded='true';
+        card.addEventListener('click',()=>{
+          document.querySelector('#detail-title').textContent=asset.name;
+          const large=document.createElement('canvas');
+          const repeat=asset.group==='바닥';
+          large.width=repeat?sprite.width*2:sprite.width; large.height=repeat?sprite.height*2:sprite.height;
+          const ctx=large.getContext('2d'); ctx.imageSmoothingEnabled=false;
+          if(repeat) {ctx.fillStyle=ctx.createPattern(sprite,'repeat');ctx.fillRect(0,0,large.width,large.height);} else ctx.drawImage(sprite,0,0);
+          large.style.width=large.width*2+'px';large.style.height=large.height*2+'px';
+          document.querySelector('#detail-stage').replaceChildren(large);
+          document.querySelector('#detail-note').textContent=repeat?'같은 바닥 타일을 가로·세로 두 번 반복한 모습입니다.':'개별 배치에 사용할 원본 오브젝트입니다.';
+          dialog.showModal();
+        });
+      } catch(error) {errors++;stage.textContent='불러오지 못했습니다';card.dataset.loaded='false';console.error(asset.id,error);}
+    }));
+
+    function place(id,x,y,w,h,layer,repeat=false) {
+      const sprite=sprites.get(id); if(!sprite) return;
+      const canvas=document.createElement('canvas'); canvas.width=w;canvas.height=h;
+      canvas.dataset.module=id;canvas.dataset.layer=layer;canvas.title=plan.assets.find(asset=>asset.id===id).name;
+      canvas.style.cssText=`left:${x/8}%;top:${y/5}%;width:${w/8}%;height:${h/5}%;`;
+      const ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;
+      if(repeat) {ctx.fillStyle=ctx.createPattern(sprite,'repeat');ctx.fillRect(0,0,w,h);} else ctx.drawImage(sprite,0,0,w,h);
+      room.append(canvas);
+    }
+
+    // An 800x500 review layout, composed from independent modules, not the original room PNG.
+    place('floor-parquet',32,132,436,306,'floor',true);
+    place('floor-parquet',246,438,80,34,'floor',true);
+    place('floor-parquet',468,246,20,46,'floor',true);
+    place('floor-checker',488,166,280,272,'floor',true);
+    place('wall-panel',32,30,436,106,'wall');
+    place('wall-panel',488,30,280,140,'wall');
+    place('wall-panel',32,454,214,26,'wall');
+    place('wall-panel',326,454,442,26,'wall');
+    place('partition-panel',468,30,20,208,'wall');
+    place('partition-panel',468,290,20,190,'wall');
+    place('beam-horizontal',16,14,768,16,'entry');
+    place('beam-horizontal',16,438,230,16,'entry');
+    place('beam-horizontal',326,438,458,16,'entry');
+    place('beam-vertical',16,14,16,466,'entry');
+    place('beam-vertical',768,14,16,466,'entry');
+    [[16,14],[760,14],[466,14],[466,226],[466,282],[466,438],[16,438],[760,438],[228,438],[320,438]].forEach(([x,y])=>place('timber-post',x,y,24,24,'entry'));
+    place('entrance-steps',246,468,80,28,'entry');
+    for(const [text,x,y] of [['Tomade · 직원 사무실',7.5,10],['부장실',67,10]]) {
+      const label=document.createElement('span');label.className='room-word';label.textContent=text;label.style.left=x+'%';label.style.top=y+'%';room.append(label);
+    }
+    document.querySelectorAll('[data-layer][type="checkbox"]').forEach(input=>input.addEventListener('change',()=>{
+      room.querySelectorAll(`canvas[data-layer="${input.dataset.layer}"]`).forEach(canvas=>{canvas.hidden=!input.checked;});
+    }));
+    document.querySelector('#close').addEventListener('click',()=>dialog.close());
+    document.querySelector('#ready').textContent=errors?`${errors}개 불러오기 실패`:`${sprites.size}개 오브젝트 · ${room.querySelectorAll('canvas').length}개 배치`;
+    document.body.dataset.ready=String(errors===0);
+  </script>
+</body>
+</html>

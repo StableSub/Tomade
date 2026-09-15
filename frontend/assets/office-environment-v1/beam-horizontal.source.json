@@ -1,0 +1,10 @@
+{
+  "id": "beam-horizontal",
+  "name": "가로 목재 테두리",
+  "group": "벽",
+  "width": 192,
+  "opaque": false,
+  "prompt": "ONE horizontal warm medium-brown timber wall-cap beam, plain long rectangle with a 6:1 width-to-height ratio. Front-facing squared edges, thin dark-brown outline, one narrow lighter upper pixel strip and darker lower strip. Flat front view, no visible perspective end face, sparse two-color wood, no ornamental grain or gaps. Complete beam only centered on SOLID MAGENTA #FF00FF, about 80 percent canvas width, empty key color around all sides. No wall/floor/screw/text/drop-shadow. Straight modular frame beam matching outer room border.",
+  "file": "beam-horizontal.png",
+  "source": "/Users/anjeongseob/.codex/generated_images/01a09e8f-b7c6-7990-aeaf-b83cc9294f84/exec-ef5f0fb4-f185-4bdb-9973-7ed446251548.png"
+}
