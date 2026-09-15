@@ -169,8 +169,8 @@ h1,h2,p {
 .icon-button svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; }
 .report-book {
   position: absolute;
-  left: 80%;
-  top: 35%;
+  left: 79.81%;
+  top: 35.18%;
   z-index: 450;
   border: 0;
   background: transparent;
@@ -178,8 +178,8 @@ h1,h2,p {
   color: #52391e;
   font-size: clamp(8px,.9cqw,14px);
   padding: 0;
-  width: 6%;
-  height: 5%;
+  width: 5.62%;
+  height: 2.82%;
 }
 .report-book span {
   color: #536949;
@@ -665,7 +665,7 @@ h1,h2,p {
 .office-agent.sprite-unavailable .agent-name {
   opacity: 1;
 }
-.report-book:hover, .report-book:focus-visible { outline: 2px solid #ffe08c; outline-offset: 2px; }
+.report-book:hover, .report-book:focus-visible { outline: 2px solid #ffe08c; outline-offset: 0; }
 /* Lift seated workers above the chair backs and hide the folded legs behind the furniture. */
 .office-agent[data-motion=seated]:not([data-agent=upper_agent]) { height: calc(var(--sprite-height) + 2cqw); }
 .office-agent[data-motion=seated]:not([data-agent=upper_agent]) .agent-sprite { transform: translateY(-2cqw); clip-path: inset(0 0 24%); }
