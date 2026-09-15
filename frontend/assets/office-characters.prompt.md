@@ -1,4 +1,30 @@
-## 캐릭터 시트 생성 프롬프트
+# 현재 캐릭터 시트
+
+`office-characters.png`의 행은 페더스 맥그로·패트·매트·게왹이, 열은 정면·뒷모습·오른쪽·착석입니다. 부장만 정면으로 앉고 직원 셋은 뒷모습으로 앉습니다. 자홍색 배경은 런타임에 제거합니다.
+
+도구: built-in `image_gen`.
+참조 시안: `exec-58db9b99-c5a5-46da-b912-dad29d9179c1.png`.
+최종 원본: `/Users/anjeongseob/.codex/generated_images/01a09e8f-b7c6-7990-aeaf-b83cc9294f84/exec-e100ade4-6323-418a-95ee-14369c18da80.png`.
+
+## 현재 시트 생성 프롬프트
+
+Production sprite atlas for Tomade. Use the supplied CHARACTER DESIGN SHEET only as identity/style reference. Output a PERFECTLY REGULAR 4 COLUMN by 4 ROW sprite atlas on uniform solid saturated MAGENTA #ff00ff background. Exactly sixteen isolated full-body character sprites, one per equal square cell. No labels, words, borders, chairs, desk, shadows, props, icons, ground, scene or decorative elements. No spill across cell boundaries. Generous magenta padding on every side including head and feet. Keep every sprite of a character the same body size across its row, baseline aligned. Crisp deliberate fine square pixel art, no smooth vector rendering, intact small eyes and faces.
+
+ROWS top to bottom:
+1 Feathers McGraw from reference: black penguin, white belly, tiny black deadpan eyes, orange beak and feet, tall RED RUBBER GLOVE HAT on his head in EVERY pose. Preserve visible finger silhouette, white belly only on front, solid black back. No suit/human hands.
+2 PAT: yellow sweater, solid blue FLAT BERET, peach round bald face/bulb nose, blue trousers, black shoes.
+3 MAT: red sweater, blue-and-white horizontal striped BEANIE with white pom-pom, peach round bald face/bulb nose, blue trousers, black shoes.
+4 The exact mint green ARTBOX ALIEN from the reference: large wide round head, TWO round-tipped antennae, TWO large slanted black almond eyes with white dots, small black smile, compact green star-like body with two short legs. Same shape across directions. No clothes/chain/ears.
+
+COLUMNS left to right:
+1 FRONT: standing neutral, face directed down toward viewer, both feet fully visible.
+2 BACK: standing neutral facing away/upward, absolutely NO face, NO eyes or nose on back of head. Back of penguin fully black, hat remains; Pat and Mat show their cap backs; alien's back has NO face.
+3 RIGHT PROFILE: neutral standing facing image RIGHT, nose/beak and eye(s) on right side, back on left. Full body, legs distinguishable.
+4 SEATED WORKING: ROW1 penguin faces FRONT toward viewer with flippers extending slightly forward, lower body sitting. ROWS2/3/4 face strictly BACK/upward toward a desk that is NOT DRAWN: backs of heads and bodies visible, arms extended forward, slightly bent seated legs. Do not draw any chair, table, keyboard, desk or detached object. The atlas will be layered over real furniture.
+
+Characters are coherent simplified pixel sprites based faithfully on supplied designs. Keep the source clothing, hats, alien face, red glove hat. No redesign or larger anime eyes. All four rows use the same pixel density. Return only the atlas.
+
+## 이전 사람 캐릭터 시트 생성 프롬프트
 
 Use case: identity-preserve / game sprite asset extraction. The provided image is the APPROVED character identity and pixel-art style reference. Create a production SPRITE ATLAS of the SAME FOUR people, faithfully preserving their faces, hairstyles, proportions, outfits and rich fine-pixel RPG art. The atlas will replace crude programmatically drawn avatars in this office. The reference faces are the target, not a suggestion. Exactly FOUR CHARACTER IDENTITIES repeated across poses.
 

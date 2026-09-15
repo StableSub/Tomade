@@ -1,4 +1,16 @@
-# 간소화한 사무실 배경
+# 두 방 구조의 Tomade 집 배경
+
+현재 `research-office.png`는 사용자가 승인한 패트와 매트 집 분위기의 16:10 시안을 적용한 배경입니다. 직원 사무실은 밝은 나무 짜임 바닥, 부장실은 연녹색·아이보리 체크 타일이며, 캐릭터와 대화하기 표시는 런타임에 별도로 표시합니다.
+
+승인 시안: `exec-2b65bf7c-0af1-408e-92bd-5c41dcb5d1ef.png`.
+최종 배경 원본: `/Users/anjeongseob/.codex/generated_images/01a09e8f-b7c6-7990-aeaf-b83cc9294f84/exec-19ada987-a2f1-497f-8ae8-1f62581fed79.png`.
+도구: built-in `image_gen`.
+
+## 현재 배경의 캐릭터 분리 프롬프트
+
+Precise-object-edit for a production game background. Remove ONLY the FOUR CHARACTERS and the white "대화하기" speech bubble from this approved two-room Tomade house image. Remove Pat at the upper-left desk, Mat at the upper-middle desk, green alien near the lower-left desk, and penguin on the beige rug, including their shadows. Restore the floors/rug beneath them and the EMPTY wooden chairs, desktops and keyboards naturally. Exactly four desks and four empty chairs remain. NO people, no animals, no alien, no speech bubble or click prompt baked into the background. Everything else must stay in the same position and shape: 16:10 landscape canvas, straight 90-degree walls and open central doorway, bright basket-weave parquet employee room, ivory/sage checker-tile manager room, exact furniture locations, windows, stove, sofa, beige rug, tomato details and all Korean desk/room labels and Tomade. Keep current fine pixel style and role-specific monitor screens. Surgical removal, not a redesign.
+
+## 이전 한 방 배경 제작 기록
 
 사용자가 승인한 배경을 built-in image_gen으로 편집해 `research-office.png`에 적용했습니다. 간소화 원본: `exec-34eebd55-6097-4030-8d76-f9d0b0c0f9b8.png`. 모니터 역할 화면을 추가한 최종 원본: `/Users/anjeongseob/.codex/generated_images/01a09e8f-b7c6-7990-aeaf-b83cc9294f84/exec-27e79b7b-fb26-4659-b4b2-424efa95ed71.png`. 네 캐릭터는 이 배경에 포함되지 않으며 별도 Canvas로 움직입니다.
 

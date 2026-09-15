@@ -1,4 +1,45 @@
-# 걷기 애니메이션 에셋
+# 현재 캐릭터 걷기 에셋
+
+기존 이동 거리 기반 4프레임 재생 로직에 페더스 맥그로·패트·매트·게왹이의 새 그림을 연결했습니다. 정면·뒷모습·오른쪽 각각 4×4 시트이며 왼쪽은 오른쪽을 런타임에 반전합니다. 모든 방향은 열 순서대로 재생합니다. 짧은 반복 걸음으로 표현하며 프레임 사이를 보간하지 않습니다.
+
+도구: built-in `image_gen`. 참조는 현재 기본 캐릭터 시트입니다.
+최종 생성 원본 폴더: `/Users/anjeongseob/.codex/generated_images/01a09e8f-b7c6-7990-aeaf-b83cc9294f84/`.
+- 정면: `exec-32970f61-cda5-489f-a6e6-0b41df31208b.png` (초기 `exec-a78b867b-b452-45c3-b44b-ecbffbda5547.png`에서 다리 보정).
+- 후면: `exec-df1ce766-fd92-4aa4-b214-a6489ae4eb02.png`.
+- 오른쪽: `exec-c6c0618f-a697-47d2-bccf-4ed25069b445.png`.
+
+## 현재 front 생성 프롬프트
+
+Generate a production WALK CYCLE sprite atlas for the supplied approved four-character base atlas. Exact identities, hats, faces, body proportions and fine pixel style MUST match. Output exactly FOUR equal COLUMNS by FOUR equal ROWS on uniform pure MAGENTA #ff00ff. One full-body sprite centered inside each cell, baseline matched across row, ample padding. No text, grid, arrows, ground, cast shadows, floor, chair, desk, paper or props. Fixed body/head scale across all four frames, no squashing/stretched faces.
+ROWS: 1 Feathers McGraw black penguin/white front belly/orange feet and beak, the RED RUBBER GLOVE HAT with all fingers visible in EVERY frame. 2 PAT yellow sweater, blue flat beret, blue trousers and black shoes. 3 MAT red sweater, BLUE-WHITE STRIPED POM-POM HAT, blue trousers/black shoes. 4 mint-green ARTBOX ALIEN, broad head, TWO round-tip antennae, black almond eyes on FRONT ONLY, tiny smiling mouth, stubby green arms and legs, no clothing.
+COLUMNS are FOUR CONSECUTIVE WALK PHASES in temporal order: 1 left-leg contact/right-arm forward, 2 passing with feet close and one heel lifted, 3 right-leg contact/left-arm forward, 4 opposite passing phase with feet close and other heel lifted. Real alternating feet and opposite arm swing, small readable changes. Each column is visually distinct and the fourth loops into first. No interpolation blur; limited-frame classic pixel walking is desired. Penguin waddles with alternating orange feet and subtle flipper counter-swing; alien bobs with alternating short legs, two antennae stay stable. Keep hats/red glove fully inside cells, no detached bits and no duplicating an extra eye on the back.
+DIRECTION LOCK: ALL SIXTEEN FIGURES FACE STRICTLY FRONT, toward the viewer/downward as in base atlas column 1. Faces and both eyes visible in every frame, faces straight forward, never turn sideways. Show the approved front appearance during walking.
+
+## 현재 back 생성 프롬프트
+
+Generate a production WALK CYCLE sprite atlas for the supplied approved four-character base atlas. Exact identities, hats, faces, body proportions and fine pixel style MUST match. Output exactly FOUR equal COLUMNS by FOUR equal ROWS on uniform pure MAGENTA #ff00ff. One full-body sprite centered inside each cell, baseline matched across row, ample padding. No text, grid, arrows, ground, cast shadows, floor, chair, desk, paper or props. Fixed body/head scale across all four frames, no squashing/stretched faces.
+ROWS: 1 Feathers McGraw black penguin/white front belly/orange feet and beak, the RED RUBBER GLOVE HAT with all fingers visible in EVERY frame. 2 PAT yellow sweater, blue flat beret, blue trousers and black shoes. 3 MAT red sweater, BLUE-WHITE STRIPED POM-POM HAT, blue trousers/black shoes. 4 mint-green ARTBOX ALIEN, broad head, TWO round-tip antennae, black almond eyes on FRONT ONLY, tiny smiling mouth, stubby green arms and legs, no clothing.
+COLUMNS are FOUR CONSECUTIVE WALK PHASES in temporal order: 1 left-leg contact/right-arm forward, 2 passing with feet close and one heel lifted, 3 right-leg contact/left-arm forward, 4 opposite passing phase with feet close and other heel lifted. Real alternating feet and opposite arm swing, small readable changes. Each column is visually distinct and the fourth loops into first. No interpolation blur; limited-frame classic pixel walking is desired. Penguin waddles with alternating orange feet and subtle flipper counter-swing; alien bobs with alternating short legs, two antennae stay stable. Keep hats/red glove fully inside cells, no detached bits and no duplicating an extra eye on the back.
+DIRECTION LOCK: ALL SIXTEEN FIGURES FACE STRICTLY BACK, away from viewer/upward as in base atlas column 2. No eyes, nose, beak, smile or facial markings visible anywhere on ANY back of a head. Penguin back and flippers are black with no white belly visible. Alien back head is plain green. Heads NEVER rotate; movement is only limbs and small weight shift.
+
+## 현재 right 생성 프롬프트
+
+Generate a production WALK CYCLE sprite atlas for the supplied approved four-character base atlas. Exact identities, hats, faces, body proportions and fine pixel style MUST match. Output exactly FOUR equal COLUMNS by FOUR equal ROWS on uniform pure MAGENTA #ff00ff. One full-body sprite centered inside each cell, baseline matched across row, ample padding. No text, grid, arrows, ground, cast shadows, floor, chair, desk, paper or props. Fixed body/head scale across all four frames, no squashing/stretched faces.
+ROWS: 1 Feathers McGraw black penguin/white front belly/orange feet and beak, the RED RUBBER GLOVE HAT with all fingers visible in EVERY frame. 2 PAT yellow sweater, blue flat beret, blue trousers and black shoes. 3 MAT red sweater, BLUE-WHITE STRIPED POM-POM HAT, blue trousers/black shoes. 4 mint-green ARTBOX ALIEN, broad head, TWO round-tip antennae, black almond eyes on FRONT ONLY, tiny smiling mouth, stubby green arms and legs, no clothing.
+COLUMNS are FOUR CONSECUTIVE WALK PHASES in temporal order: 1 left-leg contact/right-arm forward, 2 passing with feet close and one heel lifted, 3 right-leg contact/left-arm forward, 4 opposite passing phase with feet close and other heel lifted. Real alternating feet and opposite arm swing, small readable changes. Each column is visually distinct and the fourth loops into first. No interpolation blur; limited-frame classic pixel walking is desired. Penguin waddles with alternating orange feet and subtle flipper counter-swing; alien bobs with alternating short legs, two antennae stay stable. Keep hats/red glove fully inside cells, no detached bits and no duplicating an extra eye on the back.
+DIRECTION LOCK: ALL SIXTEEN FIGURES FACE STRICTLY RIGHT in clean side profile as in base atlas column 3. Nose/beak and face at image-right, backs at left, all walking to the RIGHT in every column. Profile head and hat retain same silhouette as the approved right-facing base. Legs alternate front/back and arms counter-swing. No front or back view.
+
+## 현재 정면 걸음 보정 프롬프트
+
+Surgical walk-cycle correction of this EXACT 4x4 front-facing sprite atlas. Preserve the pure magenta background, equal grid cells, all sprite positions, all faces, hats, heads, torso sizes, pixel style, row1 penguin and row4 alien completely unchanged.
+ONLY correct the legs and arms of PAT (yellow shirt, ROW2) and MAT (red shirt, ROW3). They currently repeat the SAME forward leg in all four columns. This must become an alternating walk sequence:
+COLUMN1: keep current contact step, shoe on viewer RIGHT lower/forward, shoe on viewer LEFT higher/back.
+COLUMN2: passing pose, both feet nearly aligned below hips, viewer-LEFT heel lifted. Arms closer to body.
+COLUMN3: REVERSE the legs from column1: shoe on viewer LEFT lower/forward, shoe on viewer RIGHT higher/back. Arm swing also reverses from column1.
+COLUMN4: passing pose, feet nearly aligned, viewer-RIGHT heel lifted. Arms closer to body.
+The third column must CLEARLY use the opposite forward leg from the first. The four frames form LEFT step / passing / RIGHT step / passing. No head turning, no resizing, no facial changes, no swapping clothes, no torso wobble. Keep all faces looking directly toward viewer, same hat silhouette. Modify LOWER LIMBS and arm swing only in rows2 and3. All other pixels should remain unchanged. No text or props.
+
+# 이전 사람 캐릭터 걷기 제작 기록
 
 ## 정면 이벤트 캐릭터 연속성 보정
 
@@ -65,4 +106,3 @@ COLUMN TWO is passing: near leg planted under body, far leg swinging past; keep 
 COLUMN THREE is opposite contact: swap the arm and leg layering and actions from column ONE. Now the visible NEAR arm swings FORWARD to screen right and the near leg extends BACKWARD toward screen left. The FAR leg reaches forward toward screen right. Show the near thigh and back shoe clearly crossing in FRONT of the far leg. Do not simply duplicate column ONE. The shoulders and hair face same direction.
 COLUMN FOUR is opposite passing: visible NEAR leg bends at the knee and lifts the knee FORWARD toward screen right; its lifted shoe below the knee is in front of the standing far leg, with toes facing right. Far leg is straight and planted under body. Near arm passes center, far arm counter-swings. Do not repeat the foot lifted BEHIND body from column TWO.
 Woman keeps papers tucked against her chest in the same arm in all four cells; only free arm swings. Preserve each person's head and upper torso structure. Full-body modest relaxed walking, NO running, NO jumping, no extra legs, no shadows, no props added. All four phases visibly alternate the near leg and far leg. Do not change scale or cell positions.
-
