@@ -1,0 +1,156 @@
+{
+  "version": 1,
+  "reference": "../research-office.png",
+  "generationTool": "built-in image_gen",
+  "rendering": "magenta color key, original PNGs preserved; alpha removed at display time",
+  "commonPrompt": "Use case: style-transfer.\nAsset type: ONE individually reusable 2D RPG pixel-art furniture sprite for Tomade.\nInput image 1 is STYLE AND OBJECT DESIGN REFERENCE, not the room layout to reproduce.\nRedraw only the specified object as deliberately simple hand-placed pixel art. Use crisp square pixel steps, a consistent fine grid, a limited harmonious palette and TWO OR THREE FLAT COLOR TONES per material. NO gradients, mottled texture, painterly grain, blur, anti-aliasing, 3D render or photographic lighting. Wood is quiet honey-oak, accents sage green/teal/blue/cream, dark brown or charcoal outlines. Match the reference's axis-aligned upright elevated RPG projection: horizontal front edges, a little top surface visible, no diagonal isometric view and no perspective vanishing points.\nOUTPUT: one centered COMPLETE object in square canvas, about 70-80% of frame, with generous empty padding. Background must be a PERFECTLY FLAT EXACT SOLID MAGENTA RGB(255,0,255), hex #FF00FF, everywhere outside the object AND THROUGH any holes between its legs, rails and handle. This color is a technical transparency key for the game renderer. NO alpha checker pattern, white background, wall, floor, contact shadow, vignette, title, label, caption, grid, dimensions, watermark or character. Do not use magenta anywhere INSIDE the object. The sprite has clean hard edges against magenta. Think of a simple 96px native sprite enlarged with nearest-neighbor, and keep all materials flat.\nObject: ",
+  "assets": [
+    {
+      "id": "worker-desk",
+      "name": "직원 책상",
+      "group": "업무 가구",
+      "width": 200,
+      "prompt": "Honey-oak employee desk, broad EMPTY rectangular desktop, short legs, two right-side drawers with dark handles. No monitor/chair/nameplate."
+    },
+    {
+      "id": "manager-desk",
+      "name": "부장 책상",
+      "group": "업무 가구",
+      "width": 216,
+      "prompt": "Wide honey-oak manager desk, EMPTY rectangular desktop, simple apron and four short block legs, no drawers, no monitor/chair/nameplate."
+    },
+    {
+      "id": "worker-chair-blue",
+      "name": "직원 의자 · 파랑",
+      "group": "업무 가구",
+      "width": 76,
+      "prompt": "Wooden employee chair viewed from BACK facing north. Two vertical wood back posts, horizontal backrest, blue upholstered seat visible through frame, four short legs. Chair alone."
+    },
+    {
+      "id": "worker-chair-green",
+      "name": "직원 의자 · 초록",
+      "group": "업무 가구",
+      "width": 76,
+      "prompt": "Wooden employee chair viewed from BACK facing north. Two vertical wood back posts, horizontal backrest, sage-green upholstered seat visible through frame, four short legs. Chair alone. Same as blue chair in reference except seat color."
+    },
+    {
+      "id": "manager-chair",
+      "name": "부장 의자",
+      "group": "업무 가구",
+      "width": 86,
+      "prompt": "Wooden manager chair viewed from FRONT facing south, complete tall sage-green upholstered backrest and sage seat, short wooden arms and four short legs. No desk."
+    },
+    {
+      "id": "monitor-business",
+      "name": "비즈니스 모니터",
+      "group": "모니터",
+      "width": 86,
+      "prompt": "Black desktop monitor and short pedestal stand, FRONT screen showing cream earnings dashboard, three teal ascending bars left, three gray-blue document rows right. Symbols only. No letters/numbers/keyboard/desk."
+    },
+    {
+      "id": "monitor-macro",
+      "name": "매크로 / 섹터 모니터",
+      "group": "모니터",
+      "width": 86,
+      "prompt": "Black desktop monitor and short pedestal stand, FRONT cream display showing simple stepped blue upward market line at top, three muted green/blue/red sector blocks bottom. Symbols only. No letters/numbers/keyboard/desk. Same shape as business monitor."
+    },
+    {
+      "id": "monitor-event",
+      "name": "이벤트 / 카탈리스트 모니터",
+      "group": "모니터",
+      "width": 86,
+      "prompt": "Black desktop monitor and short pedestal stand, FRONT cream display showing small blue-gray calendar on left with ONE red date, three gray-blue news rows right. Symbols only. No letters/numbers/keyboard/desk. Same shape as business monitor."
+    },
+    {
+      "id": "monitor-back",
+      "name": "부장 모니터 · 뒷면",
+      "group": "모니터",
+      "width": 86,
+      "prompt": "Dark navy-charcoal desktop monitor seen FROM BEHIND, rectangular shell with one subtle vent line, vertical support and broad pedestal. NO visible screen. No desk/cables. Same basic shape as other monitors."
+    },
+    {
+      "id": "nameplate",
+      "name": "공용 명패 · 빈 판",
+      "group": "업무 가구",
+      "width": 110,
+      "prompt": "One BLANK horizontal desktop nameplate. Warm ivory rectangle face, thin honey-oak border, tiny darker bottom base. Width 3.5x height. Completely NO TEXT so HTML text can be placed over it later. No glow or desk."
+    },
+    {
+      "id": "window",
+      "name": "체크 커튼 창문",
+      "group": "집 소품",
+      "width": 150,
+      "prompt": "Small honey-oak window, blue-and-cream checked curtains tied back at sides, simple pixel blue sky/cloud/green hills inside. One complete wall fixture, no plant, wall or sill accessories."
+    },
+    {
+      "id": "stove",
+      "name": "녹색 타일 난로",
+      "group": "집 소품",
+      "width": 105,
+      "prompt": "Tall emerald/sage tiled wood-burning stove, sparse tile lines, small dark iron fire door low down with two orange ember pixels, short dark bent chimney turning LEFT. Complete object including pipe, no logs/floor/wall."
+    },
+    {
+      "id": "sofa",
+      "name": "청록색 소파",
+      "group": "집 소품",
+      "width": 170,
+      "prompt": "Small teal-blue two-seat sofa, two back cushions and seats, square arms, four short wood feet, ONE plain ivory pillow on right. Clean flat cushions, remove fabric noise, no rug."
+    },
+    {
+      "id": "rug",
+      "name": "베이지 러그",
+      "group": "집 소품",
+      "width": 180,
+      "prompt": "Flat beige rectangular rug, strict axis-aligned overhead rectangle, 1.6:1 width/height, thin double muted brown border, plain beige center, only 3 or 4 sparse weave pixels. No fringe/pattern/noise/shadow."
+    },
+    {
+      "id": "tool-rack",
+      "name": "벽걸이 공구",
+      "group": "집 소품",
+      "width": 110,
+      "prompt": "Single horizontal wooden wall tool rack with exactly three hanging tools: hammer, silver handsaw with orange handle, silver open-end wrench. One combined wall fixture. No wall or extra props."
+    },
+    {
+      "id": "wall-shelf",
+      "name": "책 선반",
+      "group": "집 소품",
+      "width": 122,
+      "prompt": "Small wooden wall shelf with two mounting brackets, a few upright green/rust-red/navy books and one cream mug with tiny tomato symbol. Single shelf with its contents, no wall, no readable book text."
+    },
+    {
+      "id": "cabinet",
+      "name": "수납장",
+      "group": "집 소품",
+      "width": 86,
+      "prompt": "Slim honey-oak standing cabinet, flat top, open upper cubby with three green/red/blue books, lower closed wood door with dark handle, short feet. No adjacent objects."
+    },
+    {
+      "id": "tomato-sign",
+      "name": "토마토 심볼",
+      "group": "집 소품",
+      "width": 48,
+      "prompt": "Only the small red tomato symbol next to the Tomade text. Round red tomato, deep-red lower shade, one pale-red highlight cluster, simple five-point green leafy calyx. NO face, text, board or letters."
+    },
+    {
+      "id": "plant",
+      "name": "작은 화분",
+      "group": "집 소품",
+      "width": 44,
+      "prompt": "Tiny terracotta flowerpot with three or four broad plain green leaves, as on manager window sill. No fruit/flowers/window/sill/table."
+    },
+    {
+      "id": "wall-picture",
+      "name": "작은 풍경 액자",
+      "group": "집 소품",
+      "width": 82,
+      "prompt": "Small honey-oak rectangular framed landscape, cream mat, tiny flat pixel scene blue sky, green hills, one cream cottage with muted red roof. No wall/text/extra ornament."
+    },
+    {
+      "id": "tomato-mug",
+      "name": "토마토 머그",
+      "group": "집 소품",
+      "width": 38,
+      "prompt": "One small cream mug with handle on RIGHT, dark open top rim, tiny red tomato/green leaf symbol centered on front. Two-tone cream shading. No steam/spoon/coaster/table."
+    }
+  ]
+}

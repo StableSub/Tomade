@@ -1,0 +1,9 @@
+{
+  "id": "nameplate",
+  "name": "공용 명패 · 빈 판",
+  "group": "업무 가구",
+  "width": 110,
+  "prompt": "One BLANK horizontal desktop nameplate. Warm ivory rectangle face, thin honey-oak border, tiny darker bottom base. Width 3.5x height. Completely NO TEXT so HTML text can be placed over it later. No glow or desk.",
+  "file": "nameplate.png",
+  "source": "/Users/anjeongseob/.codex/generated_images/01a09e8f-b7c6-7990-aeaf-b83cc9294f84/exec-ff9fd272-67a1-4dea-9763-3e942d9c70f6.png"
+}

@@ -1,0 +1,9 @@
+{
+  "id": "stove",
+  "name": "녹색 타일 난로",
+  "group": "집 소품",
+  "width": 105,
+  "prompt": "Tall emerald/sage tiled wood-burning stove, sparse tile lines, small dark iron fire door low down with two orange ember pixels, short dark bent chimney turning LEFT. Complete object including pipe, no logs/floor/wall.",
+  "file": "stove.png",
+  "source": "/Users/anjeongseob/.codex/generated_images/01a09e8f-b7c6-7990-aeaf-b83cc9294f84/exec-c54b6daf-baa5-4764-a7e7-802ef102bf34.png"
+}

@@ -1,0 +1,9 @@
+{
+  "id": "tomato-sign",
+  "name": "토마토 심볼",
+  "group": "집 소품",
+  "width": 48,
+  "prompt": "Only the small red tomato symbol next to the Tomade text. Round red tomato, deep-red lower shade, one pale-red highlight cluster, simple five-point green leafy calyx. NO face, text, board or letters.",
+  "file": "tomato-sign.png",
+  "source": "/Users/anjeongseob/.codex/generated_images/01a09e8f-b7c6-7990-aeaf-b83cc9294f84/exec-c32c643b-14e8-41d3-bad2-50c3b5db5bb8.png"
+}

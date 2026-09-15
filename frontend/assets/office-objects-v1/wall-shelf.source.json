@@ -1,0 +1,9 @@
+{
+  "id": "wall-shelf",
+  "name": "책 선반",
+  "group": "집 소품",
+  "width": 122,
+  "prompt": "Small wooden wall shelf with two mounting brackets, a few upright green/rust-red/navy books and one cream mug with tiny tomato symbol. Single shelf with its contents, no wall, no readable book text.",
+  "file": "wall-shelf.png",
+  "source": "/Users/anjeongseob/.codex/generated_images/01a09e8f-b7c6-7990-aeaf-b83cc9294f84/exec-700f69cf-cd0d-4827-8bcf-0fa5c0efb227.png"
+}

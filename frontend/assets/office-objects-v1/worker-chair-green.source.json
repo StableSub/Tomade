@@ -1,0 +1,9 @@
+{
+  "id": "worker-chair-green",
+  "name": "직원 의자 · 초록",
+  "group": "업무 가구",
+  "width": 76,
+  "prompt": "Wooden employee chair viewed from BACK facing north. Two vertical wood back posts, horizontal backrest, sage-green upholstered seat visible through frame, four short legs. Chair alone. Same as blue chair in reference except seat color.",
+  "file": "worker-chair-green.png",
+  "source": "/Users/anjeongseob/.codex/generated_images/01a09e8f-b7c6-7990-aeaf-b83cc9294f84/exec-289c3de4-9d5b-4c8b-bd63-0eb5c6204654.png"
+}

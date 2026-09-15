@@ -1,0 +1,9 @@
+{
+  "id": "manager-desk",
+  "name": "부장 책상",
+  "group": "업무 가구",
+  "width": 216,
+  "prompt": "Wide honey-oak manager desk, EMPTY rectangular desktop, simple apron and four short block legs, no drawers, no monitor/chair/nameplate.",
+  "file": "manager-desk.png",
+  "source": "/Users/anjeongseob/.codex/generated_images/01a09e8f-b7c6-7990-aeaf-b83cc9294f84/exec-432eadab-4394-4c8f-bec8-0ec6bdfdf1d2.png"
+}

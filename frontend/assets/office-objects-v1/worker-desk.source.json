@@ -1,0 +1,9 @@
+{
+  "id": "worker-desk",
+  "name": "직원 책상",
+  "group": "업무 가구",
+  "width": 200,
+  "prompt": "Honey-oak employee desk, broad EMPTY rectangular desktop, short legs, two right-side drawers with dark handles. No monitor/chair/nameplate.",
+  "file": "worker-desk.png",
+  "source": "/Users/anjeongseob/.codex/generated_images/01a09e8f-b7c6-7990-aeaf-b83cc9294f84/exec-72ce3af5-fde5-4d27-b474-537827810592.png"
+}
