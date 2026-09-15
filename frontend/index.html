@@ -59,11 +59,10 @@
         </div>
       </section>
 
-      <dialog class="journal parchment" id="agentJournal" aria-labelledby="journalTitle">
-        <header class="journal-heading"><div><p class="eyebrow">RESEARCH NOTES</p><h2 id="journalTitle">조사 노트</h2></div><button class="close-button" data-close="agentJournal" aria-label="조사 노트 닫기">×</button></header>
-        <p class="journal-state" id="journalState"></p>
-        <div class="journal-body markdown-body" id="journalOutput"></div>
-        <p class="journal-footnote">조사 노트는 현재 실행에 한해 표시됩니다.</p>
+      <dialog class="journal" id="agentJournal" aria-labelledby="journalTitle">
+        <header class="journal-heading"><h2 id="journalTitle">조사 내용</h2><button class="icon-button" data-close="agentJournal" aria-label="조사 노트 닫기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg></button></header>
+        <p class="sr-only" id="journalState" role="status" aria-live="polite"></p>
+        <div class="journal-body markdown-body" id="journalOutput" tabindex="0" role="region" aria-label="조사 내용"></div>
       </dialog>
 
       <dialog class="journal parchment history-journal" id="historyDialog" aria-labelledby="historyTitle">

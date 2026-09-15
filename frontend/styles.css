@@ -398,6 +398,34 @@ h1,h2,p {
 .journal-body {
   min-height: 120px;
 }
+#agentJournal {
+  width: min(800px,calc(100vw - 32px));
+  height: min(720px,calc(100dvh - 64px));
+  max-height: calc(100dvh - 32px);
+  padding: 0;
+  border: 1px solid #e0e4df;
+  border-radius: 12px;
+  background: #fcfcfa;
+  color: #292e38;
+  box-shadow: 0 12px 48px #18252118;
+  overflow: hidden;
+}
+#agentJournal[open] { display: flex; flex-direction: column; }
+#agentJournal::backdrop { background: #222c3633; backdrop-filter: none; }
+#agentJournal .journal-heading { flex: none; gap: 16px; margin: 0; padding: 22px 32px; border-bottom: 1px solid #e6e8e3; }
+#agentJournal .journal-heading h2 { font-size: 20px; font-weight: 600; line-height: 1.5; }
+#agentJournal .journal-heading .icon-button { flex: none; }
+#journalOutput { flex: 1; min-height: 0; overflow: auto; padding: 28px 40px 40px; color: #292e38; font-family: inherit; font-size: 17px; line-height: 1.85; scrollbar-color: #d4d8d2 transparent; scrollbar-width: thin; overscroll-behavior: contain; }
+#journalOutput:focus-visible { outline: 2px solid #748c74; outline-offset: -3px; }
+#journalOutput h1, #journalOutput h2, #journalOutput h3 { color: #292e38; }
+#journalOutput pre { background: #f1f2ef; border-radius: 6px; }
+#journalOutput code { background: #edf0e9; }
+@media(max-width:600px) {
+  #agentJournal { width: calc(100vw - 24px); height: calc(100dvh - 40px); }
+  #agentJournal .journal-heading { padding: 16px 20px; }
+  #agentJournal .journal-heading h2 { font-size: 18px; }
+  #journalOutput { padding: 22px 24px 28px; font-size: 15px; }
+}
 .journal-footnote,.history-note {
   font-size: 11px;
   line-height: 1.8;

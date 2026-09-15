@@ -210,7 +210,7 @@ function refreshJournal(): void {
   if (!id) return;
   const state = nodeStates[id] ?? "idle";
   const stateLabels: Record<NodeState, string> = { idle: "자유 시간", running: "조사 중", done: "보고 완료", skipped: "이번 조사에는 참여하지 않아요", error: "조사가 중단되었어요" };
-  element("journalTitle").textContent = `${labels[id]} · 조사 노트`;
+  element("journalTitle").textContent = labels[id];
   element("journalState").textContent = stateLabels[state];
   const output = nodeOutputs[id];
   const target = element("journalOutput");
@@ -218,10 +218,10 @@ function refreshJournal(): void {
   else if (output) { const pre = document.createElement("pre"); pre.textContent = JSON.stringify(output, null, 2); target.replaceChildren(pre); }
   else {
     const empty: Record<NodeState, string> = {
-      idle: "아직 맡은 조사가 없어요. 부장에게 궁금한 기업을 알려주세요.\n저장된 대화에는 질문과 최종 답변만 남아 있어요.",
-      running: "자료를 살펴보고 있어요. 조사 내용이 도착하면 여기에 표시됩니다.",
+      idle: "아직 조사한 내용이 없습니다.",
+      running: "조사 중입니다. 내용이 도착하면 여기에 표시됩니다.",
       done: "조사를 마쳤지만 전달된 보고서가 없습니다.",
-      skipped: "부장이 이번 질문에 필요한 다른 팀원에게 조사를 맡겼어요.",
+      skipped: "이번 질문에는 배정된 조사가 없습니다.",
       error: "조사를 마치지 못했어요. 부장의 안내를 확인해 주세요.",
     };
     target.textContent = empty[state];
