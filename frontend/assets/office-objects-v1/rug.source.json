@@ -1,0 +1,9 @@
+{
+  "id": "rug",
+  "name": "베이지 러그",
+  "group": "집 소품",
+  "width": 180,
+  "prompt": "Flat beige rectangular rug, strict axis-aligned overhead rectangle, 1.6:1 width/height, thin double muted brown border, plain beige center, only 3 or 4 sparse weave pixels. No fringe/pattern/noise/shadow.",
+  "file": "rug.png",
+  "source": "/Users/anjeongseob/.codex/generated_images/01a09e8f-b7c6-7990-aeaf-b83cc9294f84/exec-89b9d3b8-1340-4750-bfd3-ed246db5a1b7.png"
+}

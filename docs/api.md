@@ -50,7 +50,7 @@ run.error(code=node_execution_failed)를 전송하며 현재 답변을 error로 
 - `holdings`: 종목코드·이름·금액·백분율·AI 업종·분류 이유. `sectors`: 업종·금액·백분율. `scenario`: 최대 종목 코드·이름·충격률·영향 금액·영향률. 모든 수치는 금액/백분율 문자열이다.
 - `excluded`: 종목코드·이름·제외 사유. `explanation`: 요약·관찰 목록·한계 목록. 계좌 식별자는 진단 응답에 포함하지 않는다.
 - 보유분 손익: 종목별 `purchase_amount`, `profit_loss`, `profit_loss_pct`, 전체 `total_purchase_amount`, `total_profit_loss`, `total_profit_loss_pct` 추가. 금액과 손익률은 문자열, 매입금액 0의 손익률은 null이다. 합산 손익률은 종목별 평균이 아닌 합산 매입금액 기준이다. Toss `marketValue.purchaseAmount`와 `amount`를 사용하며 별도 세금·수수료 공제 전, 매도 실현손익·배당 미포함이다.
-- SSE가 아닌 독립 요청/응답이다. 계좌를 본인 목록과 검증하고 Toss 조회와 업종·해설 LLM 호출을 수행한다. 페이지 진입당 한 번 자동 실행하며 폴링·자동 재시도·취소·재개는 없다. 새로고침하면 새 호출 비용이 발생한다.
+- SSE가 아닌 독립 요청/응답이다. 계좌를 본인 목록과 검증하고 Toss 조회와 업종·해설 LLM 호출을 수행한다. 웹에서는 포트폴리오 창을 처음 열 때 한 번 실행하며 폴링·자동 재시도·취소·재개는 없다. 새로고침 후 창을 다시 열면 새 호출 비용이 발생한다.
 - `/diagnose` 오류: 403 외부 접근, 422 입력·계좌/분류 검증 실패, 503 API 경계의 설정/응답 필드 누락, 502 공급자 실행 실패, upstream 429는 429. 서비스 단계에서 포장된 오류는 원인에 따라 502/429로 반환하므로 모든 설정 누락이 503인 것은 아니다. 공급자 오류 원문은 반환하거나 로그로 남기지 않는다.
 - 로컬 개인 실행만 허용한다. 성공 응답 `Cache-Control: no-store`, 클라이언트 캐시·영속 저장 없음. 공개 배포 전 사용자 인증과 계좌 권한 분리가 필요하다.
 
@@ -144,7 +144,7 @@ macro_sector
 event_catalyst
 ```
 
-현재 노드 식별자는 `upper_agent`, `request_parser`, `business`, `macro_sector`, `event_catalyst`다. 프론트에서 상위 Agent·입력 검증·세 Worker의 진행 상태를 표시한다.
+현재 노드 식별자는 `upper_agent`, `request_parser`, `business`, `macro_sector`, `event_catalyst`다. 프론트에서는 상위 Agent를 부장 캐릭터로, 세 Worker를 조사 캐릭터로 표시하며 입력 검증은 현재 부장 답변 영역과 접근성 상태로 안내한다.
 
 ## 5. Event 명세
 
@@ -186,7 +186,7 @@ data: {"run_id":"run-123","final_answer":"# 삼성전자 리서치 답변\n\n...
 
 ```
 
-프론트엔드는 최종 답변을 Chat에 Markdown으로 표시하고 입력창을 다시 활성화한다.
+프론트엔드는 최종 답변을 부장 대화창에 Markdown으로 표시하고 입력창을 다시 활성화한다.
 
 ### 5.7 `run.error`
 
@@ -392,26 +392,27 @@ data: {"run_id":"run-123","node":"business","output":{"business_report":"..."}}
 ## 9. 프론트엔드 처리 규칙
 
 ```text
-run.started
-→ 화면 초기화, 입력 비활성화
+질문 전달 (run.started 수신 전)
+→ 이전 조사 상태 초기화, 입력 비활성화, 대화창 유지, 오른쪽에 사용자 질문 추가
 
 node.started
-→ 노드 running
+→ 노드 running, 선택된 Worker 자리 이동·착석
 
 node.delta
-→ node별 Buffer 또는 최종 Chat Bubble에 Token 추가
+→ node별 Buffer와 열린 조사 노트·부장 대화에 문장 반영
 
 node.completed
-→ 노드 done, 최종 Output으로 Buffer 교체
+→ 노드 done, 최종 Output으로 Buffer 교체, Worker 보고 이동
+  (첫 upper_agent 계획 완료는 최종 답변으로 취급하지 않음)
 
 node.skipped
-→ 노드 skipped
+→ 노드 skipped, 해당 Worker는 산책 유지
 
 run.completed
-→ 최종 Markdown 표시, 입력 활성화
+→ 부장 대화창 자동 열기, 최종 Markdown 표시, 입력 활성화
 
-run.error
-→ 오류 표시, 입력 활성화
+run.error / 완료 전 연결 종료
+→ 조사 모션 정리, 부장 오류 안내, 입력 활성화
 ```
 
 프론트엔드는 병렬 Worker의 Token과 완료 순서를 가정하지 않고 `node`별 Buffer를 독립적으로 관리한다.

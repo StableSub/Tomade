@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tomade · 오브젝트</title>
+  <style>
+    * { box-sizing: border-box; }
+    :root { font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif; color: #293b33; background: #f7f7f2; }
+    body { margin: 0; padding: 44px max(24px, calc((100vw - 1320px) / 2)); }
+    header { display: flex; justify-content: space-between; align-items: start; gap: 24px; margin-bottom: 28px; }
+    h1 { font-size: 28px; letter-spacing: -.8px; margin: 0 0 10px; }
+    p { color: #737c72; margin: 0; font-size: 14px; line-height: 1.6; }
+    .count { border: 1px solid #dfe4d9; border-radius: 99px; padding: 8px 14px; font-size: 12px; white-space: nowrap; }
+    nav { display: flex; align-items: center; gap: 7px; margin-bottom: 28px; flex-wrap: wrap; }
+    button { font: inherit; cursor: pointer; }
+    nav button, nav a { border: 1px solid #e0e4db; background: transparent; color: #647266; border-radius: 7px; padding: 9px 14px; font-size: 13px; text-decoration: none; }
+    nav button[aria-pressed=true] { background: #2e5142; color: white; border-color: #2e5142; }
+    nav .spacer { flex: 1; }
+    .grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+    .card { background: white; border: 1px solid #e3e7dc; border-radius: 12px; overflow: hidden; text-align: left; padding: 0; min-width: 0; color: inherit; }
+    .card:hover { border-color: #8aa892; }
+    .stage { height: 150px; display: flex; align-items: center; justify-content: center; background: #eff1e8; margin: 10px; border-radius: 7px; }
+    .dark .stage, .dark .large-stage { background: #25332e; }
+    .card canvas { max-width: 92%; max-height: 92%; width: auto; height: auto; object-fit: contain; image-rendering: pixelated; }
+    .label { display: block; padding: 4px 19px 19px; font-size: 14px; font-weight: 600; }
+    .label small { display: block; font-weight: 400; margin-top: 5px; font-size: 11px; color: #959b91; }
+    .loading { color: #91998e; font-size: 12px; }
+    footer { margin-top: 30px; border-top: 1px solid #e1e6da; padding-top: 22px; color: #788271; font-size: 12px; line-height: 1.8; }
+    footer a { color: inherit; }
+    dialog { border: 1px solid #d8e0d3; border-radius: 16px; padding: 26px; width: min(640px, 92vw); color: inherit; }
+    dialog::backdrop { background: #1f2d25a0; }
+    .dialog-head { display: flex; justify-content: space-between; align-items: start; margin-bottom: 18px; }
+    h2 { font-size: 18px; margin: 0 0 6px; }
+    #close { border: 0; background: #f1f3ed; width: 32px; height: 32px; border-radius: 8px; font-size: 20px; color: #5f6d61; }
+    .large-stage { height: 430px; background: #eff1e8; border-radius: 8px; display: flex; justify-content: center; align-items: center; overflow: hidden; }
+    .large-stage canvas { image-rendering: pixelated; max-width: 96%; max-height: 96%; object-fit: contain; }
+    .zoom { display: flex; gap: 12px; align-items: center; margin-top: 18px; font-size: 12px; color: #73806e; }
+    .zoom input { flex: 1; accent-color: #386347; }
+    #error { color: #a34735; }
+    @media(min-width:1600px) { .grid { grid-template-columns:repeat(5,minmax(0,1fr)); } }
+    @media(max-width:900px) { .grid { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+    @media(max-width:620px) { body { padding:28px 16px; } .grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; } .stage { height:150px; } h1 { font-size:24px; } .count { display:none; } .label { font-size:12px; padding:4px 12px 14px; } .large-stage { height:310px; } }
+  </style>
+</head>
+<body>
+  <header><div><h1>Tomade <span style="font-weight:400;color:#8a9587">/ 오브젝트</span></h1><p>캐릭터와 맞춘 도트 배율과 끊김 없는 검은 윤곽선.<br>모든 소품을 같은 배율로 비교하고, 클릭해서 확대할 수 있습니다.</p></div><span class="count">31 OBJECTS</span></header>
+  <nav aria-label="에셋 분류">
+    <button data-filter="전체" aria-pressed="true">전체</button>
+    <button data-filter="업무 가구" aria-pressed="false">업무 가구</button>
+    <button data-filter="모니터" aria-pressed="false">모니터</button>
+    <button data-filter="집 소품" aria-pressed="false">집 소품</button>
+    <button data-filter="마당" aria-pressed="false">마당</button>
+    <a href="../office-environment-v1/index.html">배경 오브젝트 ↗</a>
+    <span class="spacer"></span><button id="background" aria-pressed="false">어두운 배경</button>
+  </nav>
+  <p id="error" role="status"></p>
+  <main class="grid" id="grid"></main>
+  <footer>명패의 글자는 실제 UI에서 올릴 수 있도록 비워 두었습니다. 캐릭터는 기존 에셋을 재사용합니다.<br>생성 원본의 자홍색 배경은 이 뷰어에서 투명하게 표시합니다. 원본 PNG 자체에는 알파 채널이 없습니다.<br><a href="../research-office.png" target="_blank" rel="noopener">기준 배경</a> · <a href="../office-objects-v2/prompts.json" target="_blank" rel="noopener">v2 생성 프롬프트</a></footer>
+  <dialog id="inspect"><div class="dialog-head"><div><h2 id="title"></h2><p id="filename"></p></div><button id="close" aria-label="닫기">×</button></div><div class="large-stage" id="largeStage"></div><label class="zoom">확대<input id="zoom" type="range" min="1" max="5" value="3" step="1"><span id="zoomValue">3×</span></label></dialog>
+  <script type="module">
+    import { loadSpriteSource, SpriteRenderer } from '../../sprite-renderer.ts';
+    import { createPixelSprite, OBJECT_PIXEL_SIZE } from '../../pixel-style.ts';
+    const renderer = new SpriteRenderer();
+    const manifest = await fetch('./prompts.json').then(r => r.json());
+    const largest = { width: Math.max(...manifest.assets.map(a => a.width)), height: Math.max(...manifest.assets.map(a => a.height)) };
+    const grid = document.querySelector('#grid');
+    const dialog = document.querySelector('#inspect');
+    const zoom = document.querySelector('#zoom');
+    let selected;
+
+    const stages = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        const canvas = entry.target.querySelector('canvas');
+        if (!canvas) continue;
+        const width = Number(canvas.dataset.logicalWidth), ratio = Number(canvas.dataset.ratio);
+        const scale = Math.min(2, entry.contentRect.width * .92 / largest.width, entry.contentRect.height * .92 / largest.height);
+        const fit = width * scale;
+        canvas.style.width = fit + 'px'; canvas.style.height = fit / ratio + 'px';
+      }
+    });
+
+    function updateZoom() {
+      const canvas = document.querySelector('#largeStage canvas');
+      if (!canvas || !selected) return;
+      const stage = document.querySelector('#largeStage');
+      const scale = Math.max(1, Math.min(Number(zoom.value), Math.floor((stage.clientWidth - 20) / selected.width), Math.floor((stage.clientHeight - 20) / selected.height)));
+      canvas.style.width = selected.width * scale + 'px';
+      canvas.style.height = selected.height * scale + 'px';
+      document.querySelector('#zoomValue').textContent = scale.toFixed(1).replace('.0', '') + '×';
+    }
+
+    await Promise.all(manifest.assets.map(async asset => {
+      const button = document.createElement('button');
+      button.className = 'card'; button.dataset.group = asset.group; button.dataset.asset = asset.id;
+      button.setAttribute('aria-label', `${asset.name} 확대`);
+      const stage = document.createElement('div'); stage.className = 'stage';
+      const status = document.createElement('span'); status.className = 'loading'; status.textContent = '에셋 불러오는 중';
+      stage.append(status);
+      const label = document.createElement('span'); label.className = 'label'; label.textContent = asset.name;
+      const filename = document.createElement('small'); filename.textContent = `${Math.round(asset.width / OBJECT_PIXEL_SIZE)} × ${Math.round(asset.height / OBJECT_PIXEL_SIZE)} px`; label.append(filename);
+      button.append(stage, label); grid.append(button);
+      try {
+        const original = await loadSpriteSource(asset.file ?? `./${asset.id}.png`, false, asset.frame);
+        const source = createPixelSprite(original, asset.width, asset.height, { outline: asset.outline !== false, preserveColors: true });
+        const sprite = document.createElement('canvas');
+        sprite.dataset.logicalWidth = asset.width; sprite.dataset.ratio = source.width / source.height;
+        sprite.style.width = asset.width + 'px'; sprite.style.height = asset.width * source.height / source.width + 'px';
+        stage.replaceChildren(sprite); renderer.attach(sprite, source); stages.observe(stage); button.dataset.loaded = 'true';
+        button.addEventListener('click', () => {
+          document.querySelector('#title').textContent = asset.name;
+          document.querySelector('#filename').textContent = `${source.width} × ${source.height} px · ${asset.outline === false ? "작은 풀꽃" : "캐릭터 기준 2px 윤곽"}`;
+          const previous = document.querySelector('#largeStage canvas');
+          if (previous) renderer.release(previous);
+          const large = document.createElement('canvas');
+          selected = { width: source.width, height: source.height };
+          document.querySelector('#largeStage').replaceChildren(large); zoom.value = '3'; dialog.showModal(); updateZoom();
+          renderer.attach(large, source);
+        });
+      } catch (error) { status.textContent = '아직 준비되지 않았습니다'; button.dataset.loaded = 'false'; console.error(asset.id, error); }
+    }));
+    document.body.dataset.ready = 'true';
+    document.querySelectorAll('[data-filter]').forEach(button => button.addEventListener('click', () => {
+      document.querySelectorAll('[data-filter]').forEach(other => other.setAttribute('aria-pressed', String(other === button)));
+      document.querySelectorAll('.card').forEach(card => { card.hidden = button.dataset.filter !== '전체' && card.dataset.group !== button.dataset.filter; });
+    }));
+    document.querySelector('#background').addEventListener('click', event => {
+      const dark = document.body.classList.toggle('dark'); event.currentTarget.setAttribute('aria-pressed', String(dark));
+    });
+    document.querySelector('#close').addEventListener('click', () => dialog.close());
+    zoom.addEventListener('input', updateZoom);
+    window.addEventListener('resize', updateZoom);
+    window.addEventListener('pagehide', event => { if (!event.persisted) { renderer.dispose(); stages.disconnect(); } });
+  </script>
+</body>
+</html>

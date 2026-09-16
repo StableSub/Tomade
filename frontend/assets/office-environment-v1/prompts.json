@@ -1,0 +1,172 @@
+{
+  "version": 1,
+  "reference": "../research-office.png",
+  "generationTool": "built-in image_gen",
+  "commonPrompt": "Use case: style-transfer.\nAsset type: ONE reusable background-building 2D pixel-art module for Tomade.\nInput image 1 is the reference for the CURRENT room architecture and colors. Recreate only the requested architectural part, not the whole room.\nArt direction: intentional hand-placed square pixel clusters, crisp edges, a consistent fine pixel grid, limited palette with 2-3 FLAT color steps per material. No photoreal material, painterly noise, smooth gradient, bloom, random texture or 3D isometric perspective. Preserve calm cream walls, light oak employee floor, pale sage/ivory manager floor, restrained warm-brown wood framing. No furniture, characters, logo or captions.\nFor a full-bleed texture, ALL pixels of the canvas must contain the specified material with NO padding. For an isolated module, use a solid magenta RGB(255,0,255) key outside the module, NOT a fake checkerboard transparency background.\nExact module specification: ",
+  "assets": [
+    {
+      "id": "floor-parquet",
+      "file": "floor-parquet.svg",
+      "rendering": "Exact 48/16px integer parquet, one-pixel seams, low-contrast warm cream colors.",
+      "name": "나무 짜임 바닥",
+      "group": "바닥",
+      "width": 96,
+      "opaque": true,
+      "prompt": "ONE seamless repeatable square light oak basket-weave parquet texture tile. STRICT TOP DOWN ORTHOGRAPHIC. Exactly a 2-by-2 arrangement of equal square parquet blocks, each block made of three parallel wooden slats. Alternate horizontal and vertical slat directions like the left-room floor in the reference. Very LIGHT warm straw-beige oak, sparse one-pixel tan seams, only two or three flat wood tones; no strong grain or dark brown. Full bleed edge to edge: NO outline/frame/padding/border/beveled tile perimeter. Opposite outer edges MUST join smoothly when the square repeats both horizontally and vertically. No lighting gradient or shadow. No walls, furniture, labels, room layout, objects or magenta. This image IS the floor surface, not a floating sample. A genuine 64x64-pixel tile design enlarged with nearest-neighbor.",
+      "height": 96,
+      "preserveColors": true
+    },
+    {
+      "id": "floor-checker",
+      "name": "연녹색 체크 바닥",
+      "group": "바닥",
+      "width": 96,
+      "opaque": true,
+      "prompt": "ONE seamless repeatable square sage-and-ivory checker floor texture tile from the right manager room. STRICT TOP DOWN ORTHOGRAPHIC. EXACTLY four equal squares in a 2-by-2 arrangement: top-left pale warm ivory, top-right pale desaturated sage, bottom-left pale sage, bottom-right ivory. Pale sage is #C3CDB2 range, ivory is #EEEAD6 range. Very flat crisp colors; no grain, no inset motifs, no grout stripe, no bevel, no gradient, no border. Full bleed edge to edge with no padding. Pattern must repeat perfectly both horizontally and vertically. No wall/furniture/text/magenta. This is the floor surface, not an isolated square plate. Pixel texture design.",
+      "height": 96,
+      "preserveColors": true,
+      "file": "floor-checker.svg",
+      "rendering": "Exact 96px SVG with four flat 48px squares; no raster noise or blended seams."
+    },
+    {
+      "id": "wall-panel",
+      "name": "크림색 벽면",
+      "group": "벽",
+      "width": 160,
+      "opaque": true,
+      "prompt": "ONE horizontal repeatable wall-surface texture panel matching the room's upper walls. FLAT FRONT ELEVATION: straight rectangular 2:1 landscape panel. Surface fills the ENTIRE canvas edge to edge, no padding. Upper 76 percent is plain warm cream #EEE8D3, bottom 19 percent is muted sage-green painted dado/baseboard band #8A9A73, bottom 5 percent is a thin honey-oak skirting strip. Two subtle flat shade steps only, crisp horizontal boundaries, NO grain/patina/cracks/painterly noise. The left and right edges must match for horizontal repetition. No top timber, vertical beam, frame, window, furniture, words, logo, shadows or magenta. This is a simple wall material module, not a whole room.",
+      "height": 106,
+      "file": "../office-objects-v4/structure-atlas.png",
+      "frame": [
+        0.55,
+        0.77,
+        0.95,
+        0.95
+      ],
+      "preserveColors": true
+    },
+    {
+      "id": "beam-horizontal",
+      "name": "가로 목재 테두리",
+      "group": "벽",
+      "width": 96,
+      "opaque": false,
+      "prompt": "ONE horizontal warm medium-brown timber wall-cap beam, plain long rectangle with a 6:1 width-to-height ratio. Front-facing squared edges, thin dark-brown outline, one narrow lighter upper pixel strip and darker lower strip. Flat front view, no visible perspective end face, sparse two-color wood, no ornamental grain or gaps. Complete beam only centered on SOLID MAGENTA #FF00FF, about 80 percent canvas width, empty key color around all sides. No wall/floor/screw/text/drop-shadow. Straight modular frame beam matching outer room border.",
+      "height": 16,
+      "file": "../office-shell-v1/shell-atlas.png",
+      "frame": [
+        0,
+        0,
+        0.5,
+        0.3333333333333333
+      ],
+      "preserveColors": true,
+      "rendering": "Approved clean house shell; original RGB and staff-scale contour."
+    },
+    {
+      "id": "beam-vertical",
+      "name": "세로 목재 테두리",
+      "group": "벽",
+      "width": 16,
+      "opaque": false,
+      "prompt": "ONE vertical warm medium-brown timber wall-frame beam, simple tall rectangle with a 1:6 width-to-height ratio. Same wood/color/style as the horizontal room border beam. Thin dark-brown outline, narrow lighter left pixel strip, darker right edge, no perspective end face, grain or joint gaps. Complete beam only, centered on SOLID MAGENTA #FF00FF, about 80 percent canvas height. No wall/floor/text/drop-shadow. Straight modular outer border.",
+      "height": 96,
+      "file": "../office-shell-v1/shell-atlas.png",
+      "frame": [
+        0.5,
+        0,
+        1,
+        0.3333333333333333
+      ],
+      "preserveColors": true,
+      "rendering": "Approved clean house shell; original RGB and staff-scale contour."
+    },
+    {
+      "id": "partition-panel",
+      "name": "연녹색 칸막이",
+      "group": "벽",
+      "width": 20,
+      "opaque": false,
+      "prompt": "ONE narrow VERTICAL interior partition-wall segment like the central divider between the rooms. Flat overhead RPG wall surface: long pale sage-green rectangular center, thin dark brown wood rails along left and right edges. Width-to-height 1:5. NO end cap blocks, doorway, door slab, handle or lintel; those will be separate modules. Simple flat two-tone sage and brown outline. Complete segment centered on SOLID MAGENTA #FF00FF with padding, no floor/shadow/text/other object.",
+      "height": 64,
+      "file": "../office-shell-v1/shell-atlas.png",
+      "frame": [
+        0.5,
+        0,
+        1,
+        0.3333333333333333
+      ],
+      "preserveColors": true,
+      "rendering": "Approved clean house shell; original RGB and staff-scale contour."
+    },
+    {
+      "id": "eave",
+      "name": "토마토색 처마",
+      "group": "벽",
+      "width": 192,
+      "height": 6,
+      "opaque": false,
+      "preserveColors": true,
+      "file": "../office-shell-v1/shell-atlas.png",
+      "frame": [
+        0.5,
+        0.3333333333333333,
+        1,
+        0.6666666666666666
+      ]
+    },
+    {
+      "id": "stone-foot",
+      "name": "기둥 돌 받침",
+      "group": "벽",
+      "width": 24,
+      "height": 22,
+      "opaque": false,
+      "preserveColors": true,
+      "file": "../office-shell-v1/shell-atlas.png",
+      "frame": [
+        0.032,
+        0.471,
+        0.105,
+        0.525
+      ]
+    },
+    {
+      "id": "passage-wood",
+      "name": "통로 목재 마감",
+      "group": "벽",
+      "width": 20,
+      "height": 52,
+      "opaque": true,
+      "preserveColors": true,
+      "file": "../office-shell-v1/shell-atlas.png",
+      "frame": [
+        0.735,
+        0.07,
+        0.756,
+        0.31
+      ]
+    },
+    {
+      "id": "entrance",
+      "name": "직원실 하단부 · 입구 포함",
+      "group": "벽",
+      "width": 264,
+      "height": 44,
+      "opaque": false,
+      "preserveColors": true,
+      "file": "../office-shell-v1/entrance-v2.png"
+    },
+    {
+      "id": "manager-front",
+      "name": "부장실 하단부",
+      "group": "벽",
+      "width": 264,
+      "height": 44,
+      "opaque": false,
+      "preserveColors": true,
+      "file": "../office-shell-v1/entrance-v2.png"
+    }
+  ],
+  "rendering": "Original source RGB, fixed character-scale pixel grid and closed two-cell contours; exact floor tile geometry preserved."
+}

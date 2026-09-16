@@ -48,6 +48,9 @@ function section(title: string): HTMLElement {
 function table(parent: HTMLElement, labels: string[], rows: string[][]): void {
   const scroll = document.createElement("div");
   scroll.className = "portfolio-table-scroll";
+  scroll.tabIndex = 0;
+  scroll.setAttribute("role", "region");
+  scroll.setAttribute("aria-label", `${parent.querySelector("h2")?.textContent ?? "포트폴리오"} 표`);
   const node = document.createElement("table");
   const head = node.createTHead().insertRow();
   labels.forEach(label => {
@@ -75,10 +78,15 @@ export function renderReport(report: PortfolioReport): void {
   paragraph(scope, `수집 시각: ${new Date(report.fetched_at).toLocaleString("ko-KR")} · ${report.source}`);
   paragraph(scope, "수집 시각은 계좌 데이터의 평가 시각과 다를 수 있습니다. 계좌 전체 자산의 위험도나 과거 투자 성과가 아닙니다.");
   if (report.excluded.length) table(scope, ["제외 종목", "사유"], report.excluded.map(row => [`${row.name} (${row.symbol})`, row.reason]));
-  table(scope, ["총 매입금액", "현재 평가금액", "평가손익", "평가손익률"], [[
-    money(report.total_purchase_amount), money(report.total_amount),
-    money(report.total_profit_loss), pnlPercent(report.total_profit_loss_pct),
-  ]]);
+  const totals = document.createElement("dl"); totals.className = "portfolio-metrics";
+  for (const [label, value] of [
+    ["총 매입금액", money(report.total_purchase_amount)], ["현재 평가금액", money(report.total_amount)],
+    ["평가손익", money(report.total_profit_loss)], ["평가손익률", pnlPercent(report.total_profit_loss_pct)],
+  ]) {
+    const item = document.createElement("div");
+    paragraph(item, label, "dt"); paragraph(item, value, "dd"); totals.append(item);
+  }
+  scope.append(totals);
   paragraph(scope, "현재 보유분의 매입금액 대비 평가손익입니다. 별도 세금·수수료 공제 전이며, 매도한 거래의 실현손익·배당은 포함하지 않습니다. 전체 손익률은 합산 매입금액 기준입니다.");
   const holdings = section("보유 주식과 AI 추정 업종");
   table(holdings, ["종목", "매입금액", "현재 평가금액", "평가손익", "평가손익률", "비중", "추정 업종", "분류 이유"], report.holdings.map(row => [
@@ -117,5 +125,5 @@ async function loadPortfolio(): Promise<void> {
   }
 }
 
-// 페이지 진입당 한 번 실행한다. 폴링·자동 재시도·종목 조사에 따른 재호출은 없다.
+// app.ts가 포트폴리오 창을 처음 열 때만 이 모듈을 불러온다. 폴링·자동 재시도는 없다.
 void loadPortfolio();

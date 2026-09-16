@@ -1,0 +1,9 @@
+{
+  "id": "tool-rack",
+  "name": "벽걸이 공구",
+  "group": "집 소품",
+  "width": 110,
+  "prompt": "Single horizontal wooden wall tool rack with exactly three hanging tools: hammer, silver handsaw with orange handle, silver open-end wrench. One combined wall fixture. No wall or extra props.",
+  "file": "tool-rack.png",
+  "source": "/Users/anjeongseob/.codex/generated_images/01a09e8f-b7c6-7990-aeaf-b83cc9294f84/exec-fed563f2-f96a-47de-8d04-7fedfd68cd07.png"
+}

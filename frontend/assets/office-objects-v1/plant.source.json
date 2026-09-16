@@ -1,0 +1,9 @@
+{
+  "id": "plant",
+  "name": "작은 화분",
+  "group": "집 소품",
+  "width": 44,
+  "prompt": "Tiny terracotta flowerpot with three or four broad plain green leaves, as on manager window sill. No fruit/flowers/window/sill/table.",
+  "file": "plant.png",
+  "source": "/Users/anjeongseob/.codex/generated_images/01a09e8f-b7c6-7990-aeaf-b83cc9294f84/exec-d3fc7162-0217-4938-a3b6-257468c8cbfe.png"
+}

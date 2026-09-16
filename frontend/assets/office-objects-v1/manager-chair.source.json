@@ -1,0 +1,9 @@
+{
+  "id": "manager-chair",
+  "name": "부장 의자",
+  "group": "업무 가구",
+  "width": 86,
+  "prompt": "Wooden manager chair viewed from FRONT facing south, complete tall sage-green upholstered backrest and sage seat, short wooden arms and four short legs. No desk.",
+  "file": "manager-chair.png",
+  "source": "/Users/anjeongseob/.codex/generated_images/01a09e8f-b7c6-7990-aeaf-b83cc9294f84/exec-103578e1-52c4-4b9e-bde1-60d98bd0fce7.png"
+}

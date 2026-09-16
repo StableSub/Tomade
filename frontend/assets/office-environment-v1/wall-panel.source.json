@@ -1,0 +1,10 @@
+{
+  "id": "wall-panel",
+  "name": "크림색 벽면",
+  "group": "벽",
+  "width": 160,
+  "opaque": true,
+  "prompt": "ONE horizontal repeatable wall-surface texture panel matching the room's upper walls. FLAT FRONT ELEVATION: straight rectangular 2:1 landscape panel. Surface fills the ENTIRE canvas edge to edge, no padding. Upper 76 percent is plain warm cream #EEE8D3, bottom 19 percent is muted sage-green painted dado/baseboard band #8A9A73, bottom 5 percent is a thin honey-oak skirting strip. Two subtle flat shade steps only, crisp horizontal boundaries, NO grain/patina/cracks/painterly noise. The left and right edges must match for horizontal repetition. No top timber, vertical beam, frame, window, furniture, words, logo, shadows or magenta. This is a simple wall material module, not a whole room.",
+  "file": "wall-panel.png",
+  "source": "/Users/anjeongseob/.codex/generated_images/01a09e8f-b7c6-7990-aeaf-b83cc9294f84/exec-5d32e3a8-0ed3-4ab6-bf3b-bf988d52e9a4.png"
+}

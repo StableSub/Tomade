@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="70" height="92" viewBox="0 0 70 92" shape-rendering="crispEdges">
+  <title>Terracotta tomato planter</title>
+  <path fill="#26312c" d="M31 0h10v4h8v10h10v6h7v12h4v14h-5v12H5V46H0V32h4V20h10v-8h13V4h4z"/>
+  <path fill="#458b6c" d="M31 4h10v12h12v8h10v10h3v10h-7v10H11V44H4V34h4V24h10v-8h13z"/>
+  <path fill="#215442" d="M32 12h5v49h-5zM15 28h17v5H15zM37 35h20v5H37z"/>
+  <path fill="#8db689" d="M30 5h8v11h-8zM13 20h12v5h5v6H18v-5h-5zM42 17h11v6H42z"/>
+  <path fill="#66a17f" d="M8 36h12v7H8zM46 42h14v8H46zM24 47h9v9h-9z"/>
+  <g fill="#793e31">
+    <path d="M13 29h12v3h4v14h-4v4H13v-4H9V33h4z"/>
+    <path d="M44 26h12v4h4v13h-4v4H44v-4h-4V30h4z"/>
+    <path d="M29 42h12v4h4v13h-4v4H29v-4h-4V46h4z"/>
+  </g>
+  <g fill="#cd4735">
+    <path d="M13 33h12v11h-3v3h-9z"/>
+    <path d="M44 30h12v10h-3v4h-9z"/>
+    <path d="M29 46h12v11h-3v3h-9z"/>
+  </g>
+  <path fill="#e57254" d="M14 34h5v5h-5zM45 31h5v5h-5zM30 47h5v5h-5z"/>
+  <path fill="#215442" d="M17 28h5v6h-5zM47 25h5v6h-5zM32 41h5v6h-5z"/>
+  <path fill="#191716" d="M5 58h60v17h-4v13h-4v4H13v-4H9V75H5z"/>
+  <path fill="#793e31" d="M9 62h52v11h-4v13H13V73H9z"/>
+  <path fill="#d46841" d="M9 62h52v7H9zM15 74h40v9H15z"/>
+  <path fill="#ec9a53" d="M11 62h48v3H11zM15 74h4v8h-4z"/>
+  <path fill="#a84b35" d="M19 78h36v6H19zM15 84h40v4H15z"/>
+</svg>

@@ -1,0 +1,9 @@
+{
+  "id": "cabinet",
+  "name": "수납장",
+  "group": "집 소품",
+  "width": 86,
+  "prompt": "Slim honey-oak standing cabinet, flat top, open upper cubby with three green/red/blue books, lower closed wood door with dark handle, short feet. No adjacent objects.",
+  "file": "cabinet.png",
+  "source": "/Users/anjeongseob/.codex/generated_images/01a09e8f-b7c6-7990-aeaf-b83cc9294f84/exec-f4a613f9-7b9b-4fa3-acec-3fed644733f9.png"
+}

@@ -1,0 +1,10 @@
+{
+  "id": "beam-vertical",
+  "name": "세로 목재 테두리",
+  "group": "벽",
+  "width": 32,
+  "opaque": false,
+  "prompt": "ONE vertical warm medium-brown timber wall-frame beam, simple tall rectangle with a 1:6 width-to-height ratio. Same wood/color/style as the horizontal room border beam. Thin dark-brown outline, narrow lighter left pixel strip, darker right edge, no perspective end face, grain or joint gaps. Complete beam only, centered on SOLID MAGENTA #FF00FF, about 80 percent canvas height. No wall/floor/text/drop-shadow. Straight modular outer border.",
+  "file": "beam-vertical.png",
+  "source": "/Users/anjeongseob/.codex/generated_images/01a09e8f-b7c6-7990-aeaf-b83cc9294f84/exec-cd2cfb08-520b-4fbe-83fa-121877e17bde.png"
+}

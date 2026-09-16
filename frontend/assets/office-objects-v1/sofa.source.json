@@ -1,0 +1,9 @@
+{
+  "id": "sofa",
+  "name": "청록색 소파",
+  "group": "집 소품",
+  "width": 170,
+  "prompt": "Small teal-blue two-seat sofa, two back cushions and seats, square arms, four short wood feet, ONE plain ivory pillow on right. Clean flat cushions, remove fabric noise, no rug.",
+  "file": "sofa.png",
+  "source": "/Users/anjeongseob/.codex/generated_images/01a09e8f-b7c6-7990-aeaf-b83cc9294f84/exec-33b06e8e-c9fc-4a41-9ded-6c79fee8e725.png"
+}

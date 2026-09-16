@@ -1,524 +1,459 @@
-import "./portfolio";
+import { OfficeScene, paintPortrait, type AgentId } from "./office-scene";
+import { OfficeRoom } from "./office-room";
+import { PortfolioCharacter } from "./portfolio-character";
 
-type NodeName =
-  | "upper_agent"
-  | "request_parser"
-  | "business"
-  | "macro_sector"
-  | "event_catalyst";
-
-type NodeState = "running" | "done" | "skipped" | "error";
+type NodeName = AgentId | "request_parser";
+type NodeState = "idle" | "running" | "done" | "skipped" | "error";
 type NodeOutput = string | Record<string, unknown>;
-
-interface SseEvent {
-  type: string;
-  data: Record<string, unknown>;
-}
-
-const nodes: NodeName[] = [
-  "request_parser",
-  "upper_agent",
-  "business",
-  "macro_sector",
-  "event_catalyst",
-];
-const nodeLabels: Record<NodeName, string> = {
-  upper_agent: "상위 Agent",
-  request_parser: "Request / Mandate",
-  business: "Business",
-  macro_sector: "Macro / Sector",
-  event_catalyst: "Event / Catalyst",
-};
-const reportFields: Partial<Record<NodeName, string>> = {
-  business: "business_report",
-  macro_sector: "macro_sector_report",
-  event_catalyst: "event_catalyst_report",
-  upper_agent: "final_answer",
-};
-
-function getElement<T extends Element>(selector: string): T {
-  const element = document.querySelector<T>(selector);
-  if (!element) throw new Error(`필수 화면 요소를 찾을 수 없습니다: ${selector}`);
-  return element;
-}
-
-const form = getElement<HTMLFormElement>("#researchForm");
-const runButton = getElement<HTMLButtonElement>("#runButton");
-const sessionState = getElement<HTMLElement>("#sessionState");
-const researchInput = getElement<HTMLTextAreaElement>("#researchInput");
-const chatMessages = getElement<HTMLElement>("#chatMessages");
-const nodePopover = getElement<HTMLElement>("#nodePopover");
-const popoverTitle = getElement<HTMLElement>("#popoverTitle");
-const popoverState = getElement<HTMLElement>("#popoverState");
-const popoverOutput = getElement<HTMLElement>("#popoverOutput");
-const conversationSelect = getElement<HTMLSelectElement>("#conversationSelect");
-const newConversation = getElement<HTMLButtonElement>("#newConversation");
-const deleteConversation = getElement<HTMLButtonElement>("#deleteConversation");
-
+type Phase = "ready" | "planning" | "validating" | "researching" | "synthesizing" | "done" | "error" | "pending";
+interface SseEvent { type: string; data: Record<string, unknown> }
 interface Conversation { id: string; title: string }
-interface SavedMessage {
-  role: "user" | "assistant";
-  content: string;
-  status: "pending" | "completed" | "error" | "interrupted";
+interface SavedMessage { role: "user" | "assistant"; content: string; status: "pending" | "completed" | "error" | "interrupted" }
+const workers: AgentId[] = ["business", "macro_sector", "event_catalyst"];
+const nodes: NodeName[] = ["upper_agent", "request_parser", ...workers];
+const labels: Record<NodeName, string> = { upper_agent: "부장 Agent", request_parser: "질문 확인", business: "패트 - 비즈니스", macro_sector: "매트 - 섹터", event_catalyst: "게왹이 - 이벤트" };
+const reportFields: Partial<Record<NodeName, string>> = { business: "business_report", macro_sector: "macro_sector_report", event_catalyst: "event_catalyst_report", upper_agent: "final_answer" };
+const welcome = "어떤 기업을 함께 살펴볼까요?";
+
+function element<T extends HTMLElement>(id: string): T {
+  const found = document.getElementById(id);
+  if (!found) throw new Error(`필수 화면 요소를 찾을 수 없습니다: ${id}`);
+  return found as T;
 }
+const form = element<HTMLFormElement>("researchForm");
+const researchInput = element<HTMLTextAreaElement>("researchInput");
+const runButton = element<HTMLButtonElement>("runButton");
+const managerDialog = element("managerDialog");
+const managerSpeech = element("managerSpeech");
+const chatMessages = element("chatMessages");
+const officeApp = document.querySelector<HTMLElement>(".office-app")!;
+const officeWorld = element("officeWorld");
+const returnToOffice = element<HTMLButtonElement>("returnToOffice");
+const motionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
+const sessionState = element("sessionState");
+const conversationSelect = element<HTMLSelectElement>("conversationSelect");
+const newConversation = element<HTMLButtonElement>("newConversation");
+const deleteConversation = element<HTMLButtonElement>("deleteConversation");
+const agentJournal = element<HTMLDialogElement>("agentJournal");
+const portfolioDialog = element<HTMLDialogElement>("portfolioDialog");
 let conversationId: string | null = null;
+let messages: SavedMessage[] = [];
 let chatBusy = true;
 let pendingResponse = false;
-
+let phase: Phase = "ready";
+let latestAnswer = welcome;
+let latestIsMarkdown = false;
+let selectedWorkers = new Set<AgentId>();
 let nodeOutputs: Partial<Record<NodeName, NodeOutput>> = {};
 let nodeBuffers: Partial<Record<NodeName, string>> = {};
-let showTimer: number | undefined;
-let hideTimer: number | undefined;
+let nodeStates: Partial<Record<NodeName, NodeState>> = {};
+let managerTrigger: HTMLElement | null = null;
+let portfolioLoaded = false;
+let planSeen = false;
+let roomTransition: Animation | null = null;
+
+const selectAgent = (id: AgentId, trigger: HTMLButtonElement) => {
+  if (id === "upper_agent") openManager(trigger, true);
+  else openAgentJournal(id);
+};
+const room = new OfficeRoom(officeWorld);
+const scene = new OfficeScene(officeWorld, selectAgent, motionPreference);
+const portfolioCharacter = new PortfolioCharacter(element<HTMLCanvasElement>("portfolioSprite"), motionPreference);
+paintPortrait(element<HTMLCanvasElement>("managerPortrait"), "upper_agent");
+paintPortrait(element<HTMLCanvasElement>("replyPortrait"), "upper_agent");
 
 function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 }
-
 function renderInline(value: string): string {
   return escapeHtml(value)
     .replace(/`([^`]+)`/g, "<code>$1</code>")
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-    .replace(/_([^_]+)_/g, "<em>$1</em>")
-    .replace(
-      /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
-      '<a href="$2" target="_blank" rel="noreferrer">$1</a>',
-    );
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>');
 }
-
+// Model output is escaped before the supported Markdown subset is rendered.
 function renderMarkdown(source: string): string {
-  const lines = source.trim().split("\n");
   let html = "";
-  let listType: "ul" | "ol" | null = null;
-  const closeList = () => {
-    if (listType) {
-      html += `</${listType}>`;
-      listType = null;
+  let list: "ul" | "ol" | null = null;
+  let code: string[] | null = null;
+  const closeList = () => { if (list) html += `</${list}>`; list = null; };
+  for (const raw of source.trim().split("\n")) {
+    const line = raw.trim();
+    if (line.startsWith("```")) {
+      closeList();
+      if (code) { html += `<pre><code>${escapeHtml(code.join("\n"))}</code></pre>`; code = null; }
+      else code = [];
+      continue;
     }
-  };
-
-  for (const rawLine of lines) {
-    const line = rawLine.trim();
+    if (code) { code.push(raw); continue; }
+    if (!line) { closeList(); continue; }
     const heading = line.match(/^(#{1,3})\s+(.+)$/);
-    const unordered = line.match(/^[-*]\s+(.+)$/);
-    const ordered = line.match(/^\d+\.\s+(.+)$/);
-    if (!line) {
-      closeList();
-      continue;
-    }
-    if (heading) {
-      closeList();
-      const level = heading[1].length;
-      html += `<h${level}>${renderInline(heading[2])}</h${level}>`;
-      continue;
-    }
-    if (unordered) {
-      if (listType !== "ul") {
-        closeList();
-        listType = "ul";
-        html += "<ul>";
-      }
-      html += `<li>${renderInline(unordered[1])}</li>`;
-      continue;
-    }
-    if (ordered) {
-      if (listType !== "ol") {
-        closeList();
-        listType = "ol";
-        html += "<ol>";
-      }
-      html += `<li>${renderInline(ordered[1])}</li>`;
-      continue;
-    }
-    closeList();
-    html += `<p>${renderInline(line)}</p>`;
+    const item = line.match(/^([-*]|\d+\.)\s+(.+)$/);
+    if (heading) { closeList(); html += `<h${heading[1].length}>${renderInline(heading[2])}</h${heading[1].length}>`; }
+    else if (item) {
+      const kind = /^\d/.test(item[1]) ? "ol" : "ul";
+      if (list !== kind) { closeList(); list = kind; html += `<${kind}>`; }
+      html += `<li>${renderInline(item[2])}</li>`;
+    } else { closeList(); html += `<p>${renderInline(line)}</p>`; }
   }
   closeList();
+  if (code) html += `<pre><code>${escapeHtml(code.join("\n"))}</code></pre>`;
   return html;
 }
-
-function renderNodeOutput(output: NodeOutput): string {
-  if (typeof output === "string") return renderMarkdown(output);
-  return `<pre><code>${escapeHtml(JSON.stringify(output, null, 2))}</code></pre>`;
+function setSpeech(text: string, markdown = false): void {
+  const followLatest = chatMessages.scrollHeight - chatMessages.scrollTop - chatMessages.clientHeight < 80;
+  latestAnswer = text;
+  latestIsMarkdown = markdown;
+  if (markdown) managerSpeech.innerHTML = renderMarkdown(text);
+  else { managerSpeech.replaceChildren(); const p = document.createElement("p"); p.textContent = text; p.style.whiteSpace = "pre-line"; managerSpeech.append(p); }
+  if (followLatest) chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-function setNodeState(name: NodeName, state?: NodeState): void {
-  const node = document.querySelector<HTMLElement>(`[data-node="${name}"]`);
-  if (!node) return;
-  if (state) node.dataset.state = state;
-  else delete node.dataset.state;
+// Saved turns and the current question share one transcript; streaming only updates the final reply.
+function renderTranscript(): void {
+  const history = element("chatHistory");
+  history.replaceChildren();
+  const priorMessages = messages.at(-1)?.role === "assistant" ? messages.slice(0, -1) : messages;
+  for (const message of priorMessages) {
+    const article = document.createElement("article");
+    article.className = "chat-message";
+    article.dataset.role = message.role;
+    article.setAttribute("aria-label", message.role === "user" ? "나의 질문" : "부장 답변");
+    if (message.role === "assistant") {
+      const avatar = document.createElement("canvas");
+      avatar.className = "chat-avatar";
+      avatar.setAttribute("aria-hidden", "true");
+      paintPortrait(avatar, "upper_agent");
+      article.append(avatar);
+    }
+    const content = document.createElement("div");
+    content.className = "message-content";
+    if (message.role === "assistant") {
+      content.classList.add("markdown-body");
+      if (message.status === "completed") content.innerHTML = renderMarkdown(message.content);
+      else content.textContent = message.content;
+    } else content.textContent = message.content;
+    article.append(content);
+    history.append(article);
+  }
 }
 
-function getNodeState(name: NodeName): string {
-  return document.querySelector<HTMLElement>(`[data-node="${name}"]`)?.dataset.state ?? "idle";
+// Animate the same live room between its full view and miniature, without cloning the agents.
+function setOfficeMode(chatting: boolean): void {
+  if (officeApp.classList.contains("is-chatting") === chatting) return;
+  const before = officeWorld.getBoundingClientRect();
+  roomTransition?.cancel();
+  officeApp.classList.toggle("is-chatting", chatting);
+  returnToOffice.hidden = !chatting;
+  for (const actor of officeWorld.querySelectorAll<HTMLElement>(".office-agent, .portfolio-character")) actor.inert = chatting;
+  if (motionPreference.matches) return;
+  const after = officeWorld.getBoundingClientRect();
+  roomTransition = officeWorld.animate([
+    { transform: `translate(${before.left - after.left}px, ${before.top - after.top}px) scale(${before.width / after.width})` },
+    { transform: "translate(0, 0) scale(1)" },
+  ], { duration: 350, easing: "cubic-bezier(.22,.68,0,1)" });
 }
 
-function addMessage(
-  role: "user" | "assistant",
-  text: string,
-  className = "",
-  markdown = false,
-): HTMLElement {
-  const row = document.createElement("div");
-  row.className = `chat-row ${role}`;
-  const bubble = document.createElement("div");
-  bubble.className = `chat-bubble ${className}${markdown ? " markdown-body" : ""}`.trim();
-  if (markdown) bubble.innerHTML = renderMarkdown(text);
-  else bubble.textContent = text;
-  row.appendChild(bubble);
-  chatMessages.appendChild(row);
-  chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: "smooth" });
-  return bubble;
+function openManager(trigger: HTMLElement | null = null, focusInput = false): void {
+  if (agentJournal.open) agentJournal.close();
+  managerTrigger = trigger ?? managerTrigger;
+  scene.setSelected("upper_agent");
+  setSpeech(latestAnswer, latestIsMarkdown);
+  managerDialog.hidden = false;
+  setOfficeMode(true);
+  element("talkToManager").hidden = true;
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+  if (focusInput && !researchInput.disabled) researchInput.focus({ preventScroll: true });
+  else managerDialog.focus({ preventScroll: true });
+  if (pendingResponse && !chatBusy && conversationId) {
+    const id = conversationId;
+    void changeConversation(() => openConversation(id));
+  }
 }
-
+function closeManager(): void {
+  managerDialog.hidden = true;
+  setOfficeMode(false);
+  element("talkToManager").hidden = false;
+  scene.setSelected(null);
+  (managerTrigger ?? element("talkToManager")).focus({ preventScroll: true });
+}
+function announceAnswer(): void {
+  // Native modal dialogs otherwise cover the manager and prevent the arrival focus.
+  const hadModal = [agentJournal, portfolioDialog].some(dialog => dialog.open);
+  for (const dialog of [agentJournal, portfolioDialog]) if (dialog.open) dialog.close();
+  if (managerDialog.hidden || hadModal) openManager();
+  element("announcement").textContent = phase === "done" ? "부장의 답변이 도착했습니다." : "요청을 완료하지 못했습니다. 부장의 안내를 확인하세요.";
+}
+function updateStatus(): void {
+  const done = [...selectedWorkers].filter(id => nodeStates[id] === "done").length;
+  const text: Record<Phase, string> = {
+    ready: "자유 시간", planning: "부장이 질문을 읽는 중", validating: "조사 준비 중",
+    researching: `조사 중 ${done} / ${selectedWorkers.size}`, synthesizing: "부장이 결과를 정리하는 중",
+    done: "답변 도착", error: "안내를 확인해 주세요", pending: "이전 답변 생성 중",
+  };
+  sessionState.querySelector("span")!.textContent = text[phase];
+  sessionState.dataset.state = ["ready", "done", "error"].includes(phase) ? phase : "running";
+  managerDialog.dataset.busy = String(chatBusy && phase !== "ready");
+}
 function setChatBusy(busy: boolean): void {
   chatBusy = busy;
   conversationSelect.disabled = busy || !conversationSelect.options.length;
   newConversation.disabled = busy;
   deleteConversation.disabled = busy || !conversationId || pendingResponse;
+  element<HTMLButtonElement>("refreshConversation").disabled = busy;
+  element("refreshConversation").hidden = !pendingResponse;
   researchInput.disabled = busy || !conversationId || pendingResponse;
   runButton.disabled = researchInput.disabled;
+  runButton.setAttribute("aria-label", busy ? "답변을 기다리는 중" : "질문 보내기");
+  element("composerHint").textContent = pendingResponse ? "이전 답변을 생성 중입니다. 아래 답변 확인을 눌러 주세요." : busy ? "답변을 기다리고 있습니다." : "Enter로 전달 · Shift + Enter로 줄바꿈";
+  element("composerStatus").hidden = !pendingResponse;
+  element("composerStatus").textContent = pendingResponse ? "이전 답변을 생성 중입니다. 답변 확인을 눌러 저장 상태를 확인해 주세요." : "";
+  updateStatus();
 }
-
+function resetResearch(): void {
+  nodeStates = {}; nodeOutputs = {}; nodeBuffers = {}; selectedWorkers = new Set(); planSeen = false;
+  scene.reset();
+  if (agentJournal.open) agentJournal.close();
+}
+function refreshJournal(): void {
+  const id = agentJournal.dataset.agent as AgentId | undefined;
+  if (!id) return;
+  const state = nodeStates[id] ?? "idle";
+  const stateLabels: Record<NodeState, string> = { idle: "자유 시간", running: "조사 중", done: "보고 완료", skipped: "이번 조사에는 참여하지 않아요", error: "조사가 중단되었어요" };
+  element("journalTitle").textContent = labels[id];
+  element("journalState").textContent = stateLabels[state];
+  const output = nodeOutputs[id];
+  const target = element("journalOutput");
+  if (typeof output === "string" && output) target.innerHTML = renderMarkdown(output);
+  else if (output) { const pre = document.createElement("pre"); pre.textContent = JSON.stringify(output, null, 2); target.replaceChildren(pre); }
+  else {
+    const empty: Record<NodeState, string> = {
+      idle: "아직 조사한 내용이 없습니다.",
+      running: "조사 중입니다. 내용이 도착하면 여기에 표시됩니다.",
+      done: "조사를 마쳤지만 전달된 보고서가 없습니다.",
+      skipped: "이번 질문에는 배정된 조사가 없습니다.",
+      error: "조사를 마치지 못했어요. 부장의 안내를 확인해 주세요.",
+    };
+    target.textContent = empty[state];
+  }
+}
+function openAgentJournal(id: AgentId): void {
+  scene.setSelected(id);
+  agentJournal.dataset.agent = id;
+  refreshJournal();
+  if (!agentJournal.open) agentJournal.showModal();
+}
 async function conversationRequest<T>(path = "", method = "GET"): Promise<T> {
   const response = await fetch(`/api/conversations${path}`, { method });
   if (!response.ok) {
-    const error = await response.json() as { detail?: string };
-    throw new Error(error.detail ?? `대화 요청에 실패했습니다. (${response.status})`);
+    const error = await response.json() as { detail?: unknown };
+    throw new Error(typeof error.detail === "string" ? error.detail : `대화 요청에 실패했습니다. (${response.status})`);
   }
   return response.status === 204 ? undefined as T : response.json() as Promise<T>;
 }
-
 async function refreshConversationList(): Promise<Conversation[]> {
   const conversations = await conversationRequest<Conversation[]>();
   conversationSelect.replaceChildren(...conversations.map(conversation => {
-    const option = document.createElement("option");
-    option.value = conversation.id;
-    option.textContent = conversation.title;
-    return option;
+    const option = document.createElement("option"); option.value = conversation.id; option.textContent = conversation.title; return option;
   }));
   if (conversationId) conversationSelect.value = conversationId;
+  element("conversationTitle").textContent = messages.length ? conversations.find(item => item.id === conversationId)?.title ?? "" : "";
   return conversations;
 }
-
 async function openConversation(id: string): Promise<void> {
   const conversation = await conversationRequest<Conversation & { messages: SavedMessage[] }>(`/${id}`);
   conversationId = conversation.id;
   conversationSelect.value = conversation.id;
   history.replaceState(null, "", `#conversation=${conversation.id}`);
-  chatMessages.replaceChildren();
-  pendingResponse = conversation.messages.some(message => message.status === "pending");
-  for (const message of conversation.messages) {
-    addMessage(message.role, message.status === "pending"
-      ? "답변을 생성 중입니다. 잠시 후 대화를 다시 열어주세요."
-      : message.content, "", message.role === "assistant" && message.status === "completed");
-  }
-  if (!conversation.messages.length) addMessage("assistant", "무엇이 궁금하세요? 일반 질문, 종목 조사, 내 보유 기업 분석을 요청하세요.");
-  nodeOutputs = {};
-  nodeBuffers = {};
-  for (const node of nodes) setNodeState(node);
-  scheduleHide();
-  researchInput.value = "";
-  researchInput.dispatchEvent(new Event("input"));
-  getElement<HTMLElement>("#chatRouteStatus").textContent = "실행 그래프는 새 질문을 보낼 때 표시됩니다";
-  setSessionState(pendingResponse ? "running" : "ready", pendingResponse ? "생성 중" : "준비");
+  messages = conversation.messages;
+  pendingResponse = messages.some(message => message.status === "pending");
+  resetResearch();
+  const last = [...messages].reverse().find(message => message.role === "assistant");
+  setSpeech(last?.status === "pending" ? "이전 답변을 생성 중입니다. 잠시 후 대화를 다시 열어주세요." : last?.content || welcome, last?.status === "completed");
+  phase = pendingResponse ? "pending" : last?.status === "completed" ? "done" : last ? "error" : "ready";
+  researchInput.value = ""; researchInput.style.height = "auto";
+  element("conversationTitle").textContent = messages.length ? conversation.title : "";
+  renderTranscript(); updateStatus();
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+  if (!managerDialog.hidden) scene.setSelected("upper_agent");
 }
-
 async function loadConversations(preferred?: string): Promise<void> {
   const conversations = await refreshConversationList();
   if (!conversations.length) {
     const created = await conversationRequest<Conversation>("", "POST");
-    await refreshConversationList();
-    await openConversation(created.id);
-  } else {
-    await openConversation(conversations.find(item => item.id === preferred)?.id ?? conversations[0].id);
-  }
+    await refreshConversationList(); await openConversation(created.id);
+  } else await openConversation(conversations.find(item => item.id === preferred)?.id ?? conversations[0].id);
 }
-
 async function changeConversation(action: () => Promise<void>): Promise<void> {
   setChatBusy(true);
-  try {
-    await action();
-  } catch (error) {
-    addMessage("assistant", error instanceof Error ? error.message : "대화를 불러오지 못했습니다.");
+  try { await action(); element("historyNote").hidden = true; }
+  catch (error) {
+    setSpeech(error instanceof Error ? error.message : "대화를 불러오지 못했습니다.");
     if (conversationId) conversationSelect.value = conversationId;
-    setSessionState("error", "대화 오류");
-  } finally {
-    setChatBusy(false);
-  }
+    phase = "error"; openManager();
+  } finally { setChatBusy(false); }
 }
-
-function positionPopover(trigger: HTMLElement): void {
-  const rect = trigger.getBoundingClientRect();
-  const popRect = nodePopover.getBoundingClientRect();
-  const gap = 12;
-  let left = rect.right + gap;
-  if (left + popRect.width > window.innerWidth - gap) left = rect.left - popRect.width - gap;
-  left = Math.max(gap, Math.min(left, window.innerWidth - popRect.width - gap));
-  let top = rect.top + (rect.height - popRect.height) / 2;
-  top = Math.max(gap, Math.min(top, window.innerHeight - popRect.height - gap));
-  nodePopover.style.left = `${Math.round(left)}px`;
-  nodePopover.style.top = `${Math.round(top)}px`;
-}
-
-function showNodePopover(name: NodeName, trigger: HTMLElement): void {
-  window.clearTimeout(hideTimer);
-  const state = getNodeState(name);
-  const labels: Record<string, string> = {
-    idle: "실행 전",
-    running: "실행 중",
-    done: "완료",
-    skipped: "선택 안 됨",
-    error: "오류",
-  };
-  let output = nodeOutputs[name];
-  if (!output && state === "skipped") output = "_이번 질문의 Research Plan에서 선택되지 않았습니다._";
-  if (!output && state === "running") output = "_노드가 실행 중입니다._";
-  if (!output && state === "error") output = "_노드 실행 중 오류가 발생했습니다._";
-  if (!output) output = "_조사 실행 후 이 노드의 출력 결과가 표시됩니다._";
-
-  nodePopover.dataset.node = name;
-  popoverTitle.textContent = nodeLabels[name];
-  popoverState.textContent = labels[state] ?? "실행 전";
-  popoverOutput.innerHTML = renderNodeOutput(output);
-  nodePopover.style.visibility = "hidden";
-  nodePopover.hidden = false;
-  positionPopover(trigger);
-  nodePopover.classList.remove("is-visible");
-  void nodePopover.offsetWidth;
-  nodePopover.style.visibility = "";
-  nodePopover.classList.add("is-visible");
-}
-
-function refreshOpenPopover(name: NodeName): void {
-  if (nodePopover.hidden || nodePopover.dataset.node !== name) return;
-  const output = nodeOutputs[name];
-  if (output) popoverOutput.innerHTML = renderNodeOutput(output);
-  popoverState.textContent = getNodeState(name) === "done" ? "완료" : "실행 중";
-}
-
-function scheduleShow(name: NodeName, trigger: HTMLElement, delay = 320): void {
-  window.clearTimeout(showTimer);
-  window.clearTimeout(hideTimer);
-  showTimer = window.setTimeout(() => showNodePopover(name, trigger), delay);
-}
-
-function scheduleHide(): void {
-  window.clearTimeout(showTimer);
-  window.clearTimeout(hideTimer);
-  hideTimer = window.setTimeout(() => {
-    nodePopover.classList.remove("is-visible");
-    nodePopover.hidden = true;
-  }, 140);
-}
-
-for (const name of nodes) {
-  const node = getElement<HTMLElement>(`[data-node="${name}"]`);
-  node.addEventListener("pointerenter", () => scheduleShow(name, node));
-  node.addEventListener("pointerleave", scheduleHide);
-  node.addEventListener("focus", () => scheduleShow(name, node, 0));
-  node.addEventListener("blur", scheduleHide);
-}
-nodePopover.addEventListener("pointerenter", () => window.clearTimeout(hideTimer));
-nodePopover.addEventListener("pointerleave", scheduleHide);
-window.addEventListener("scroll", scheduleHide);
-window.addEventListener("resize", scheduleHide);
-
-researchInput.addEventListener("input", () => {
-  researchInput.style.height = "auto";
-  researchInput.style.height = `${Math.min(researchInput.scrollHeight, 96)}px`;
-});
-researchInput.dispatchEvent(new Event("input"));
-researchInput.addEventListener("keydown", (event) => {
-  if (event.key === "Enter" && !event.shiftKey) {
-    event.preventDefault();
-    form.requestSubmit();
-  }
-});
 
 function parseSseFrame(frame: string): SseEvent | null {
   let type = "message";
-  const dataLines: string[] = [];
+  const data: string[] = [];
   for (const line of frame.split(/\r?\n/)) {
     if (line.startsWith("event:")) type = line.slice(6).trim();
-    if (line.startsWith("data:")) dataLines.push(line.slice(5).trimStart());
+    if (line.startsWith("data:")) data.push(line.slice(5).trimStart());
   }
-  if (!dataLines.length) return null;
-  return {
-    type,
-    data: JSON.parse(dataLines.join("\n")) as Record<string, unknown>,
-  };
+  return data.length ? { type, data: JSON.parse(data.join("\n")) as Record<string, unknown> } : null;
 }
-
 async function* readSseEvents(response: Response): AsyncGenerator<SseEvent> {
-  if (!response.body) throw new Error("Streaming 응답 본문이 없습니다.");
+  if (!response.body) throw new Error("응답 연결을 열지 못했습니다.");
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
-
-  while (true) {
-    const { value, done } = await reader.read();
-    buffer += decoder.decode(value, { stream: !done });
-    const frames = buffer.split(/\r?\n\r?\n/);
-    buffer = frames.pop() ?? "";
-    for (const frame of frames) {
-      const event = parseSseFrame(frame);
-      if (event) yield event;
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      buffer += decoder.decode(value, { stream: !done });
+      const frames = buffer.split(/\r?\n\r?\n/);
+      buffer = frames.pop() ?? "";
+      for (const frame of frames) { const event = parseSseFrame(frame); if (event) yield event; }
+      if (done) break;
     }
-    if (done) break;
+    if (buffer.trim()) { const event = parseSseFrame(buffer); if (event) yield event; }
+  } finally { await reader.cancel(); reader.releaseLock(); }
+}
+function stopWithError(message: string): void {
+  for (const id of workers) {
+    if (nodeStates[id] === "running") nodeStates[id] = "error";
+    scene.setActivity(id, nodeStates[id] === "error" ? "error" : "idle");
   }
-
-  if (buffer.trim()) {
-    const event = parseSseFrame(buffer);
-    if (event) yield event;
-  }
+  nodeStates.upper_agent = "error";
+  scene.setActivity("upper_agent", "error");
+  setSpeech(message); phase = "error";
+  updateStatus(); refreshJournal(); announceAnswer();
 }
-
-function extractNodeOutput(name: NodeName, output: Record<string, unknown>): NodeOutput {
-  const field = reportFields[name];
-  if (field && typeof output[field] === "string") return output[field] as string;
-  return output;
-}
-
-function setSessionState(state: "ready" | "running" | "done" | "error", label: string): void {
-  sessionState.className = state === "ready" ? "session-state" : `session-state ${state}`;
-  const text = sessionState.querySelector("span");
-  if (text) text.textContent = label;
-}
-
-function handleResearchEvent(event: SseEvent, reply: HTMLElement): boolean {
-  const node = event.data.node as NodeName | undefined;
-
+function handleResearchEvent(event: SseEvent): boolean {
+  const rawNode = event.data.node;
+  const node = typeof rawNode === "string" && nodes.includes(rawNode as NodeName) ? rawNode as NodeName : undefined;
   if (event.type === "node.started" && node) {
-    setNodeState(node, "running");
-    reply.textContent = `${nodeLabels[node]} 실행 중...`;
-    if (node === "upper_agent") getElement<HTMLElement>("#chatRouteStatus").textContent = "상위 Agent 실행 중";
-    return false;
-  }
-
-  if (event.type === "node.delta" && node) {
-    const delta = String(event.data.delta ?? "");
-    nodeBuffers[node] = (nodeBuffers[node] ?? "") + delta;
-    nodeOutputs[node] = nodeBuffers[node] ?? "";
-    refreshOpenPopover(node);
+    nodeStates[node] = "running";
+    // The manager runs twice: planning completion must never trigger the final dialogue.
+    nodeBuffers[node] = "";
     if (node === "upper_agent") {
-      reply.classList.remove("thinking");
-      reply.classList.add("markdown-body");
-      reply.innerHTML = renderMarkdown(nodeBuffers[node] ?? "");
-    }
-    return false;
+      phase = planSeen ? "synthesizing" : "planning";
+      scene.setActivity(node, "working");
+      setSpeech(planSeen ? "팀원들의 조사 결과를 모아 답변을 정리하고 있어요." : "질문을 확인하고 있어요. 필요한 조사를 정해볼게요.");
+    } else if (node === "request_parser") { phase = "validating"; setSpeech("회사와 조사 기간을 확인하고 있어요."); }
+    else { selectedWorkers.add(node); scene.setActivity(node, "working"); phase = "researching"; setSpeech("팀원들이 각자 자리에서 조사하고 있어요. 캐릭터를 누르면 조사 내용을 볼 수 있어요."); }
+  } else if (event.type === "node.delta" && node) {
+    nodeBuffers[node] = (nodeBuffers[node] ?? "") + String(event.data.delta ?? "");
+    nodeOutputs[node] = nodeBuffers[node]!;
+    if (node === "upper_agent") setSpeech(nodeBuffers[node]!, true);
+  } else if (event.type === "node.completed" && node) {
+    const output = (event.data.output ?? {}) as Record<string, unknown>;
+    const field = reportFields[node];
+    nodeOutputs[node] = field && typeof output[field] === "string" ? output[field] as string : output;
+    nodeStates[node] = "done";
+    if (node === "upper_agent" && output.intent === "research") {
+      planSeen = true;
+      const plan = output.research_plan as { tasks?: { agent?: string }[] } | undefined;
+      selectedWorkers = new Set((plan?.tasks ?? []).map(task => task.agent).filter((id): id is AgentId => workers.includes(id as AgentId)));
+      phase = "validating";
+      setSpeech("조사할 내용을 정했어요. 입력을 확인한 뒤 팀원들에게 전달할게요.");
+    } else if (workers.includes(node as AgentId)) scene.setActivity(node as AgentId, "done");
+  } else if (event.type === "node.skipped" && node) {
+    nodeStates[node] = "skipped";
+    if (node !== "request_parser") { selectedWorkers.delete(node); scene.setActivity(node, "idle"); }
+  } else if (event.type === "run.completed") {
+    setSpeech(String(event.data.final_answer ?? "전달된 최종 답변이 없습니다."), true);
+    nodeOutputs.upper_agent = latestAnswer; nodeStates.upper_agent = "done";
+    // Clear any unfinished visual state even if the server short-circuits a research run.
+    for (const id of workers) if (nodeStates[id] === "running") { nodeStates[id] = "skipped"; scene.setActivity(id, "idle"); }
+    scene.setActivity("upper_agent", "done"); phase = "done";
+    updateStatus(); refreshJournal(); announceAnswer(); return true;
+  } else if (event.type === "run.error") {
+    stopWithError(String(event.data.message ?? "조사 중 문제가 생겼어요. 잠시 후 다시 질문해 주세요.")); return true;
   }
-
-  if (event.type === "node.completed" && node) {
-    const output = event.data.output as Record<string, unknown>;
-    if (node === "upper_agent" && typeof output.intent === "string") {
-      const labels: Record<string, string> = { general: "일반 답변", research: "종목 조사" };
-      getElement<HTMLElement>("#chatRouteStatus").textContent = `질문 분류 → ${labels[output.intent] ?? output.intent}`;
-    }
-    nodeOutputs[node] = extractNodeOutput(node, output);
-    setNodeState(node, "done");
-    refreshOpenPopover(node);
-    return false;
-  }
-
-  if (event.type === "node.skipped" && node) {
-    setNodeState(node, "skipped");
-    return false;
-  }
-
-  if (event.type === "run.completed") {
-    const finalAnswer = String(event.data.final_answer ?? "최종 답변이 없습니다.");
-    reply.classList.remove("thinking");
-    reply.classList.add("markdown-body");
-    reply.innerHTML = renderMarkdown(finalAnswer);
-    setSessionState("done", "완료");
-    return true;
-  }
-
-  if (event.type === "run.error") {
-    if (node) setNodeState(node, "error");
-    reply.classList.remove("thinking");
-    reply.textContent = String(event.data.message ?? "리서치 실행 중 오류가 발생했습니다.");
-    setSessionState("error", "오류");
-    return true;
-  }
-
-  return false;
+  updateStatus(); if (agentJournal.open) refreshJournal(); return false;
 }
-
 async function runGraph(event: SubmitEvent): Promise<void> {
   event.preventDefault();
   const message = researchInput.value.trim();
   if (!message || chatBusy || !conversationId || pendingResponse) return;
-
-  nodeOutputs = {};
-  nodeBuffers = {};
-  for (const node of nodes) setNodeState(node);
-  addMessage("user", message);
-  const reply = addMessage("assistant", "조사를 시작하고 있어요…", "thinking");
-  researchInput.value = "";
-  researchInput.style.height = "auto";
-  setChatBusy(true);
-  setSessionState("running", "분석 중");
-
-  let finished = false;
+  resetResearch();
+  messages.push({ role: "user", content: message, status: "completed" });
+  const reply: SavedMessage = { role: "assistant", content: "", status: "pending" }; messages.push(reply);
+  researchInput.value = ""; researchInput.style.height = "auto";
+  phase = "planning"; scene.setActivity("upper_agent", "working");
+  setSpeech("질문을 확인하고 있어요. 필요한 조사를 정해볼게요.");
+  setChatBusy(true); renderTranscript();
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+  let terminal = false;
   try {
     const response = await fetch("/api/chat/stream", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "text/event-stream",
-      },
+      method: "POST", headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
       body: JSON.stringify({ message, conversation_id: conversationId }),
     });
     if (!response.ok) {
-      const error = (await response.json()) as { detail?: string };
-      throw new Error(error.detail ?? `요청에 실패했습니다. (${response.status})`);
+      const error = await response.json() as { detail?: unknown };
+      throw new Error(typeof error.detail === "string" ? error.detail : `요청에 실패했습니다. (${response.status})`);
     }
-
     for await (const streamEvent of readSseEvents(response)) {
-      finished = handleResearchEvent(streamEvent, reply) || finished;
+      terminal = handleResearchEvent(streamEvent);
+      if (terminal) break;
     }
-    if (!finished) throw new Error("Research Stream이 완료 이벤트 없이 종료됐습니다.");
+    if (!terminal) throw new Error("완료 전에 연결이 끊겼어요. 대화 기록에서 저장 상태를 확인한 뒤 다시 질문해 주세요.");
   } catch (error) {
-    reply.classList.remove("thinking");
-    reply.textContent = error instanceof Error ? error.message : "서버 연결에 실패했습니다.";
-    setSessionState("error", "오류");
+    if (!terminal) stopWithError(error instanceof Error ? error.message : "서버와 연결하지 못했어요.");
   } finally {
-    try {
-      await refreshConversationList();
-    } catch {
-      addMessage("assistant", "대화 목록을 갱신하지 못했습니다. 다시 열어 저장 상태를 확인해주세요.");
-    }
+    reply.content = latestAnswer; reply.status = nodeStates.upper_agent === "done" ? "completed" : "error";
+    try { await refreshConversationList(); }
+    catch { element("historyNote").hidden = false; element("historyNote").textContent = "대화 목록을 갱신하지 못했습니다. 새로고침해 저장 상태를 확인해 주세요."; }
     setChatBusy(false);
-    researchInput.focus();
-    chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: "smooth" });
   }
 }
 
-form.addEventListener("submit", (event) => void runGraph(event));
-conversationSelect.addEventListener("change", () => {
-  if (!chatBusy) void changeConversation(() => openConversation(conversationSelect.value));
+form.addEventListener("submit", event => void runGraph(event));
+researchInput.addEventListener("input", () => { researchInput.style.height = "auto"; researchInput.style.height = `${Math.min(researchInput.scrollHeight, 96)}px`; });
+researchInput.addEventListener("keydown", event => {
+  if (event.key === "Enter" && !event.shiftKey && !event.isComposing) { event.preventDefault(); form.requestSubmit(); }
 });
+element("talkToManager").addEventListener("click", event => openManager(event.currentTarget as HTMLElement, true));
+element("closeManager").addEventListener("click", closeManager);
+returnToOffice.addEventListener("click", closeManager);
+element("refreshConversation").addEventListener("click", () => {
+  if (!chatBusy && conversationId) {
+    const id = conversationId;
+    void changeConversation(() => openConversation(id));
+  }
+});
+for (const button of document.querySelectorAll<HTMLButtonElement>("[data-close]")) button.addEventListener("click", () => element<HTMLDialogElement>(button.dataset.close!).close());
+agentJournal.addEventListener("close", () => scene.setSelected(managerDialog.hidden ? null : "upper_agent"));
+document.addEventListener("keydown", event => {
+  if (event.key === "Escape" && !managerDialog.hidden && ![agentJournal, portfolioDialog].some(dialog => dialog.open)) { event.preventDefault(); closeManager(); }
+});
+element("portfolioCharacter").addEventListener("click", async () => {
+  portfolioCharacter.setPaused(true);
+  if (!portfolioDialog.open) portfolioDialog.showModal();
+  if (portfolioLoaded) return;
+  portfolioLoaded = true;
+  try { await import("./portfolio"); }
+  catch { portfolioLoaded = false; element("portfolioStatus").textContent = "포트폴리오 화면을 불러오지 못했습니다. 창을 닫고 다시 열어주세요."; }
+});
+portfolioDialog.addEventListener("close", () => portfolioCharacter.setPaused(false));
+conversationSelect.addEventListener("change", () => { if (!chatBusy) void changeConversation(() => openConversation(conversationSelect.value)); });
 newConversation.addEventListener("click", () => {
   if (!chatBusy) void changeConversation(async () => {
     const created = await conversationRequest<Conversation>("", "POST");
-    await refreshConversationList();
-    await openConversation(created.id);
+    await refreshConversationList(); await openConversation(created.id); openManager(null, true);
   });
 });
 deleteConversation.addEventListener("click", () => {
   if (chatBusy || !conversationId || !window.confirm("이 대화와 저장된 메시지를 삭제할까요?")) return;
   void changeConversation(async () => {
-    await conversationRequest(`/${conversationId}`, "DELETE");
-    conversationId = null;
-    pendingResponse = false;
-    chatMessages.replaceChildren();
-    await loadConversations();
+    await conversationRequest(`/${conversationId}`, "DELETE"); conversationId = null; pendingResponse = false; await loadConversations();
   });
 });
-void changeConversation(() => loadConversations(new URLSearchParams(location.hash.slice(1)).get("conversation") ?? undefined));
+void changeConversation(() => loadConversations(new URLSearchParams(location.hash.slice(1)).get("conversation") ?? undefined))
+  .then(() => { if (phase === "error") openManager(); });
+window.addEventListener("resize", () => roomTransition?.cancel());
+motionPreference.addEventListener("change", () => { if (motionPreference.matches) roomTransition?.cancel(); });
+window.addEventListener("pagehide", event => { if (!event.persisted) { scene.dispose(); room.dispose(); portfolioCharacter.dispose(); } });

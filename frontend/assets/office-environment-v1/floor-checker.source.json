@@ -1,0 +1,10 @@
+{
+  "id": "floor-checker",
+  "name": "연녹색 체크 바닥",
+  "group": "바닥",
+  "width": 96,
+  "opaque": true,
+  "prompt": "ONE seamless repeatable square sage-and-ivory checker floor texture tile from the right manager room. STRICT TOP DOWN ORTHOGRAPHIC. EXACTLY four equal squares in a 2-by-2 arrangement: top-left pale warm ivory, top-right pale desaturated sage, bottom-left pale sage, bottom-right ivory. Pale sage is #C3CDB2 range, ivory is #EEEAD6 range. Very flat crisp colors; no grain, no inset motifs, no grout stripe, no bevel, no gradient, no border. Full bleed edge to edge with no padding. Pattern must repeat perfectly both horizontally and vertically. No wall/furniture/text/magenta. This is the floor surface, not an isolated square plate. Pixel texture design.",
+  "file": "floor-checker.png",
+  "source": "/Users/anjeongseob/.codex/generated_images/01a09e8f-b7c6-7990-aeaf-b83cc9294f84/exec-41e6f0f0-3d53-4b59-92df-b51b0e1ee052.png"
+}
