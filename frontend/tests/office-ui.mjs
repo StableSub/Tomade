@@ -740,7 +740,9 @@ async function twoRoomReporting(browser) {
     await page.locator('#returnToOffice').click();
     await page.waitForFunction(() => !document.querySelector('#officeWorld').getAnimations().length);
     await page.screenshot({ path: `${screenshots}/two-room-manager-arrived.png` });
-    assert.equal(await page.locator(`${agent('upper_agent')} .agent-talk`).isVisible(), true, 'The manager has a clear conversation entry point after arriving');
+    assert.equal(await page.locator('.agent-name[data-agent="upper_agent"]').isVisible(), true, 'The manager keeps a visible name after arriving');
+    await page.locator(agent('upper_agent')).click();
+    await page.locator('#managerDialog').waitFor({ state: 'visible' });
     f.check();
     console.log('PASS two rooms: working poses, doorway-only reporting routes, private manager and final conversation');
   } catch (error) {
