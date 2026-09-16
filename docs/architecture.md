@@ -53,10 +53,20 @@
 - 파일 길이 제한은 보류했다. 대화방 삭제는 장기 기억을 지우지 않으며, 명시적인 기억 삭제는 remove로 처리한다. 원본 대화와 요약에 남은 과거 언급까지 삭제하는 기능은 아니다.
 - 실제 LangChain loop + 가짜 모델로 도구 호출 후 답변을 검증했다. 실제 LLM 저장 판단·삭제 판단·반복 방지 효과는 별도 평가 대상이다.
 
+### 계층형 프롬프트와 입력 조립
+
+- `src/stock_agent/prompts/`의 `orchestrator.md`, `request_parser.md`, `business.md`, `macro_sector.md`, `event_catalyst.md`가 IDENTITY·CONSTRAINTS·CAPABILITIES·CONTEXT·BEHAVIOR·KNOWLEDGE 순서의 고정 지침을 관리한다. `common.md`는 전체 공통 제약과 Worker 공통 제약·보고 방식을 제공한다.
+- `prompts/builder.py`의 `build_system_prompt()`는 코드가 지정한 역할의 파일과 공통 구역을 호출마다 읽는다. 고정 문구를 조립한 다음 전달받은 동적 값을 한 번만 삽입하며, 사용자 텍스트 안의 중괄호를 다시 해석하지 않는다. 필수 파일·구역·변수 누락이나 불필요한 입력 변수는 오류로 처리한다.
+- 상위 Agent는 같은 템플릿에 현재 날짜와 `initial`/`synthesis` 단계, 준비된 사용자 기억·세션 요약을 넣는다. 기억이 없으면 빈 문자열을 사용한다. 메모리 조회·저장·DB·모델 호출은 Builder의 책임이 아니다.
+- Parser는 오늘 날짜만 시스템 프롬프트에 넣고 현재 질문은 별도 user 메시지로 유지한다. Worker는 조사 조건·자신의 목표·질문·완료 기준을 기존 user 메시지로 받으며, 시스템 프롬프트에는 이 필드의 의미와 역할 지침을 넣는다.
+- Tool 권한과 출력 스키마는 기존 코드에 둔다. Worker는 사용자 기억·최근 대화·다른 Worker 보고서를 모델 입력에 넣지 않는다. 실행 중 수집한 근거는 Tool 호출·결과 메시지로 유지한다.
+- Event/Catalyst의 Market 선행 조회 안내는 BEHAVIOR로 모았다. 선행 순서·근거 충실성·보고서 완료 기준은 프롬프트로 유도하며 독립 검증을 추가한 것은 아니다. 공시 본문 미조회·오늘 기준 공시 목록·검색 본문 일부 반환의 한계를 각 역할 지침에 반영한다.
+- Markdown 파일은 Python 패키지 데이터로 포함한다. 단기 요약 모델과 포트폴리오 분류·해설 모델은 이번 분리 대상이 아니다.
+
 ### 상위 Agent와 LangGraph
 
 - `POST /api/chat/stream`은 `src/stock_agent/graph.py`를 실행한다. 별도 Chat Router·일반 답변·Plan·Synthesis 노드는 없다.
-- `upper_agent`는 같은 `PLANNER_MODEL`과 시스템 프롬프트로 직접 답변·조사 계획·조사 후 종합을 담당한다. 첫 호출에서 `UpperDecision`으로 일반 답변 또는 `ResearchPlan`을 반환한다.
+- `upper_agent`는 같은 `PLANNER_MODEL`과 역할별 프롬프트 템플릿으로 직접 답변·조사 계획·조사 후 종합을 담당한다. 첫 호출에서 `UpperDecision`으로 일반 답변 또는 `ResearchPlan`을 반환한다.
 - 일반 답변은 첫 상위 Agent 호출로 종료한다. 조사 요청은 계획을 만든 뒤 기존 Parser·Python으로 입력을 검증하고 선택된 Worker를 병렬 실행한다.
 - `research` 하위 그래프에는 입력 검증과 Worker만 있다. 선택된 Worker가 모두 끝나면 같은 `upper_agent` 노드로 돌아와 최초 질문·계획·조사 조건·보고서를 입력받아 종합한다. 잘못된 입력은 Worker 실행 전에 종료한다.
 - FastAPI는 단기 맥락 준비·이벤트 변환·대화 저장을 담당한다. 그래프 조건부 엣지가 실행을 제어하며 최종 완료 이벤트는 요청당 한 번 보낸다.

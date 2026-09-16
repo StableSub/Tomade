@@ -4,7 +4,7 @@ import unittest
 import datetime
 from unittest.mock import patch
 
-from stock_agent.agents.orchestrator import SYNTHESIS_SYSTEM_PROMPT
+from stock_agent.prompts.builder import build_system_prompt
 from stock_agent.control.request_parser import _validate_parsed_request, request_parsing_node
 from stock_agent.state import ParsedRequest
 
@@ -93,18 +93,12 @@ class ResearchMandateScopeTest(unittest.TestCase):
 
     def test_synthesis_allows_grounded_buy_hold_sell_opinion(self) -> None:
         """Synthesis가 근거 기반 투자 의견을 금지하지 않고 조건부로 허용한다."""
-        self.assertIn(
-            "Buy/Hold/Sell 의견을 제시할 수 있습니다",
-            SYNTHESIS_SYSTEM_PROMPT,
-        )
-        self.assertIn(
-            "수익을 보장하거나 자동 주문을 실행하지 않습니다",
-            SYNTHESIS_SYSTEM_PROMPT,
-        )
-        self.assertNotIn(
-            "Buy/Hold/Sell 판단, 수익 보장, 자동 주문 제안은 하지 않습니다",
-            SYNTHESIS_SYSTEM_PROMPT,
-        )
+        prompt = build_system_prompt("orchestrator", current_date="2026-09-13",
+                                     execution_stage="synthesis")
+        self.assertIn("투자 판단을 요청받은 경우에만 Buy/Hold/Sell 의견", prompt)
+        self.assertIn("근거·반대 요인·성립 조건", prompt)
+        self.assertIn("투자 수익을 보장하거나 주문을 실행하지 않는다", prompt)
+
 
 
 if __name__ == "__main__":
