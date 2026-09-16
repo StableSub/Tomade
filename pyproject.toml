@@ -24,3 +24,6 @@ build-backend = "setuptools.build_meta"
 # src 레이아웃: src/ 아래의 stock_agent 패키지를 인식시킨다
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"stock_agent.prompts" = ["*.md"]

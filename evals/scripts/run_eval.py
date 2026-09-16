@@ -21,13 +21,8 @@ SRC_DIR = PROJECT_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from stock_agent.agents.orchestrator import (
-    SYSTEM_PROMPT,
-    upper_agent_node,
-)
-from stock_agent.control.request_parser import (
-    SYSTEM_PROMPT as PARSER_SYSTEM_PROMPT,
-)
+from stock_agent.agents.orchestrator import upper_agent_node
+from stock_agent.prompts.builder import build_system_prompt
 from stock_agent.control.request_parser import request_parsing_node
 from stock_agent.gateways.llm import get_chat_model
 
@@ -503,11 +498,14 @@ def compare_runs(baseline: dict, metadata: dict, results: list[dict]) -> list[di
 
 
 def prompt_hashes() -> dict[str, str]:
-    """Baseline과 변경 버전에서 Prompt 동일성을 확인할 SHA-256 앞 12자를 반환한다."""
-    return {
-        "parser": hashlib.sha256(PARSER_SYSTEM_PROMPT.encode("utf-8")).hexdigest()[:12],
-        "planner": hashlib.sha256(SYSTEM_PROMPT.encode("utf-8")).hexdigest()[:12],
+    """공통 지침을 포함한 평가 프롬프트의 SHA-256 앞 12자를 반환한다. 날짜는 고정 표기로 제외한다."""
+    prompts = {
+        "parser": build_system_prompt("request_parser", current_date="<runtime-date>"),
+        "planner": build_system_prompt("orchestrator", current_date="<runtime-date>",
+                                       execution_stage="initial"),
     }
+    return {role: hashlib.sha256(prompt.encode("utf-8")).hexdigest()[:12]
+            for role, prompt in prompts.items()}
 
 
 def render_report(metadata: dict[str, Any], summary: dict[str, Any], results: list[dict[str, Any]]) -> str:

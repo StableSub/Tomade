@@ -22,6 +22,22 @@ from stock_agent.state import ParsedRequest
 class EvalContractTest(unittest.TestCase):
     """정상/오류 반례와 고정 환경으로 평가 자체의 회귀를 검사한다."""
 
+    def test_prompt_hashes_include_common_rules_and_ignore_current_date(self):
+        from stock_agent.prompts import builder
+        before = run_eval.prompt_hashes()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(builder.PROMPT_DIR, root, dirs_exist_ok=True)
+            common = root / "common.md"
+            common.write_text(common.read_text().replace("확인하지 않은 사실", "검증하지 않은 사실"))
+            with patch.object(builder, "PROMPT_DIR", root):
+                after = run_eval.prompt_hashes()
+        self.assertNotEqual(before["parser"], after["parser"])
+        self.assertNotEqual(before["planner"], after["planner"])
+        with patch("stock_agent.agents.orchestrator.datetime.date") as date:
+            date.today.side_effect = AssertionError("Prompt hash must not read the clock")
+            self.assertEqual(before, run_eval.prompt_hashes())
+
     def test_current_datasets(self):
         self.assertEqual(validate_datasets(), {
             "input_parsing": 12, "planner_routing": 12,
