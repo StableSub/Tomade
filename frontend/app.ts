@@ -1,4 +1,6 @@
 import { OfficeScene, paintPortrait, type AgentId } from "./office-scene";
+import { OfficeRoom } from "./office-room";
+import { PortfolioCharacter } from "./portfolio-character";
 
 type NodeName = AgentId | "request_parser";
 type NodeState = "idle" | "running" | "done" | "skipped" | "error";
@@ -9,7 +11,7 @@ interface Conversation { id: string; title: string }
 interface SavedMessage { role: "user" | "assistant"; content: string; status: "pending" | "completed" | "error" | "interrupted" }
 const workers: AgentId[] = ["business", "macro_sector", "event_catalyst"];
 const nodes: NodeName[] = ["upper_agent", "request_parser", ...workers];
-const labels: Record<NodeName, string> = { upper_agent: "부장 Agent", request_parser: "질문 확인", business: "비즈니스", macro_sector: "매크로 / 섹터", event_catalyst: "이벤트 / 카탈리스트" };
+const labels: Record<NodeName, string> = { upper_agent: "부장 Agent", request_parser: "질문 확인", business: "패트 - 비즈니스", macro_sector: "매트 - 섹터", event_catalyst: "게왹이 - 이벤트" };
 const reportFields: Partial<Record<NodeName, string>> = { business: "business_report", macro_sector: "macro_sector_report", event_catalyst: "event_catalyst_report", upper_agent: "final_answer" };
 const welcome = "어떤 기업을 함께 살펴볼까요?";
 
@@ -33,7 +35,6 @@ const conversationSelect = element<HTMLSelectElement>("conversationSelect");
 const newConversation = element<HTMLButtonElement>("newConversation");
 const deleteConversation = element<HTMLButtonElement>("deleteConversation");
 const agentJournal = element<HTMLDialogElement>("agentJournal");
-const historyDialog = element<HTMLDialogElement>("historyDialog");
 const portfolioDialog = element<HTMLDialogElement>("portfolioDialog");
 let conversationId: string | null = null;
 let messages: SavedMessage[] = [];
@@ -51,10 +52,13 @@ let portfolioLoaded = false;
 let planSeen = false;
 let roomTransition: Animation | null = null;
 
-const scene = new OfficeScene(element("officeWorld"), (id, trigger) => {
+const selectAgent = (id: AgentId, trigger: HTMLButtonElement) => {
   if (id === "upper_agent") openManager(trigger, true);
   else openAgentJournal(id);
-}, motionPreference);
+};
+const room = new OfficeRoom(officeWorld);
+const scene = new OfficeScene(officeWorld, selectAgent, motionPreference);
+const portfolioCharacter = new PortfolioCharacter(element<HTMLCanvasElement>("portfolioSprite"), motionPreference);
 paintPortrait(element<HTMLCanvasElement>("managerPortrait"), "upper_agent");
 paintPortrait(element<HTMLCanvasElement>("replyPortrait"), "upper_agent");
 
@@ -141,7 +145,7 @@ function setOfficeMode(chatting: boolean): void {
   roomTransition?.cancel();
   officeApp.classList.toggle("is-chatting", chatting);
   returnToOffice.hidden = !chatting;
-  for (const actor of officeWorld.querySelectorAll<HTMLElement>(".office-agent, #openReport")) actor.inert = chatting;
+  for (const actor of officeWorld.querySelectorAll<HTMLElement>(".office-agent, .portfolio-character")) actor.inert = chatting;
   if (motionPreference.matches) return;
   const after = officeWorld.getBoundingClientRect();
   roomTransition = officeWorld.animate([
@@ -161,6 +165,10 @@ function openManager(trigger: HTMLElement | null = null, focusInput = false): vo
   chatMessages.scrollTop = chatMessages.scrollHeight;
   if (focusInput && !researchInput.disabled) researchInput.focus({ preventScroll: true });
   else managerDialog.focus({ preventScroll: true });
+  if (pendingResponse && !chatBusy && conversationId) {
+    const id = conversationId;
+    void changeConversation(() => openConversation(id));
+  }
 }
 function closeManager(): void {
   managerDialog.hidden = true;
@@ -171,8 +179,8 @@ function closeManager(): void {
 }
 function announceAnswer(): void {
   // Native modal dialogs otherwise cover the manager and prevent the arrival focus.
-  const hadModal = [agentJournal, historyDialog, portfolioDialog].some(dialog => dialog.open);
-  for (const dialog of [agentJournal, historyDialog, portfolioDialog]) if (dialog.open) dialog.close();
+  const hadModal = [agentJournal, portfolioDialog].some(dialog => dialog.open);
+  for (const dialog of [agentJournal, portfolioDialog]) if (dialog.open) dialog.close();
   if (managerDialog.hidden || hadModal) openManager();
   element("announcement").textContent = phase === "done" ? "부장의 답변이 도착했습니다." : "요청을 완료하지 못했습니다. 부장의 안내를 확인하세요.";
 }
@@ -192,12 +200,14 @@ function setChatBusy(busy: boolean): void {
   conversationSelect.disabled = busy || !conversationSelect.options.length;
   newConversation.disabled = busy;
   deleteConversation.disabled = busy || !conversationId || pendingResponse;
+  element<HTMLButtonElement>("refreshConversation").disabled = busy;
+  element("refreshConversation").hidden = !pendingResponse;
   researchInput.disabled = busy || !conversationId || pendingResponse;
   runButton.disabled = researchInput.disabled;
   runButton.setAttribute("aria-label", busy ? "답변을 기다리는 중" : "질문 보내기");
-  element("composerHint").textContent = pendingResponse ? "이전 답변을 생성 중입니다. 대화 기록을 다시 열어 확인하세요." : busy ? "답변을 기다리고 있습니다." : "Enter로 전달 · Shift + Enter로 줄바꿈";
+  element("composerHint").textContent = pendingResponse ? "이전 답변을 생성 중입니다. 아래 답변 확인을 눌러 주세요." : busy ? "답변을 기다리고 있습니다." : "Enter로 전달 · Shift + Enter로 줄바꿈";
   element("composerStatus").hidden = !pendingResponse;
-  element("composerStatus").textContent = pendingResponse ? "이전 답변을 생성 중입니다. 대화 기록을 다시 열어 확인해 주세요." : "";
+  element("composerStatus").textContent = pendingResponse ? "이전 답변을 생성 중입니다. 답변 확인을 눌러 저장 상태를 확인해 주세요." : "";
   updateStatus();
 }
 function resetResearch(): void {
@@ -233,29 +243,6 @@ function openAgentJournal(id: AgentId): void {
   refreshJournal();
   if (!agentJournal.open) agentJournal.showModal();
 }
-function renderHistory(): void {
-  const entries = element("historyEntries");
-  entries.replaceChildren();
-  if (!messages.length) { const p = document.createElement("p"); p.className = "empty-note"; p.textContent = "아직 대화가 없어요. 부장에게 첫 질문을 건네보세요."; entries.append(p); }
-  for (const message of messages) {
-    const article = document.createElement("article"); article.className = "history-entry"; article.dataset.role = message.role;
-    const header = document.createElement("header"); header.textContent = message.role === "user" ? "나의 질문" : "부장 Agent";
-    if (message.status !== "completed") { const status = document.createElement("span"); status.className = "entry-status"; status.textContent = ({ pending: "생성 중", error: "오류", interrupted: "중단됨" })[message.status]; header.append(status); }
-    const content = document.createElement("div"); content.className = "markdown-body";
-    if (message.role === "assistant" && message.status === "completed") content.innerHTML = renderMarkdown(message.content);
-    else content.textContent = message.content || "답변을 생성 중입니다. 잠시 후 대화를 다시 열어주세요.";
-    article.append(header, content); entries.append(article);
-  }
-}
-function openHistory(): void {
-  renderHistory();
-  if (!historyDialog.open) historyDialog.showModal();
-  if (pendingResponse && !chatBusy && conversationId) {
-    const id = conversationId;
-    void changeConversation(() => openConversation(id));
-  }
-}
-
 async function conversationRequest<T>(path = "", method = "GET"): Promise<T> {
   const response = await fetch(`/api/conversations${path}`, { method });
   if (!response.ok) {
@@ -286,7 +273,7 @@ async function openConversation(id: string): Promise<void> {
   phase = pendingResponse ? "pending" : last?.status === "completed" ? "done" : last ? "error" : "ready";
   researchInput.value = ""; researchInput.style.height = "auto";
   element("conversationTitle").textContent = messages.length ? conversation.title : "";
-  renderTranscript(); renderHistory(); updateStatus();
+  renderTranscript(); updateStatus();
   chatMessages.scrollTop = chatMessages.scrollHeight;
   if (!managerDialog.hidden) scene.setSelected("upper_agent");
 }
@@ -299,7 +286,7 @@ async function loadConversations(preferred?: string): Promise<void> {
 }
 async function changeConversation(action: () => Promise<void>): Promise<void> {
   setChatBusy(true);
-  try { await action(); }
+  try { await action(); element("historyNote").hidden = true; }
   catch (error) {
     setSpeech(error instanceof Error ? error.message : "대화를 불러오지 못했습니다.");
     if (conversationId) conversationSelect.value = conversationId;
@@ -397,7 +384,7 @@ async function runGraph(event: SubmitEvent): Promise<void> {
   researchInput.value = ""; researchInput.style.height = "auto";
   phase = "planning"; scene.setActivity("upper_agent", "working");
   setSpeech("질문을 확인하고 있어요. 필요한 조사를 정해볼게요.");
-  setChatBusy(true); renderTranscript(); renderHistory();
+  setChatBusy(true); renderTranscript();
   chatMessages.scrollTop = chatMessages.scrollHeight;
   let terminal = false;
   try {
@@ -418,9 +405,8 @@ async function runGraph(event: SubmitEvent): Promise<void> {
     if (!terminal) stopWithError(error instanceof Error ? error.message : "서버와 연결하지 못했어요.");
   } finally {
     reply.content = latestAnswer; reply.status = nodeStates.upper_agent === "done" ? "completed" : "error";
-    renderHistory();
     try { await refreshConversationList(); }
-    catch { element("historyNote").textContent = "대화 목록을 갱신하지 못했습니다. 다시 열어 저장 상태를 확인해 주세요."; }
+    catch { element("historyNote").hidden = false; element("historyNote").textContent = "대화 목록을 갱신하지 못했습니다. 새로고침해 저장 상태를 확인해 주세요."; }
     setChatBusy(false);
   }
 }
@@ -431,27 +417,33 @@ researchInput.addEventListener("keydown", event => {
   if (event.key === "Enter" && !event.shiftKey && !event.isComposing) { event.preventDefault(); form.requestSubmit(); }
 });
 element("talkToManager").addEventListener("click", event => openManager(event.currentTarget as HTMLElement, true));
-element("openReport").addEventListener("click", event => openManager(event.currentTarget as HTMLElement));
 element("closeManager").addEventListener("click", closeManager);
 returnToOffice.addEventListener("click", closeManager);
-element("openHistory").addEventListener("click", openHistory);
+element("refreshConversation").addEventListener("click", () => {
+  if (!chatBusy && conversationId) {
+    const id = conversationId;
+    void changeConversation(() => openConversation(id));
+  }
+});
 for (const button of document.querySelectorAll<HTMLButtonElement>("[data-close]")) button.addEventListener("click", () => element<HTMLDialogElement>(button.dataset.close!).close());
 agentJournal.addEventListener("close", () => scene.setSelected(managerDialog.hidden ? null : "upper_agent"));
 document.addEventListener("keydown", event => {
-  if (event.key === "Escape" && !managerDialog.hidden && ![agentJournal, historyDialog, portfolioDialog].some(dialog => dialog.open)) { event.preventDefault(); closeManager(); }
+  if (event.key === "Escape" && !managerDialog.hidden && ![agentJournal, portfolioDialog].some(dialog => dialog.open)) { event.preventDefault(); closeManager(); }
 });
-element("openPortfolio").addEventListener("click", async () => {
+element("portfolioCharacter").addEventListener("click", async () => {
+  portfolioCharacter.setPaused(true);
   if (!portfolioDialog.open) portfolioDialog.showModal();
   if (portfolioLoaded) return;
   portfolioLoaded = true;
   try { await import("./portfolio"); }
   catch { portfolioLoaded = false; element("portfolioStatus").textContent = "포트폴리오 화면을 불러오지 못했습니다. 창을 닫고 다시 열어주세요."; }
 });
+portfolioDialog.addEventListener("close", () => portfolioCharacter.setPaused(false));
 conversationSelect.addEventListener("change", () => { if (!chatBusy) void changeConversation(() => openConversation(conversationSelect.value)); });
 newConversation.addEventListener("click", () => {
   if (!chatBusy) void changeConversation(async () => {
     const created = await conversationRequest<Conversation>("", "POST");
-    await refreshConversationList(); await openConversation(created.id); historyDialog.close(); openManager(null, true);
+    await refreshConversationList(); await openConversation(created.id); openManager(null, true);
   });
 });
 deleteConversation.addEventListener("click", () => {
@@ -464,4 +456,4 @@ void changeConversation(() => loadConversations(new URLSearchParams(location.has
   .then(() => { if (phase === "error") openManager(); });
 window.addEventListener("resize", () => roomTransition?.cancel());
 motionPreference.addEventListener("change", () => { if (motionPreference.matches) roomTransition?.cancel(); });
-window.addEventListener("pagehide", event => { if (!event.persisted) scene.dispose(); });
+window.addEventListener("pagehide", event => { if (!event.persisted) { scene.dispose(); room.dispose(); portfolioCharacter.dispose(); } });

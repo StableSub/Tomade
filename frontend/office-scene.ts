@@ -1,3 +1,5 @@
+import { OFFICE_SEATS } from './office-room';
+
 /** The four clickable characters shown in the research office. */
 export type AgentId = 'upper_agent' | 'business' | 'macro_sector' | 'event_catalyst';
 
@@ -13,6 +15,7 @@ type Character = {
   button: HTMLButtonElement;
   canvas: HTMLCanvasElement;
   status: HTMLSpanElement;
+  name: HTMLSpanElement;
   activity: AgentActivity;
   position: Point;
   node: string;
@@ -28,10 +31,10 @@ type Character = {
 };
 
 const NAMES: Record<AgentId, string> = {
-  upper_agent: '부장 Agent',
-  business: '비즈니스',
-  macro_sector: '매크로 / 섹터',
-  event_catalyst: '이벤트 / 카탈리스트',
+  upper_agent: '부장',
+  business: '패트 - 비즈니스',
+  macro_sector: '매트 - 섹터',
+  event_catalyst: '게왹이 - 이벤트',
 };
 
 // Feet coordinates follow the 16:10 house. The only connection between rooms is the doorway.
@@ -40,21 +43,21 @@ const WAYPOINTS: Record<string, Waypoint> = {
   employeeTop: { x: 32, y: 34, edges: ['employeeCenter'] },
   employeeCenter: { x: 32, y: 55, edges: ['employeeTop', 'businessAisle', 'macroAisle', 'employeeLower'] },
   businessAisle: { x: 15.3, y: 55, edges: ['employeeCenter', 'businessDesk'] },
-  businessDesk: { x: 15.3, y: 49, edges: ['businessAisle'] },
+  businessDesk: { ...OFFICE_SEATS.business, edges: ['businessAisle'] },
   macroAisle: { x: 42, y: 55, edges: ['employeeCenter', 'macroDesk', 'employeeRight'] },
-  macroDesk: { x: 42, y: 49, edges: ['macroAisle'] },
+  macroDesk: { ...OFFICE_SEATS.macro_sector, edges: ['macroAisle'] },
   employeeRight: { x: 54.5, y: 55, edges: ['macroAisle', 'doorLeft'] },
   employeeLower: { x: 32, y: 80, edges: ['employeeCenter', 'employeeBottom'] },
   employeeBottom: { x: 32, y: 84, edges: ['employeeLower', 'eventAisle', 'entry'] },
   eventAisle: { x: 17.1, y: 84, edges: ['employeeBottom', 'eventDesk'] },
-  eventDesk: { x: 17.1, y: 81, edges: ['eventAisle'] },
+  eventDesk: { ...OFFICE_SEATS.event_catalyst, edges: ['eventAisle'] },
   entry: { x: 35.5, y: 84, edges: ['employeeBottom'] },
   doorLeft: { x: 54.5, y: 53, edges: ['employeeRight', 'doorway'] },
   doorway: { x: 60, y: 53, edges: ['doorLeft', 'managerEntry'] },
   managerEntry: { x: 65, y: 53, edges: ['doorway', 'managerSide', 'reportAisle'] },
   managerSide: { x: 65, y: 28, edges: ['managerEntry', 'managerBack'] },
   managerBack: { x: 78, y: 28, edges: ['managerSide', 'managerDesk'] },
-  managerDesk: { x: 78, y: 34, edges: ['managerBack'] },
+  managerDesk: { ...OFFICE_SEATS.upper_agent, edges: ['managerBack'] },
   reportAisle: { x: 65, y: 58, edges: ['managerEntry', 'reportLeft', 'managerLowerLeft'] },
   reportLeft: { x: 69, y: 58, edges: ['reportAisle', 'reportCenter'] },
   reportCenter: { x: 77, y: 58, edges: ['reportLeft', 'reportMacro', 'reportRight'] },
@@ -270,24 +273,19 @@ export class OfficeScene {
       canvas.dataset.spriteState = 'loading';
       canvas.setAttribute('aria-hidden', 'true');
       const name = document.createElement('span');
-      name.className = 'agent-name';
+      name.className = 'agent-name character-label';
+      name.dataset.agent = id;
+      name.setAttribute('aria-hidden', 'true');
       name.textContent = NAMES[id];
       const status = document.createElement('span');
       status.className = 'agent-status';
       status.setAttribute('aria-hidden', 'true');
-      button.append(canvas, name, status);
-      if (id === 'upper_agent') {
-        const talk = document.createElement('span');
-        talk.className = 'agent-talk';
-        talk.textContent = '대화하기';
-        talk.setAttribute('aria-hidden', 'true');
-        button.append(talk);
-      }
+      button.append(canvas, status);
       button.addEventListener('click', () => onSelect(id, button), { signal: this.clicks.signal });
-      container.append(button);
+      container.append(button, name);
       const start = STARTS[id];
       const character: Character = {
-        id, button, canvas, status, activity: 'idle',
+        id, button, canvas, status, name, activity: 'idle',
         position: { x: WAYPOINTS[start].x, y: WAYPOINTS[start].y },
         node: start, edgeStart: start, path: [], purpose: 'wander',
         motion: 'idle', direction: 'front', pause: 0.8 + index * 0.65,
@@ -356,7 +354,7 @@ export class OfficeScene {
     this.frameId = 0;
     this.reducedMotion.removeEventListener('change', this.onMotionPreference);
     document.removeEventListener('visibilitychange', this.onVisibility);
-    for (const character of this.characters.values()) character.button.remove();
+    for (const character of this.characters.values()) { character.button.remove(); character.name.remove(); }
     this.characters.clear();
   }
 
@@ -456,10 +454,14 @@ export class OfficeScene {
     button.style.left = `${character.position.x.toFixed(3)}%`;
     button.style.top = `${character.position.y.toFixed(3)}%`;
     button.style.zIndex = String(Math.round(character.position.y * 10));
+    // Labels share each actor's feet anchor but stay above furniture while seated.
+    character.name.style.left = button.style.left;
+    character.name.style.top = button.style.top;
     button.dataset.x = character.position.x.toFixed(3);
     button.dataset.y = character.position.y.toFixed(3);
     button.dataset.activity = activity;
     button.dataset.motion = motion;
+    character.name.dataset.motion = motion;
     button.dataset.purpose = character.purpose;
     button.dataset.walkDistance = character.walkDistance.toFixed(4);
     const label = activity === 'working'

@@ -13,13 +13,11 @@
       <div class="office-scroll" id="officeScroll">
         <div class="office-map">
         <p class="minimap-label" aria-hidden="true">오피스</p>
-        <div class="office-world" id="officeWorld" aria-label="네 명의 Agent가 일하는 리서치 사무실">
-          <img class="office-background" src="./assets/research-office.png" alt="패트와 매트 집 분위기의 Tomade 도트 사무실. 왼쪽 나무 바닥 방은 패트·매트·게왹이의 조사 공간이며, 가운데 문으로 연결된 오른쪽 체크 타일 방은 페더스 맥그로 부장실입니다." draggable="false" />
-          <img class="furniture-occluder business-chair" src="./assets/research-office.png" alt="" aria-hidden="true" draggable="false" />
-          <img class="furniture-occluder macro-chair" src="./assets/research-office.png" alt="" aria-hidden="true" draggable="false" />
-          <img class="furniture-occluder event-chair" src="./assets/research-office.png" alt="" aria-hidden="true" draggable="false" />
-          <img class="furniture-occluder manager-desk" src="./assets/research-office.png" alt="" aria-hidden="true" draggable="false" />
-          <button class="report-book" id="openReport" type="button" aria-label="부장 Agent의 종합 보고서 열기" title="종합 보고서"><span class="sr-only">종합 보고서</span></button>
+        <div class="office-world" id="officeWorld" aria-label="부장과 세 명의 연구원, 포트폴리오 담당 커비가 있는 사무실">
+          <button class="portfolio-character" id="portfolioCharacter" type="button" aria-label="커비 · 포트폴리오 보기" aria-haspopup="dialog">
+            <canvas class="portfolio-sprite" id="portfolioSprite" aria-hidden="true"></canvas>
+            <span class="character-label">커비 · 포트폴리오</span>
+          </button>
           <button class="return-to-office" id="returnToOffice" type="button" aria-label="사무실로 돌아가기" hidden><span class="map-expand"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7" /></svg></span></button>
         </div>
         <p class="minimap-caption" aria-hidden="true">사무실로 돌아가기 <span>↗</span></p>
@@ -28,10 +26,6 @@
 
       <header class="office-hud">
         <h1 class="brand"><svg viewBox="0 0 32 32" aria-hidden="true"><path fill="#cb5545" d="M7 10h18v3h4v13h-4v3H7v-3H3V13h4z"/><path fill="#4f7553" d="M15 2h3v6l7-3-3 7-6-2-6 3-2-7 7 2z"/></svg>Tomade</h1>
-        <div class="hud-right">
-          <button class="icon-button" id="openHistory" type="button" aria-label="대화 기록 열기" title="대화 기록"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V3M4 8h5M4 8a9 9 0 1 1-1 8M12 7v5l4 2" /></svg></button>
-          <button class="icon-button" id="openPortfolio" type="button" aria-label="내 포트폴리오 열기" title="내 포트폴리오"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h18v14H3zM8 7V3h8v4M3 12h18M10 12v3h4v-3" /></svg></button>
-        </div>
       </header>
 
       <div class="office-footer">
@@ -42,9 +36,16 @@
         <header class="chat-header">
           <canvas class="chat-avatar" id="managerPortrait" width="192" height="192" aria-label="부장 도트 캐릭터" role="img"></canvas>
           <h2 id="managerTitle">부장</h2>
-          <p id="conversationTitle" class="conversation-title"></p>
+          <p id="conversationTitle" class="sr-only"></p>
           <button class="icon-button" id="closeManager" type="button" aria-label="부장 대화창 닫기" title="사무실로 돌아가기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg></button>
         </header>
+        <div class="conversation-controls" role="group" aria-label="대화 기록 선택">
+          <label class="sr-only" for="conversationSelect">저장된 대화</label>
+          <select id="conversationSelect" disabled></select>
+          <button class="primary-button" id="newConversation" type="button" disabled>새 대화</button>
+          <button class="quiet-button" id="deleteConversation" type="button" aria-label="현재 대화 삭제" disabled>삭제</button>
+        </div>
+        <p class="conversation-notice" id="historyNote" role="status" hidden></p>
         <div class="chat-messages" id="chatMessages" tabindex="0" role="region" aria-label="부장과 나눈 대화">
           <div id="chatHistory" class="chat-history"></div>
           <article class="chat-message" id="currentReply" data-role="assistant" aria-label="부장 답변">
@@ -59,7 +60,7 @@
             <button class="send-button" id="runButton" type="submit" aria-label="질문 보내기" title="보내기 (Enter)" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 4 15 8-15 8 3-8-3-8Zm3 8h12" /></svg></button>
           </form>
           <p class="sr-only" id="composerHint">Enter로 전달 · Shift + Enter로 줄바꿈</p>
-          <p class="composer-status" id="composerStatus" hidden></p>
+          <div class="pending-conversation"><p class="composer-status" id="composerStatus" hidden></p><button class="quiet-button" id="refreshConversation" type="button" hidden>답변 확인</button></div>
         </div>
       </section>
 
@@ -69,16 +70,9 @@
         <div class="journal-body markdown-body" id="journalOutput" tabindex="0" role="region" aria-label="조사 내용"></div>
       </dialog>
 
-      <dialog class="journal parchment history-journal" id="historyDialog" aria-labelledby="historyTitle">
-        <header class="journal-heading"><div><p class="eyebrow">OFFICE JOURNAL</p><h2 id="historyTitle">대화 기록</h2></div><button class="close-button" data-close="historyDialog" aria-label="대화 기록 닫기">×</button></header>
-        <div class="conversation-controls"><label class="sr-only" for="conversationSelect">저장된 대화</label><select id="conversationSelect" disabled></select><button class="wood-button" id="newConversation" disabled>새 대화</button><button class="text-button" id="deleteConversation" disabled>삭제</button></div>
-        <p class="history-note" id="historyNote">질문과 최종 답변은 이 기기에 저장됩니다.</p>
-        <div class="history-entries" id="historyEntries"></div>
-      </dialog>
-
-      <dialog class="journal parchment portfolio-journal" id="portfolioDialog" aria-labelledby="portfolioTitle">
-        <header class="journal-heading"><div><p class="eyebrow">MY PORTFOLIO</p><h2 id="portfolioTitle">내 포트폴리오</h2></div><button class="close-button" data-close="portfolioDialog" aria-label="포트폴리오 닫기">×</button></header>
-        <p id="portfolioStatus" role="status">포트폴리오를 불러오는 중입니다…</p><div id="portfolioResult"></div>
+      <dialog class="journal workspace-dialog portfolio-journal" id="portfolioDialog" aria-labelledby="portfolioTitle">
+        <header class="journal-heading"><h2 id="portfolioTitle">내 포트폴리오</h2><button class="icon-button" data-close="portfolioDialog" aria-label="포트폴리오 닫기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg></button></header>
+        <div class="dialog-scroll" tabindex="0" role="region" aria-label="포트폴리오 분석 결과"><p id="portfolioStatus" role="status">포트폴리오를 불러오는 중입니다…</p><div id="portfolioResult"></div></div>
       </dialog>
       <div class="sr-only" id="sessionState" role="status"><span>사무실을 여는 중</span></div>
       <div class="sr-only" id="announcement" role="status" aria-live="polite"></div>
