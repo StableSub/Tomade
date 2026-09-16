@@ -31,6 +31,18 @@ const eventReport = '이벤트 조사: 모의 신규 계약 발표를 확인했�
 const savedAnswer = '저장된 부장 답변: 장기 관점의 기업 분석입니다.';
 const sourceMarker = 'worker-only-report-must-not-appear-in-saved-history';
 
+// Independent source contracts: files/frames are design inputs, not renderer output.
+// Atlas coordinates are normalized, before removing the keyed padding.
+const propSourceContracts = [
+  { id: 'workerDesk', file: 'office-objects-v3/worker-desk-trial.png', gaps: [[.4, .85]] },
+  { id: 'trialDesk', file: 'office-objects-v3/worker-desk-trial.png', gaps: [[.4, .85]] },
+  { id: 'managerDesk', file: 'office-objects-v4/furniture-atlas.png', frame: [0, 0, .36, 1/3], gaps: [[.5, .82]] },
+  { id: 'blueChair', file: 'office-objects-v4/furniture-atlas.png', frame: [.4, 0, .63, 1/3], gaps: [[.5, .26], [.5, .88]] },
+  { id: 'greenChair', file: 'office-objects-v4/furniture-atlas.png', frame: [.7, 0, 1, 1/3], gaps: [[.5, .26], [.5, .88]] },
+  { id: 'businessMonitor', file: 'office-objects-v4/details-atlas.png', frame: [0, 0, 1/3, 1/3] },
+  { id: 'tomatoPlanter', file: 'office-courtyard-v2/garden-atlas.png', frame: [2/3, 0, 1, 1/3] },
+];
+
 const event = (type, data = {}) => ({ type, data: { run_id: 'office-mock-run', ...data } });
 const started = node => event('node.started', { node });
 const completed = (node, output) => event('node.completed', { node, output });
@@ -151,11 +163,8 @@ async function fixture(browser, options = {}) {
   });
   await page.goto(`${baseUrl}/#conversation=office-main`);
   await page.waitForFunction(() => document.querySelector('#researchInput')?.disabled === false);
-  await page.waitForFunction(() => {
-    const background = document.querySelector('.office-background');
-    return background?.complete && background.naturalWidth > 0;
-  });
-  await page.waitForFunction(() => [...document.querySelectorAll('.agent-sprite, #managerPortrait')]
+  await page.waitForFunction(() => document.querySelector('#officeWorld')?.dataset.roomState === 'ready');
+  await page.waitForFunction(() => [...document.querySelectorAll('.agent-sprite, #managerPortrait, #portfolioSprite')]
     .every(canvas => canvas.dataset.spriteState === 'ready'));
   return {
     page, context, conversations, apiRequests,
@@ -208,7 +217,7 @@ async function openWorker(page, id) {
 }
 
 async function closePanel(page, id) {
-  const selector = { '#closeJournal': '[data-close="agentJournal"]', '#closeHistory': '[data-close="historyDialog"]' }[id] ?? id;
+  const selector = { '#closeJournal': '[data-close="agentJournal"]', '#closeHistory': '#closeManager' }[id] ?? id;
   await page.locator(selector).click();
 }
 
@@ -225,7 +234,7 @@ async function fullRoomFitting(browser) {
   const { page } = f;
   try {
     if (await page.locator('#managerDialog').isVisible()) await closePanel(page, '#closeManager');
-    const imageAspect = await page.locator('.office-background').evaluate(image => image.naturalWidth / image.naturalHeight);
+    const imageAspect = await page.locator('#officeWorld').evaluate(room => room.clientWidth / room.clientHeight);
     assert.ok(Math.abs(imageAspect - 1.6) < 0.01, 'The two-room house keeps its approved landscape framing');
     const spritePixels = await page.locator('.agent-sprite, #managerPortrait').evaluateAll(canvases => canvases.map(canvas => {
       const { data } = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
@@ -245,8 +254,8 @@ async function fullRoomFitting(browser) {
     }
     for (const viewport of [{ width: 1440, height: 1000 }, { width: 900, height: 1000 }, { width: 390, height: 844 }, { width: 844, height: 390 }]) {
       await page.setViewportSize(viewport);
-      await containedInViewport(page, '.office-background');
-      const room = await page.locator('.office-background').boundingBox();
+      await containedInViewport(page, '#officeWorld');
+      const room = await page.locator('#officeWorld').boundingBox();
       for (const id of ['upper_agent', ...workers]) {
         await containedInViewport(page, agent(id));
         const sprite = await page.locator(`${agent(id)} .agent-sprite`).boundingBox();
@@ -261,11 +270,344 @@ async function fullRoomFitting(browser) {
         vertical: room.scrollHeight - room.clientHeight,
       }));
       assert.ok(overflow.horizontal <= 1 && overflow.vertical <= 1, `No room panning should be needed: ${JSON.stringify(overflow)}`);
+      for (const garden of await page.locator('[data-room-object][data-courtyard]').all()) {
+        const bounds = await garden.boundingBox();
+        assert.ok(bounds.x >= 0 && bounds.y >= 0 && bounds.x + bounds.width <= viewport.width + 1
+          && bounds.y + bounds.height <= viewport.height + 1, 'Every courtyard prop fits without clipping or panning');
+      }
       await page.screenshot({ path: `${screenshots}/tomato-office-${viewport.width}x${viewport.height}.png` });
     }
     f.check();
     console.log('PASS room fitting: both rooms and four interactive agents fit desktop, portrait, mobile and landscape without panning');
   } finally { await f.dispose(); }
+}
+
+async function modularObjects(browser) {
+  const f = await fixture(browser, { reducedMotion: 'reduce' });
+  const { page } = f;
+  try {
+    const objects = await page.locator('[data-room-object]').evaluateAll(nodes => nodes.map(node => ({ asset: node.dataset.roomObject, state: node.dataset.objectState })));
+    assert.equal(objects.length, 97, 'Background and furniture are independently placed objects');
+    assert.equal(new Set(objects.map(object => object.asset)).size, 41, 'Room assets exclude the removed desk nameplates');
+    assert.ok(objects.every(object => object.state === 'ready'));
+    assert.equal(objects.filter(object => object.asset === 'trialDesk').length, 1, 'Pat keeps the approved desk placement');
+    assert.equal(objects.filter(object => object.asset === 'workerDesk').length, 2, 'Both other employee desks receive the approved style');
+    assert.ok(await page.locator('#officeWorld').evaluate(node => getComputedStyle(node, '::before').content === 'none'), 'No cream terrace remains around the house');
+    const joins = await page.evaluate(() => {
+      const objects = [...document.querySelectorAll('[data-room-object]')];
+      const box = node => ({ x: parseFloat(node.style.left) * 8, y: parseFloat(node.style.top) * 5,
+        w: Number(node.dataset.worldWidth), h: Number(node.dataset.worldHeight) });
+      const all = asset => objects.filter(node => node.dataset.roomObject === asset).map(box);
+      const [floor] = all('parquet');
+      const [doorway] = all('passageWood');
+      const [entrance] = all('entrance');
+      const [managerFront] = all('managerFront');
+      const partitions = all('partition');
+      return {
+        feetAligned: all('stoneFoot').length === 3 && [...all('beamV'), partitions[1]].every(column => all('stoneFoot').some(foot => foot.y + 2 === column.y + column.h && foot.h === 22 && foot.x < column.x && foot.x + foot.w > column.x + column.w)),
+        completeFloors: floor.y === all('wall')[0].y + all('wall')[0].h
+          && all('checker')[0].y === all('wall')[1].y + all('wall')[1].h,
+        continuousEntrance: entrance.x===31 && entrance.w===438 && entrance.y===floor.y+floor.h
+          && managerFront.x===487 && managerFront.w===282 && managerFront.h===32
+          && entrance.x+entrance.w===partitions[1].x+1 && managerFront.x===partitions[1].x+partitions[1].w-1
+          && ['entryJamb','threshold','steps','foundation'].every(id=>all(id).length===0),
+        wallCount: all('wall').length,
+        doorwayContained: doorway.y === partitions[0].y + partitions[0].h && doorway.y + doorway.h === partitions[1].y,
+        flushPartitions: partitions.every(wall => wall.x === floor.x + floor.w && wall.w === doorway.w),
+      };
+    });
+    assert.equal(joins.wallCount, 2, 'Wallpaper remains only on the back walls');
+    assert.ok(joins.completeFloors && joins.continuousEntrance, 'Two independent room fronts terminate one unit behind their columns');
+    assert.ok(joins.feetAligned && joins.doorwayContained && joins.flushPartitions, 'Column feet and room passage remain aligned');
+    const entranceShape = await page.locator('canvas[data-room-object="entrance"]').evaluate(canvas => {
+      const ctx=canvas.getContext('2d'), pixels=ctx.getImageData(0,0,canvas.width,canvas.height).data;
+      const alpha=(x,y)=>pixels[(Math.floor(y/44*canvas.height)*canvas.width+Math.floor((x-15)/438*canvas.width))*4+3];
+      let stray=0;
+      for(let y=35;y<43;y++)for(let x=15;x<453;x++)if((x<214||x>326)&&alpha(x,y))stray++;
+      return {open:alpha(270,3)===0, sill:alpha(270,12)===255, upper:alpha(270,25)===255, lower:alpha(270,40)===255, stray};
+    });
+    assert.ok(entranceShape.open && entranceShape.sill && entranceShape.upper && entranceShape.lower, 'Open entry recess leads into the wooden sill and two stone steps');
+    assert.equal(entranceShape.stray,0,'No detached stair pixels repeat below the side foundation');
+    const cuts = await page.locator('canvas[data-room-object="entrance"]').evaluate(canvas => {
+      const data=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;
+      const rgb=(x,y)=>{const i=(Math.floor(y/44*canvas.height)*canvas.width+Math.floor((x-15)/438*canvas.width))*4;return [...data.slice(i,i+4)];};
+      return [139,401].map(x=>({x, top:rgb(x,.4), face:rgb(x,2.5), left:rgb(x-2,6), middle:rgb(x,6), right:rgb(x+2,6)}));
+    });
+    for(const cut of cuts){
+      assert.equal(cut.top[3],255,'Rail top remains opaque across crop joins');
+      assert.ok(cut.face[0]>75,'No dark notch extends down into the rail highlight at a crop join');
+      assert.ok(cut.middle.slice(0,3).every((v,c)=>Math.abs(v-(cut.left[c]+cut.right[c])/2)<28),'Wood colors bridge the crop boundary without a vertical color reset');
+    }
+    assert.equal(await page.locator('[data-room-object="eave"]').count(),1,'One roof strip avoids doubled inter-asset outlines');
+
+    const garden = await page.locator('[data-room-object][data-courtyard]').evaluateAll(nodes => nodes.map(node => ({
+      asset: node.dataset.roomObject, events: getComputedStyle(node).pointerEvents,
+    })));
+    assert.equal(garden.length, 54, 'Nine courtyard asset types form the fine-pixel garden');
+    assert.ok(garden.every(node => node.events === 'none'), 'Courtyard decorations never intercept clicks');
+    assert.equal(await page.locator('.office-background, .furniture-occluder').count(), 0, 'The old monolithic background and clipped copies are removed');
+    assert.equal(await page.evaluate(() => performance.getEntriesByType('resource').some(entry => entry.name.includes('/research-office'))), false, 'The app does not load the old background');
+    const floor = await page.locator('canvas[data-room-object="parquet"][data-world-width="436"]').evaluateAll(canvases => {
+      let checked = 0, wrong = 0;
+      for (const canvas of canvases) {
+        const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+        const xs = Array.from({length:10},(_,i)=>Math.round(i*canvas.width/9));
+        const ys = Array.from({length:7},(_,i)=>Math.round(i*canvas.height/6));
+        for (let y = 0; y < canvas.height; y++) for (let x = 0; x < canvas.width; x++) {
+          const col=xs.findIndex((edge,i)=>i<9 && x>=edge && x<xs[i+1]);
+          const row=ys.findIndex((edge,i)=>i<6 && y>=edge && y<ys[i+1]);
+          const horizontal=(row+col)%2===0;
+          const internal=[1,2].map(i=>horizontal?ys[row]+Math.round(i*(ys[row+1]-ys[row])/3):xs[col]+Math.round(i*(xs[col+1]-xs[col])/3));
+          const seam=x===xs[col] || y===ys[row] || internal.includes(horizontal?y:x);
+          const i = (y * canvas.width + x) * 4;
+          const actualSeam = data[i] === 200 && data[i + 1] === 180 && data[i + 2] === 143;
+          if (seam !== actualSeam || data[i + 3] !== 255) wrong++;
+          checked++;
+        }
+      }
+      return { checked, wrong };
+    });
+    assert.ok(floor.checked > 100_000);
+    assert.equal(floor.wrong, 0, 'Nine by six complete parquet blocks fill the room with one-pixel seams');
+    const checker = await page.locator('canvas[data-room-object="checker"]').evaluate(canvas => {
+      const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+      let wrong = 0;
+      for (let y = 0; y < canvas.height; y++) for (let x = 0; x < canvas.width; x++) {
+        const col=Array.from({length:6},(_,i)=>i).find(i=>x<Math.round((i+1)*canvas.width/6));
+        const row=Array.from({length:6},(_,i)=>i).find(i=>y<Math.round((i+1)*canvas.height/6));
+        const rgb = (col + row) % 2 ? [197,205,181] : [242,237,218];
+        const i = (y * canvas.width + x) * 4;
+        if (rgb.some((v,c) => v !== pixels[i+c]) || pixels[i+3] !== 255) wrong++;
+      }
+      return wrong;
+    });
+    assert.equal(checker, 0, 'Checker tiles are exact flat colors with no blurry intermediate shades');
+    assert.equal(await page.locator('.office-nameplate, #openReport, #openHistory, #openPortfolio, #historyDialog').count(), 0, 'Desk nameplates and old top-right navigation are removed');
+    for (const id of workers) {
+      await openWorker(page, id);
+      assert.ok((await page.locator('#journalTitle').textContent()).length > 0);
+      await closePanel(page, '#closeJournal');
+    }
+    await page.locator(agent('upper_agent')).press('Enter');
+    await page.locator('#managerDialog').waitFor({ state: 'visible' });
+    assert.ok(await page.locator('.office-agent, .portfolio-character').evaluateAll(nodes => nodes.length === 5 && nodes.every(node => node.inert)), 'All five characters are disabled inside the minimap');
+    assert.ok(await page.locator('[data-courtyard]').evaluateAll(nodes => nodes.every(node => getComputedStyle(node).visibility === 'hidden')));
+    await page.locator('#returnToOffice').click();
+    await page.waitForFunction(() => !document.querySelector('#officeWorld').getAnimations().length);
+    assert.ok(await page.locator('.office-agent, .portfolio-character').evaluateAll(nodes => nodes.every(node => !node.inert)));
+    assert.ok(await page.locator('[data-courtyard]').evaluateAll(nodes => nodes.every(node => getComputedStyle(node).visibility === 'visible')));
+    await page.screenshot({ path: `${screenshots}/modular-office.png` });
+    f.check();
+    console.log('PASS modular room: 41 assets, 97 independent objects, exact floor seams, character navigation and minimap interaction');
+  } finally { await f.dispose(); }
+}
+
+/** Check the delivered prop pixels against their silhouettes, including open leg/rail gaps. */
+async function spriteContours(page) {
+  const result = await page.evaluate(async sourceContracts => {
+    const native = canvas => {
+      const width = Number(canvas.dataset.pixelWidth || canvas.width);
+      const height = Number(canvas.dataset.pixelHeight || canvas.height);
+      if (canvas.width < width || canvas.height < height) throw new Error('Contour QA requires display pixels for every native cell');
+      const displayed = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+      const result = document.createElement('canvas'); result.width = width; result.height = height;
+      const ctx = result.getContext('2d'), pixels = ctx.createImageData(width, height);
+      for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+        const source = (Math.floor((y + .5) * canvas.height / height) * canvas.width
+          + Math.floor((x + .5) * canvas.width / width)) * 4;
+        pixels.data.set(displayed.subarray(source, source + 4), (y * width + x) * 4);
+      }
+      ctx.putImageData(pixels, 0, 0);
+      return result;
+    };
+    const mask = canvas => {
+      const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+      return Uint8Array.from({ length: canvas.width * canvas.height }, (_, i) => Number(pixels[i * 4 + 3] >= 96));
+    };
+    const sprites = new Map(), instances = new Map(), contours = [];
+    for (const canvas of document.querySelectorAll('canvas.office-object[data-sampled]')) {
+      const id = canvas.closest('[data-room-object]').dataset.roomObject;
+      const sprite = native(canvas);
+      if (!sprites.has(id)) sprites.set(id, sprite);
+      if (!instances.has(id)) instances.set(id, []);
+      instances.get(id).push(sprite);
+      if (['wall', 'passageWood', 'grass', 'flowers'].includes(id)) continue;
+      const width = sprite.width, height = sprite.height, silhouette = mask(sprite);
+      // Two independent 8-neighbor erosions identify the required inner contour.
+      let interior = silhouette;
+      for (let pass = 0; pass < 2; pass++) {
+        const next = new Uint8Array(interior.length);
+        for (let y = 1; y < height - 1; y++) for (let x = 1; x < width - 1; x++) {
+          let occupied = 1;
+          for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) occupied &= interior[(y + dy) * width + x + dx];
+          next[y * width + x] = occupied;
+        }
+        interior = next;
+      }
+      const pixels = sprite.getContext('2d').getImageData(0, 0, width, height).data;
+      let boundary = 0, broken = 0;
+      for (let i = 0; i < silhouette.length; i++) if (silhouette[i] && !interior[i]) {
+        boundary++;
+        if (pixels[i * 4] !== 25 || pixels[i * 4 + 1] !== 23 || pixels[i * 4 + 2] !== 22 || pixels[i * 4 + 3] !== 255) broken++;
+      }
+      contours.push({ id, boundary, broken, outline: canvas.dataset.outlinePixels });
+    }
+    const silhouettes = [];
+    for (const { id, file, frame = [0, 0, 1, 1], gaps = [] } of sourceContracts) {
+      // Reference projection deliberately does not call the production decoder,
+      // palette mapper or contour function: the original PNG owns the footprint.
+      const image = new Image(); image.src = `/assets/${file}`; await image.decode();
+      const source = document.createElement('canvas');
+      const frameLeft = Math.round(frame[0] * image.naturalWidth), frameTop = Math.round(frame[1] * image.naturalHeight);
+      source.width = Math.round(frame[2] * image.naturalWidth) - frameLeft;
+      source.height = Math.round(frame[3] * image.naturalHeight) - frameTop;
+      const ctx = source.getContext('2d');
+      ctx.drawImage(image, frameLeft, frameTop, source.width, source.height, 0, 0, source.width, source.height);
+      const pixels = ctx.getImageData(0, 0, source.width, source.height);
+      let left = source.width, top = source.height, right = -1, bottom = -1;
+      for (let y = 0; y < source.height; y++) for (let x = 0; x < source.width; x++) {
+        const i = (y * source.width + x) * 4, r = pixels.data[i], g = pixels.data[i + 1], b = pixels.data[i + 2];
+        if (r - g > 12 && b - g > 12 && b > r * .6) pixels.data[i + 3] = 0;
+        else if (pixels.data[i + 3]) { left = Math.min(left, x); top = Math.min(top, y); right = Math.max(right, x); bottom = Math.max(bottom, y); }
+      }
+      // Materialize the integer crop before scaling. Scaling a subrectangle of a
+      // larger atlas can choose a neighboring texel at exact sampling boundaries.
+      const cropped = document.createElement('canvas');
+      cropped.width = right - left + 1; cropped.height = bottom - top + 1;
+      cropped.getContext('2d').putImageData(pixels, -left, -top);
+      for (const [instance, actual] of instances.get(id).entries()) {
+        const projection = document.createElement('canvas');
+        projection.width = actual.width; projection.height = actual.height;
+        const projected = projection.getContext('2d'); projected.imageSmoothingEnabled = false;
+        projected.drawImage(cropped, 0, 0, projection.width, projection.height);
+        const expectedMask = mask(projection), actualMask = mask(actual);
+        let changed = 0;
+        for (let i = 0; i < actualMask.length; i++) if (actualMask[i] !== expectedMask[i]) changed++;
+        let colorSamples = 0, colorChanges = 0;
+        const expected = projected.getImageData(0, 0, actual.width, actual.height).data;
+        const shown = actual.getContext('2d').getImageData(0, 0, actual.width, actual.height).data;
+        for (let y = 2; y < actual.height - 2; y++) for (let x = 2; x < actual.width - 2; x++) {
+          // Skip the intentional two-cell contour; all material RGB must match the original.
+          let interior = true;
+          for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+            if (!expectedMask[(y + dy) * actual.width + x + dx]) interior = false;
+          }
+          if (!interior) continue;
+          colorSamples++;
+          const i = (y * actual.width + x) * 4;
+          if (shown[i] !== expected[i] || shown[i+1] !== expected[i+1] || shown[i+2] !== expected[i+2]) colorChanges++;
+        }
+        const gapsOpen = gaps.every(([x, y]) => !expectedMask[Math.floor(y * actual.height) * actual.width + Math.floor(x * actual.width)]
+          && !actualMask[Math.floor(y * actual.height) * actual.width + Math.floor(x * actual.width)]);
+        silhouettes.push({ id: `${id}#${instance + 1}`, changed, gapsOpen, colorSamples, colorChanges });
+      }
+    }
+    const character = native(document.querySelector('.office-agent[data-agent="business"] .agent-sprite'));
+    const figures = [['Business character', character], ...['trialDesk', 'workerDesk', 'managerDesk', 'blueChair', 'greenChair', 'businessMonitor', 'stove', 'tomatoPlanter'].map(id => [id, sprites.get(id)])]
+      .map(([label, canvas]) => ({ label, width: canvas.width, height: canvas.height, url: canvas.toDataURL() }));
+    return { contours, silhouettes, figures };
+  }, propSourceContracts);
+  assert.equal(result.contours.length, 56, 'Every furniture/decor/structural sprite has a contour; flat walls and tiled floors are excluded');
+  for (const { id, boundary, broken, outline } of result.contours) {
+    assert.equal(outline, '2', `${id} declares the character-sized two-cell outline`);
+    assert.ok(boundary > 0, `${id} has a nonempty visible silhouette`);
+    assert.equal(broken, 0, `${id} has no light or missing ink cells on outer/inner contours`);
+  }
+  for (const { id, changed, gapsOpen, colorSamples, colorChanges } of result.silhouettes) {
+    assert.equal(changed, 0, `${id} preserves the original projected alpha without expanding its silhouette`);
+    assert.ok(gapsOpen, `${id} preserves its open space between legs and rails`);
+    assert.ok(colorSamples > 100, `${id} has enough interior material pixels for a useful source comparison`);
+    assert.equal(colorChanges, 0, `${id} material RGB exactly matches the original source projection`);
+  }
+  const html = `<!doctype html><meta charset="utf-8"><title>Character and prop native pixel comparison</title>
+    <style>body{margin:24px;background:#ede8dc;color:#292e2c;font:16px system-ui}main{display:flex;flex-wrap:wrap;align-items:flex-end;gap:28px}figure{margin:0}figcaption{margin:8px 0}img{display:block;image-rendering:pixelated;background:repeating-conic-gradient(#e8e3d8 0% 25%,#f7f3eb 0% 50%) 0 0/32px 32px}</style>
+    <p>Actual UI buffers · 4× native pixels · staff and props share the same pixel scale</p><main>${result.figures.map(({ label, width, height, url }) =>
+      `<figure><figcaption>${label} · ${width}×${height}</figcaption><img src="${url}" width="${width * 4}" height="${height * 4}"></figure>`).join('')}</main>`;
+  await writeFile(`${screenshots}/character-prop-grid-comparison.html`, html);
+  const comparison = await page.context().newPage();
+  try {
+    await comparison.setViewportSize({ width: 2100, height: 1600 });
+    await comparison.setContent(html);
+    await comparison.screenshot({ path: `${screenshots}/character-prop-grid-comparison.png`, fullPage: true });
+  } finally { await comparison.close(); }
+  console.log(`PASS contours: ${result.contours.length} actual sprites have uninterrupted inner ink; ${result.silhouettes.length} representative placements preserve source RGB and alpha`);
+}
+
+async function spriteRendering(browser) {
+  for (const deviceScaleFactor of [1, 2]) {
+    const f = await fixture(browser, { reducedMotion: 'reduce', deviceScaleFactor });
+    const { page } = f;
+    try {
+      for (const viewport of [{ width: 1440, height: 1000 }, { width: 1024, height: 768 }, { width: 390, height: 844 }]) {
+        await page.setViewportSize(viewport);
+        await page.waitForFunction(() => [...document.querySelectorAll('canvas.office-object[data-sampled]')].every(canvas => {
+          const style = getComputedStyle(canvas);
+          return canvas.width === Math.round(parseFloat(style.width) * devicePixelRatio)
+            && canvas.height === Math.round(parseFloat(style.height) * devicePixelRatio);
+        }));
+        assert.equal(await page.locator('canvas.office-object[data-sampled]').count(), 94, 'Every non-tiled prop renders at its physical display resolution');
+        assert.ok(await page.locator('canvas.office-object[data-sampled]').evaluateAll(canvases => canvases.every(canvas => {
+          const object = canvas.closest('[data-room-object]');
+          const character = document.querySelector('.office-agent[data-agent="business"] .agent-sprite');
+          const roomScale = parseFloat(getComputedStyle(document.querySelector('#officeWorld')).width) / 800;
+          const characterPixel = parseFloat(getComputedStyle(character).height) / character.height / roomScale;
+          return Math.abs(Number(canvas.dataset.pixelGrid) - characterPixel) < .0001
+            && Number(canvas.dataset.pixelWidth) === Math.round(Number(object.dataset.worldWidth) / characterPixel)
+            && Number(canvas.dataset.pixelHeight) === Math.round(Number(object.dataset.worldHeight) / characterPixel);
+        })), 'Every prop uses the staff character canvas density at every viewport/DPR');
+        const monitor = await page.locator('[data-room-object="backMonitor"]').boundingBox();
+        const desk = await page.locator('[data-room-object="managerDesk"]').boundingBox();
+        assert.ok(Math.abs(monitor.x + monitor.width / 2 - desk.x - desk.width / 2) < 1, 'The manager monitor is centered on the desktop');
+        assert.ok(monitor.y + monitor.height < desk.y + desk.height * .5, 'The monitor base stays above the front edge of the desktop');
+      }
+      await page.setViewportSize({ width: 1440, height: 1000 });
+      await page.waitForFunction(() => {
+        const canvas = document.querySelector('canvas[data-room-object="workerDesk"]');
+        return canvas.width === Math.round(parseFloat(getComputedStyle(canvas).width) * devicePixelRatio);
+      });
+      const partialAlpha = await page.evaluate(() => {
+        let partialAlpha = 0;
+        for (const canvas of document.querySelectorAll('canvas.office-object[data-sampled]')) {
+          const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+          for (let i = 0; i < pixels.length; i += 4) {
+            if (!pixels[i + 3]) continue;
+            if (pixels[i + 3] !== 255) partialAlpha++;
+          }
+        }
+        return partialAlpha;
+      });
+      assert.equal(partialAlpha, 0, 'All object edges retain binary alpha without soft fringe pixels');
+      if (deviceScaleFactor === 2) await spriteContours(page);
+      await page.screenshot({ path: `${screenshots}/sprite-office-dpr${deviceScaleFactor}.png` });
+      await page.locator('canvas[data-room-object="workerDesk"]').first().screenshot({ path: `${screenshots}/sprite-desk-dpr${deviceScaleFactor}.png` });
+      f.check();
+    } finally { await f.dispose(); }
+  }
+  const context = await browser.newContext({ viewport: { width: 1440, height: 1100 }, deviceScaleFactor: 2 });
+  const page = await context.newPage();
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  try {
+    for (const [folder, count] of [['office-objects-v1', 31], ['office-environment-v1', 11]]) {
+      await page.goto(`${baseUrl}/assets/${folder}/index.html`);
+      await page.waitForFunction(() => document.body.dataset.ready === 'true');
+      assert.equal(await page.locator('.card[data-loaded="true"]').count(), count);
+      await page.locator('#grid').screenshot({ path: `${screenshots}/${folder}-rendering.png` });
+      for (let i = 0; i < count; i++) {
+        await page.locator('.card').nth(i).click();
+        const canvas = page.locator('dialog canvas');
+        await canvas.waitFor({ state: 'visible' });
+        assert.ok(await canvas.evaluate(node => {
+          const pixels = node.getContext('2d').getImageData(0, 0, node.width, node.height).data;
+          return pixels.some((value, index) => index % 4 === 3 && value > 0);
+        }), 'Every object detail contains visible pixels');
+        if (i === 0) await page.locator('dialog').screenshot({ path: `${screenshots}/${folder}-detail.png` });
+        await page.locator('#close').click();
+      }
+    }
+    assert.deepEqual(errors, [], 'Both viewers remain free of script/ResizeObserver errors');
+  } finally { await context.close(); }
+  console.log('PASS sprite rendering: staff-matched density, source RGB across office/garden samples, complete contours and 42 working previews');
 }
 
 async function walkingMotion(browser) {
@@ -423,6 +765,12 @@ async function desktop(browser) {
     const positions = await page.locator('.office-agent').evaluateAll(nodes => nodes.map(node => [node.dataset.x, node.dataset.y]));
     await page.waitForFunction(before => [...document.querySelectorAll('.office-agent')].every((node, index) =>
       node.dataset.x !== before[index][0] || node.dataset.y !== before[index][1]), positions, { timeout: 8000 });
+    const names = await page.locator('.agent-name').evaluateAll(labels => labels.map(label => {
+      const actor = document.querySelector(`.office-agent[data-agent="${label.dataset.agent}"]`);
+      return { text: label.textContent, follows: label.style.left === actor.style.left && label.style.top === actor.style.top, visible: getComputedStyle(label).opacity === '1', depth: Number(getComputedStyle(label).zIndex) };
+    }));
+    assert.deepEqual(names.map(n=>n.text), ['부장', '패트 - 비즈니스', '매트 - 섹터', '게왹이 - 이벤트']);
+    assert.ok(names.every(n=>n.follows && n.visible && n.depth >= 1000), 'Permanent names track all moving characters above furniture');
     assert.equal(f.apiRequests.some(request => request.path.startsWith('/api/portfolio')), false, 'Portfolio must not load on office entry');
     await page.screenshot({ path: `${screenshots}/desktop-idle.png` });
 
@@ -444,8 +792,6 @@ async function desktop(browser) {
     await page.screenshot({ path: `${screenshots}/desktop-journal.png` });
     await closePanel(page, '#closeJournal');
     if (await page.locator('#managerDialog').isVisible()) await closePanel(page, '#closeManager');
-    await page.locator('#openHistory').click();
-    await page.locator('#historyDialog').waitFor({ state: 'visible' });
     await emit(page, [
       completed('business', { business_report: businessReport }),
       completed('event_catalyst', { event_catalyst_report: eventReport }),
@@ -454,7 +800,7 @@ async function desktop(browser) {
     ], true);
     await waitReady(page);
     await page.locator('#managerDialog').waitFor({ state: 'visible' });
-    assert.equal(await page.locator('#historyDialog').isVisible(), false, 'Completion closes the history modal so it cannot obscure the answer');
+    assert.equal(await page.locator('#historyDialog').count(), 0);
     assert.equal(await page.evaluate(() => document.activeElement?.id), 'managerDialog', 'The arriving manager receives keyboard focus');
     assert.ok((await page.locator('#managerDialog').textContent()).includes(finalAnswer), 'Completion automatically opens the manager with the final answer');
     await page.waitForFunction(() => getComputedStyle(document.querySelector('#managerDialog')).opacity === '1');
@@ -486,17 +832,16 @@ async function desktop(browser) {
     assert.match(await page.locator('#managerSpeech').textContent(), /연결|중단|완료/);
 
     if (await page.locator('#managerDialog').isVisible()) await closePanel(page, '#closeManager');
-    await page.locator('#openHistory').click();
-    await page.locator('#historyDialog').waitFor({ state: 'visible' });
+    await page.locator('#talkToManager').click();
+    await page.locator('#managerDialog').waitFor({ state: 'visible' });
     await page.locator('#conversationSelect').selectOption('office-saved');
-    await page.waitForFunction(() => document.querySelector('#historyEntries')?.textContent.includes('저장된 부장 답변'));
-    assert.equal((await page.locator('#historyEntries').textContent()).includes(sourceMarker), false, 'Saved history excludes worker reports');
+    await page.waitForFunction(() => document.querySelector('#chatMessages')?.textContent.includes('저장된 부장 답변'));
+    assert.equal((await page.locator('#chatMessages').textContent()).includes(sourceMarker), false, 'Saved history excludes worker reports');
     await idle(page);
     await page.locator('#newConversation').click();
     await page.waitForFunction(() => document.querySelector('#conversationSelect')?.value.startsWith('office-new-'));
     await waitReady(page);
-    assert.equal((await page.locator('#historyEntries').textContent()).includes(savedAnswer), false, 'New conversation clears the prior conversation');
-    if (!await page.locator('#historyDialog').isVisible()) await page.locator('#openHistory').click();
+    assert.equal((await page.locator('#chatMessages').textContent()).includes(savedAnswer), false, 'New conversation clears the prior conversation');
     await page.locator('#deleteConversation').click();
     await page.waitForFunction(() => !document.querySelector('#conversationSelect')?.value.startsWith('office-new-'));
     await page.locator('#conversationSelect').selectOption('office-pending');
@@ -508,8 +853,8 @@ async function desktop(browser) {
     });
     const pendingFetches = f.apiRequests.filter(request => request.path === '/api/conversations/office-pending').length;
     await closePanel(page, '#closeHistory');
-    await page.locator('#openHistory').click();
-    await page.waitForFunction(() => document.querySelector('#historyEntries')?.textContent.includes('다른 창에서 완료한 모의 답변'));
+    await page.locator('#talkToManager').click();
+    await page.waitForFunction(() => document.querySelector('#chatMessages')?.textContent.includes('다른 창에서 완료한 모의 답변'));
     await waitReady(page);
     assert.equal(f.apiRequests.filter(request => request.path === '/api/conversations/office-pending').length, pendingFetches + 1,
       'Reopening pending history fetches the latest saved conversation');
@@ -519,7 +864,8 @@ async function desktop(browser) {
     await closePanel(page, '#closeHistory');
     await submit(page, '포트폴리오 창을 보는 동안 답변을 준비해줘.');
     await emit(page, [started('upper_agent')]);
-    await page.locator('#openPortfolio').click();
+    if (await page.locator('#managerDialog').isVisible()) await page.locator('#returnToOffice').click();
+        await page.locator('#portfolioCharacter').click();
     await page.waitForFunction(() => document.querySelector('#portfolioStatus')?.textContent.includes('Toss 키'));
     assert.equal(f.apiRequests.filter(request => request.path === '/api/portfolio/configuration').length, 1, 'Portfolio configuration is loaded only after opening');
     await emit(page, [completed('upper_agent', { intent: 'general', final_answer: finalAnswer }), event('run.completed', { final_answer: finalAnswer })], true);
@@ -563,7 +909,7 @@ async function focusMode(browser) {
     assert.equal(await page.evaluate(() => document.querySelector('#officeWorld') === window.__originalOffice
       && [...document.querySelectorAll('.office-agent')].every((node, i) => node === window.__originalCharacters[i])), true,
     'Switching views preserves the original room and all four live characters');
-    assert.equal(await page.locator('.office-agent').evaluateAll(nodes => nodes.every(node => node.inert)), true, 'Minimap characters leave keyboard navigation; the whole map is one return target');
+    assert.equal(await page.locator('.office-agent, .portfolio-character').evaluateAll(nodes => nodes.every(node => node.inert)), true, 'Minimap characters leave keyboard navigation; the whole map is one return target');
     await page.locator('#researchInput').fill('아직 보내지 않은 질문');
     await page.locator('#returnToOffice').click();
     await page.waitForFunction(() => !document.querySelector('#officeWorld').getAnimations().length);
@@ -589,7 +935,10 @@ async function focusMode(browser) {
 
     for (const viewport of [{ width: 1440, height: 1000 }, { width: 900, height: 900 }, { width: 390, height: 844 }, { width: 844, height: 390 }]) {
       await page.setViewportSize(viewport);
-      for (const selector of ['#managerDialog', '#researchInput', '#runButton', '#returnToOffice', '.office-background']) await containedInViewport(page, selector);
+      for (const selector of ['#managerDialog', '#conversationSelect', '#newConversation', '#deleteConversation', '#researchInput', '#runButton', '#returnToOffice', '#officeWorld']) await containedInViewport(page, selector);
+      const kirbySize = await page.locator('#portfolioSprite').boundingBox();
+      const currentRoom = await page.locator('#officeWorld').boundingBox();
+      assert.ok(Math.abs(kirbySize.width-currentRoom.width*.0648)<=.5+1e-3,'Kirby shrinks proportionally inside every minimap');
       const edges = await page.locator('#chatMessages').evaluate(transcript => {
         const style = getComputedStyle(transcript);
         const right = transcript.getBoundingClientRect().left + transcript.clientWidth - parseFloat(style.paddingRight);
@@ -700,14 +1049,268 @@ async function reducedMotion(browser) {
   } finally { await f.dispose(); }
 }
 
+/** Exercise real frames and travel, without making portfolio requests during animation. */
+async function kirbyWalking(browser, deviceScaleFactor = 1) {
+  const f = await fixture(browser, { reducedMotion: 'reduce', deviceScaleFactor });
+  const { page } = f;
+  try {
+    const idleSize = await page.locator('#portfolioSprite').evaluate(canvas => {
+      const staff = document.querySelector('.office-agent[data-agent="business"] canvas');
+      const room = document.querySelector('#officeWorld').getBoundingClientRect();
+      const mat=document.querySelector('.office-agent[data-agent="macro_sector"] canvas');
+      const pixels=mat.getContext('2d').getImageData(0,0,mat.width,mat.height).data;
+      const samples=[];
+      const occupied=(x,y)=>pixels[(y*mat.width+x)*4+3]>128;
+      const dark=(x,y)=>Math.max(...pixels.slice((y*mat.width+x)*4,(y*mat.width+x)*4+3))<70;
+      // Measure flat sections of Mat's existing artwork, not the Kirby configuration.
+      for(const side of ['top','left']) {
+        const vertical=side==='top',length=vertical?mat.width:mat.height,depth=vertical?mat.height:mat.width;
+        const at=(u,v)=>vertical?[u,v]:[v,u];
+        const starts=Array.from({length},(_,u)=>{for(let v=0;v<depth;v++)if(occupied(...at(u,v)))return v;return -1;});
+        for(let u=1;u<length-1;u++) {
+          const start=starts[u];if(start<0||starts[u-1]!==start||starts[u+1]!==start)continue;
+          let ink=0;while(start+ink<depth&&occupied(...at(u,start+ink))&&dark(...at(u,start+ink)))ink++;
+          if(ink>0&&ink<=8)samples.push(ink);
+        }
+      }
+      const counts=new Map();for(const n of samples)counts.set(n,(counts.get(n)||0)+1);
+      const matWeight=[...counts].sort((a,b)=>b[1]-a[1])[0][0];
+      const expectedWeight=Math.max(1,Math.round(matWeight*mat.getBoundingClientRect().width/mat.width*devicePixelRatio));
+      return { matWeight, expectedWeight, width: canvas.width, height: canvas.height, nativeWidth:Number(canvas.dataset.pixelWidth), dpr:devicePixelRatio, display:canvas.getBoundingClientRect().width,
+        ratio: canvas.getBoundingClientRect().width / room.width,
+        grid: canvas.getBoundingClientRect().height / Number(canvas.dataset.pixelHeight),
+        staffGrid: staff.getBoundingClientRect().height / staff.height };
+    });
+    assert.equal(idleSize.matWeight,2,'Reference Mat uses a two-cell base outline');
+    assert.equal(idleSize.nativeWidth,96); assert.equal(idleSize.width,idleSize.height);
+    assert.ok(Math.abs(idleSize.width-idleSize.display*idleSize.dpr)<.02,'One canvas pixel maps to one device pixel without a second resize');
+    assert.ok(Math.abs(idleSize.ratio-.0648)<.001 && Math.abs(idleSize.grid-idleSize.staffGrid)<=.5/96/idleSize.dpr+.001,
+      'Smaller Kirby uses the same native pixel density as the four staff characters');
+    await page.screenshot({path:`${screenshots}/kirby-small-office-dpr${deviceScaleFactor}.png`});
+    await page.emulateMedia({reducedMotion:'no-preference'});
+    const result = await page.evaluate(async()=>{
+      const button = document.querySelector('#portfolioCharacter'), canvas = button.querySelector('canvas');
+      const samples=[], frames={}, outlines={};
+      const measureOutline=()=>{
+        const p=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;
+        let boundary=0,broken=0;
+        for(let y=1;y<canvas.height-1;y++) for(let x=1;x<canvas.width-1;x++) {
+          const i=(y*canvas.width+x)*4;
+          if(!p[i+3]) continue;
+          if([[0,-1],[0,1],[-1,0],[1,0],[-1,-1],[1,-1],[-1,1],[1,1]].some(([dx,dy])=>!p[((y+dy)*canvas.width+x+dx)*4+3])) {
+            boundary++;
+            if(p[i]!==25||p[i+1]!==23||p[i+2]!==22||p[i+3]!==255)broken++;
+          }
+        }
+        const weights={};
+        const occupied=(x,y)=>p[(y*canvas.width+x)*4+3]>128;
+        const dark=(x,y)=>Math.max(...p.slice((y*canvas.width+x)*4,(y*canvas.width+x)*4+3))<70;
+        for(const side of ['top','bottom','left','right']) {
+          const vertical=side==='top'||side==='bottom',length=vertical?canvas.width:canvas.height,depth=vertical?canvas.height:canvas.width;
+          const at=(u,v)=>vertical?[u,side==='top'?v:canvas.height-1-v]:[side==='left'?v:canvas.width-1-v,u];
+          const starts=Array.from({length},(_,u)=>{for(let v=0;v<depth;v++)if(occupied(...at(u,v)))return v;return -1;});
+          const counts=new Map();
+          for(let u=1;u<length-1;u++) {
+            const start=starts[u];if(start<0||starts[u-1]!==start||starts[u+1]!==start)continue;
+            let ink=0;while(start+ink<depth&&occupied(...at(u,start+ink))&&dark(...at(u,start+ink)))ink++;
+            if(ink>0&&ink<=8)counts.set(ink,(counts.get(ink)||0)+1);
+          }
+          weights[side]=[...counts].sort((a,b)=>b[1]-a[1])[0]?.[0];
+        }
+        return {boundary,broken,weights};
+      };
+      const start=performance.now();
+      while(performance.now()-start<13500){
+        await new Promise(requestAnimationFrame);
+        const sample={x:Number(button.dataset.x)*8,y:Number(button.dataset.y)*5,
+          motion:button.dataset.motion,pose:canvas.dataset.spritePose,frame:Number(canvas.dataset.spriteFrame),
+          distance:Number(button.dataset.walkDistance)};
+        samples.push(sample);
+        if(sample.motion==='walking'&&!frames[`${sample.pose}/${sample.frame}`]) {
+          const key=`${sample.pose}/${sample.frame}`;
+          frames[key]=canvas.toDataURL(); outlines[key]=measureOutline();
+        }
+      }
+      return {samples,frames,outlines};
+    });
+    assert.ok(result.samples.every(s=>s.x>=355.99&&s.x<=418.01&&s.y>=337.99&&s.y<=405.01), 'Kirby stays clear of desks, walls and the door');
+    for (const direction of ['front','back','right','left']) {
+      const frames=[0,1,2,3].map(frame=>result.frames[`walk-${direction}/${frame}`]);
+      assert.ok(frames.every(Boolean), `All four ${direction} step frames are drawn during real movement`);
+      assert.equal(new Set(frames).size,4,`${direction} uses four distinct foot poses rather than sliding a static image`);
+    }
+    for(const [pose,outline] of Object.entries(result.outlines)) {
+      for(const [side,weight]of Object.entries(outline.weights)) {
+        assert.equal(weight,idleSize.expectedWeight, `${pose} ${side} matches Mat's measured outline at DPR ${deviceScaleFactor}`);
+      }
+      assert.ok(outline.boundary>50 && outline.broken===0, `${pose} has a continuous thin outer contour at DPR ${deviceScaleFactor}`);
+    }
+    for(const sample of result.samples.filter(s=>s.motion==='walking')) {
+      assert.equal(sample.frame,Math.floor(sample.distance/28*4)%4,'Foot poses follow distance traveled');
+    }
+    const stops=result.samples.filter(s=>s.motion==='idle');
+    assert.ok(stops.length>20&&stops.every(s=>s.frame===0),'Rest stops do not keep cycling the feet');
+    assert.equal(f.apiRequests.some(r=>r.path.startsWith('/api/portfolio')),false,'Walking never starts a portfolio request');
+    const contactSheet=`<!doctype html><meta charset="utf-8"><style>body{background:#e9e6db;font:16px sans-serif}section{margin:16px}img{width:${idleSize.width*3}px;height:${idleSize.height*3}px;image-rendering:pixelated}</style><h1>Kirby · four steps per direction</h1>${['front','back','right','left'].map(direction=>`<section><h2>${direction}</h2>${[0,1,2,3].map(frame=>`<img src="${result.frames[`walk-${direction}/${frame}`]}">`).join('')}</section>`).join('')}`;
+    await writeFile(`${screenshots}/kirby-walking-frames-dpr${deviceScaleFactor}.html`,contactSheet);
+    const viewer=await f.context.newPage(); await viewer.setContent(contactSheet);
+    await viewer.screenshot({path:`${screenshots}/kirby-walking-frames-dpr${deviceScaleFactor}.png`,fullPage:true}); await viewer.close();
+    await page.bringToFront();
+    await page.emulateMedia({reducedMotion:'reduce'});
+    await page.waitForFunction(()=>document.querySelector('#portfolioCharacter').dataset.motion==='idle');
+    const still=await page.locator('#portfolioCharacter').getAttribute('style');
+    await page.waitForTimeout(250);
+    assert.equal(await page.locator('#portfolioCharacter').getAttribute('style'),still,'Reduced motion freezes position');
+    assert.equal(await page.locator('#portfolioSprite').getAttribute('data-sprite-pose'),'front');
+    await page.emulateMedia({reducedMotion:'no-preference'});
+    await page.waitForFunction(()=>document.querySelector('#portfolioCharacter').dataset.motion==='walking');
+    await page.locator('#portfolioCharacter').hover();
+    const hovered=await page.locator('#portfolioCharacter').getAttribute('style');
+    await page.waitForTimeout(200);
+    assert.equal(await page.locator('#portfolioCharacter').getAttribute('style'),hovered,'Pointer hover stops Kirby for selection');
+    await page.mouse.move(0,0);
+    await page.keyboard.press('Tab');
+    await page.locator('#portfolioCharacter').focus();
+    const focused=await page.locator('#portfolioCharacter').getAttribute('style');
+    await page.waitForTimeout(200);
+    assert.equal(await page.locator('#portfolioCharacter').getAttribute('style'),focused,'Keyboard focus pauses a moving click target');
+    await page.locator('#portfolioCharacter').press('Enter');
+    await page.waitForFunction(()=>document.querySelector('#portfolioStatus').textContent.includes('Toss 키'));
+    await page.waitForTimeout(200);
+    assert.equal(await page.locator('#portfolioCharacter').getAttribute('style'),focused,'The open portfolio panel keeps Kirby at rest');
+    await page.locator('[data-close="portfolioDialog"]').click();
+    await page.locator('#talkToManager').focus();
+    await page.waitForFunction(before=>document.querySelector('#portfolioCharacter').getAttribute('style')!==before,focused);
+    await page.evaluate(()=>{
+      Object.defineProperty(document,'hidden',{configurable:true,value:true});
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    const hidden=await page.locator('#portfolioCharacter').getAttribute('style');
+    await page.waitForTimeout(200);
+    assert.equal(await page.locator('#portfolioCharacter').getAttribute('style'),hidden,'Hidden pages stop Kirby movement');
+    await page.evaluate(()=>{
+      delete document.hidden;
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await page.waitForFunction(before=>document.querySelector('#portfolioCharacter').getAttribute('style')!==before,hidden);
+    f.check();
+    console.log(`PASS Kirby DPR ${deviceScaleFactor}: device-resolution rendering, 16 unbroken contours with Mat-matched top/side/sole weight, bounded travel, rest/focus/modal/reduced/hidden pause, resume and lazy portfolio`);
+  } finally { await f.dispose(); }
+}
+
+async function workspacePanels(browser) {
+  const report = {
+    fetched_at: '2026-09-16T00:00:00Z', source: '모의 계좌', scope: '국내 보유 주식',
+    total_amount: '12345678', total_purchase_amount: '10000000', total_profit_loss: '2345678', total_profit_loss_pct: '23.45678',
+    top_one_pct: '60', top_three_pct: '100', excluded: [],
+    holdings: [{ symbol: '005930', name: '모의 삼성전자', amount: '7407407', purchase_amount: '6000000', profit_loss: '1407407', profit_loss_pct: '23.45678', weight_pct: '60', sector: '반도체', reason: '메모리 및 반도체 사업을 기준으로 한 모의 분류입니다.' }],
+    sectors: [{sector:'반도체',amount:'12345678',weight_pct:'100'}],
+    explanation: {summary:'모의 포트폴리오 분석입니다.',observations:Array.from({length:12},(_,i)=>`${i+1}. 집중도와 투자 목적을 함께 확인하는 모의 설명입니다.`),limitations:[]},
+  };
+  for (const variant of ['populated','unconfigured','error']) {
+    const f = await fixture(browser, { reducedMotion: 'reduce' });
+    const { page } = f;
+    let diagnoses = 0;
+    try {
+      assert.equal(f.apiRequests.some(r=>r.path.startsWith('/api/portfolio')),false);
+      await page.waitForFunction(()=>document.querySelector('#portfolioSprite').dataset.spriteState==='ready');
+      const kirby = await page.locator('#portfolioSprite').evaluate(canvas=>{
+        const pixels=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;
+        let pink=0,clear=0,cyan=0;
+        for(let i=0;i<pixels.length;i+=4){
+          if(!pixels[i+3]) { clear++; continue; }
+          if(pixels[i]>170 && pixels[i]-pixels[i+1]>25 && pixels[i+2]>100) pink++;
+          if(pixels[i+1]-pixels[i]>70 && pixels[i+2]-pixels[i]>70 && pixels[i+1]>150) cyan++;
+        }
+        return {pink,clear,cyan,grid:Number(canvas.dataset.pixelGrid)};
+      });
+      assert.ok(kirby.pink>100 && kirby.clear>100 && kirby.cyan===0, 'Kirby retains pink color with a transparent keyed backdrop');
+      assert.equal(kirby.grid,.54);
+      assert.equal(await page.locator('.office-agent').count(),4,'Kirby is a portfolio entry, not another research worker');
+      await containedInViewport(page,'#portfolioCharacter');
+      const place = await page.locator('#portfolioCharacter').evaluate(button=>({left:button.offsetLeft/button.parentElement.clientWidth, top:button.offsetTop/button.parentElement.clientHeight}));
+      assert.ok(Math.abs(place.left-.445)<.002 && Math.abs(place.top-.81)<.002, 'Kirby occupies the empty lower-right area of the employee office');
+      await page.route('**/api/portfolio/configuration', route=>route.fulfill({json:{configured:variant!=='unconfigured'}}));
+      await page.route('**/api/portfolio/diagnose', route=>{
+        diagnoses++;
+        return route.fulfill(variant==='error'?{status:503,json:{detail:'모의 계좌 연결 오류입니다. 잠시 후 다시 확인해 주세요.'}}:{json:report});
+      });
+      for (const viewport of variant==='populated' ? [{width:1440,height:1000},{width:390,height:844}] : [{width:390,height:844}]) {
+        await page.setViewportSize(viewport);
+        await page.waitForFunction(()=>{
+          const canvas=document.querySelector('#portfolioSprite'), room=document.querySelector('#officeWorld');
+          return canvas.width===Math.round(parseFloat(getComputedStyle(room).width)*.0648*devicePixelRatio);
+        });
+        const nameGap = await page.locator('#portfolioCharacter').evaluate(button=>button.querySelector('canvas').getBoundingClientRect().top-button.querySelector('.character-label').getBoundingClientRect().bottom);
+        assert.ok(nameGap>=0 && nameGap<10,'The name follows the smaller artwork rather than the minimum touch-target height');
+        if(variant==='populated') {
+          await page.screenshot({path:`${screenshots}/office-navigation-${viewport.width}.png`});
+          await page.locator('#talkToManager').click();
+          await page.locator('#conversationSelect').selectOption('office-saved');
+          await page.waitForFunction(()=>document.querySelector('#chatMessages')?.textContent.includes('저장된 부장 답변'));
+          await waitReady(page);
+          const history = await page.locator('#managerDialog').evaluate(dialog=>{
+            const area=dialog.querySelector('#chatMessages'), user=area.querySelector('[data-role=user] .message-content'), reply=area.querySelector('[data-role=assistant]');
+            return {background:getComputedStyle(dialog).backgroundColor, padding:parseFloat(getComputedStyle(area).paddingRight), right:area.getBoundingClientRect().right-user.getBoundingClientRect().right, separated:user.getBoundingClientRect().left>reply.getBoundingClientRect().left};
+          });
+          assert.equal(history.background,'rgb(252, 252, 250)');
+          assert.ok(Math.abs(history.right-history.padding)<2 && history.separated,'History questions align right like the manager conversation');
+          await page.screenshot({path:`${screenshots}/history-modern-${viewport.width}.png`});
+          if(viewport.width===1440){
+            await page.locator('#newConversation').click();
+            await page.waitForFunction(()=>document.querySelector('#conversationSelect').value.startsWith('office-new-'));
+            await waitReady(page);
+            await page.locator('#closeManager').click();
+            await page.locator('#talkToManager').click();
+            await page.locator('#deleteConversation').click();
+            await page.waitForFunction(()=>!document.querySelector('#conversationSelect').value.startsWith('office-new-'));
+            await waitReady(page);
+          }
+          await page.locator('#closeManager').click();
+        }
+        if (await page.locator('#managerDialog').isVisible()) await page.locator('#returnToOffice').click();
+        await page.locator('#portfolioCharacter').click();
+        await page.waitForFunction(()=>document.querySelector('#portfolioResult').getAttribute('aria-busy')==='false');
+        if(variant==='populated') {
+          assert.equal(await page.locator('.portfolio-metrics dt').count(),4);
+          assert.ok((await page.locator('.portfolio-metrics').textContent()).includes('12,345,678원'));
+          assert.equal(await page.locator('.portfolio-table-scroll').count(),2);
+        } else {
+          assert.ok((await page.locator('#portfolioStatus').textContent()).includes(variant==='error'?'모의 계좌 연결 오류':'Toss 키'));
+        }
+        const layout=await page.locator('#portfolioDialog').evaluate(dialog=>{
+          const b=dialog.getBoundingClientRect(), body=dialog.querySelector('.dialog-scroll');
+          const head=dialog.querySelector('.journal-heading').getBoundingClientRect().top;
+          body.scrollTop=body.scrollHeight;
+          return {background:getComputedStyle(dialog).backgroundColor, inside:b.left>=0&&b.right<=innerWidth&&b.top>=0&&b.bottom<=innerHeight, overflow:body.scrollWidth>body.clientWidth+1, fixedHeader:head===dialog.querySelector('.journal-heading').getBoundingClientRect().top};
+        });
+        assert.equal(layout.background,'rgb(252, 252, 250)');
+        assert.ok(layout.inside && !layout.overflow && layout.fixedHeader,'The responsive white report scrolls without moving its close button');
+        await page.locator('.dialog-scroll').evaluate(node=>node.scrollTop=0);
+        await page.screenshot({path:`${screenshots}/portfolio-modern-${variant}-${viewport.width}.png`});
+        await page.locator('[data-close="portfolioDialog"]').click();
+      }
+      assert.equal(diagnoses,variant==='unconfigured'?0:1,'Restyling never triggers another diagnosis when reopening');
+      f.check();
+    } finally { await f.dispose(); }
+  }
+  console.log('PASS workspace panels: in-chat history selection, right-aligned questions, report metrics, fixed headers, responsive tables, unconfigured/error states and one mocked diagnosis');
+}
+
+
 await mkdir(screenshots, { recursive: true });
 const browser = await playwright.chromium.launch({ headless: true, channel: process.env.OFFICE_BROWSER_CHANNEL });
 try {
   await fullRoomFitting(browser);
+  await modularObjects(browser);
+  await spriteRendering(browser);
   await walkingMotion(browser);
   await twoRoomReporting(browser);
   await focusMode(browser);
   await desktop(browser);
+  await workspacePanels(browser);
+  await kirbyWalking(browser);
+  await kirbyWalking(browser, 2);
   await mobile(browser);
   await reducedMotion(browser);
   console.log(`Office UI regression checks passed. Screenshots: ${pathToFileURL(screenshots).href}`);
