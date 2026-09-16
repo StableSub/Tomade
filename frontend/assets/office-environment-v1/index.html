@@ -52,38 +52,30 @@
     </div>
     <div class="catalog-title"><h2>배경을 만드는 8개 오브젝트</h2><span>클릭해서 확대</span></div><div id="grid"></div>
   </main>
-  <footer>두 방 미리보기는 아래 에셋을 화면에서 조립한 것입니다. 실제 사무실 UI에는 아직 연결하지 않았습니다.<br>바닥·벽면은 불투명 텍스처이며 목재·계단 원본은 자홍색 배경을 표시 시 투명 처리합니다.<br><a href="prompts.json">생성 프롬프트</a> · <a href="../research-office.png" target="_blank" rel="noopener">기준 배경</a></footer>
+  <footer>두 방 미리보기는 아래 에셋을 화면에서 조립한 것입니다. 실제 사무실에서도 같은 배경 에셋을 사용합니다.<br>바닥·벽면은 불투명 텍스처이며 목재·계단 원본은 자홍색 배경을 표시 시 투명 처리합니다.<br><a href="prompts.json">생성 프롬프트</a> · <a href="../research-office.png" target="_blank" rel="noopener">기준 배경</a></footer>
   <dialog id="inspect"><div class="dialog-head"><h2 id="detail-title"></h2><button id="close" aria-label="닫기">×</button></div><div id="detail-stage"></div><p id="detail-note"></p></dialog>
   <script type="module">
+    import { loadSpriteSource, SpriteRenderer } from '../../sprite-renderer.ts';
+    import { createRoomFloor, finishTimber, createFrontSection, extendRoof, matchFrameTimber } from '../../office-architecture.ts';
+    import { createPixelSprite, fitPixelFrame } from '../../pixel-style.ts';
+    const renderer = new SpriteRenderer();
     const plan = await fetch('./prompts.json').then(r => r.json());
     const sprites = new Map();
     const grid = document.querySelector('#grid');
     const room = document.querySelector('#room');
     const dialog = document.querySelector('#inspect');
     let errors = 0;
+    const timberReference = await loadSpriteSource('../office-shell-v1/entrance-v2.png');
 
-    // Preserve every generated PNG. Crop/key only the displayed sprite in memory.
-    function decode(image, asset) {
-      const source = document.createElement('canvas'); source.width=image.naturalWidth; source.height=image.naturalHeight;
-      const ctx = source.getContext('2d', {willReadFrequently:true}); ctx.drawImage(image,0,0);
-      let left=0, top=0, right=source.width-1, bottom=source.height-1;
-      if (!asset.opaque) {
-        const pixels=ctx.getImageData(0,0,source.width,source.height);
-        left=source.width; top=source.height; right=-1; bottom=-1;
-        for (let y=0;y<source.height;y++) for(let x=0;x<source.width;x++) {
-          const i=(y*source.width+x)*4, r=pixels.data[i], g=pixels.data[i+1], b=pixels.data[i+2];
-          if(r-g>12 && b-g>12 && b>r*.6) pixels.data[i+3]=0;
-          else if(pixels.data[i+3]) {left=Math.min(left,x);top=Math.min(top,y);right=Math.max(right,x);bottom=Math.max(bottom,y);}
-        }
-        if(right<left) throw new Error('오브젝트가 비어 있습니다.');
-        ctx.putImageData(pixels,0,0);
+    const stages = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        const canvas = entry.target.querySelector('canvas');
+        if (!canvas) continue;
+        const width = Number(canvas.dataset.logicalWidth), ratio = Number(canvas.dataset.ratio);
+        const fit = Math.min(width, entry.contentRect.width * .92, entry.contentRect.height * .92 * ratio);
+        canvas.style.width = fit + 'px'; canvas.style.height = fit / ratio + 'px';
       }
-      const out=document.createElement('canvas'); out.width=asset.width; out.height=Math.max(1,Math.round(asset.width*(bottom-top+1)/(right-left+1)));
-      const target=out.getContext('2d');
-      target.imageSmoothingEnabled=false;
-      target.drawImage(source,left,top,right-left+1,bottom-top+1,0,0,out.width,out.height);
-      return out;
-    }
+    });
 
     await Promise.all(plan.assets.map(async asset => {
       const card=document.createElement('button'); card.className='card'; card.dataset.asset=asset.id; card.setAttribute('aria-label',asset.name+' 확대');
@@ -92,21 +84,33 @@
       const file=asset.file??asset.id+'.png';
       const filename=document.createElement('small'); filename.textContent=file; caption.append(filename); card.append(stage,caption); grid.append(card);
       try {
-        const img=new Image(); img.src='./'+file; await img.decode();
-        const sprite=decode(img,asset); sprites.set(asset.id,sprite); stage.replaceChildren(sprite); card.dataset.loaded='true';
+        const original=await loadSpriteSource('./'+file, asset.opaque, asset.frame);
+        const base=asset.id==='floor-parquet'?original:createPixelSprite(original,asset.width,asset.height, { outline: !asset.opaque, preserveColors: true, pixelSize: asset.group==='바닥'?1:undefined });
+        const isFront=['entrance','manager-front'].includes(asset.id);
+        const source=isFront?createPixelSprite(createFrontSection(base,asset.id==='entrance'),asset.id==='entrance'?438:282,asset.id==='entrance'?44:32,{preserveColors:true}):base;
+        const isFloor=asset.group==='바닥';
+        const tile=document.createElement('canvas'); tile.width=asset.width; tile.height=Math.round(asset.width*source.height/source.width);
+        if(isFloor) {const ctx=tile.getContext('2d');ctx.imageSmoothingEnabled=false;ctx.drawImage(source,0,0,tile.width,tile.height);}
+        const sprite=isFloor?tile:source; sprites.set(asset.id,isFront?base:sprite);
+        const thumbnail=document.createElement('canvas');
+        thumbnail.dataset.logicalWidth=asset.width; thumbnail.dataset.ratio=source.width/source.height;
+        thumbnail.style.width=asset.width+'px';thumbnail.style.height=asset.width*source.height/source.width+'px';
+        stage.replaceChildren(thumbnail); renderer.attach(thumbnail,sprite);stages.observe(stage);card.dataset.loaded='true';
         card.addEventListener('click',()=>{
           document.querySelector('#detail-title').textContent=asset.name;
+          const previous=document.querySelector('#detail-stage canvas');if(previous)renderer.release(previous);
           const large=document.createElement('canvas');
           const repeat=asset.group==='바닥';
-          large.width=repeat?sprite.width*2:sprite.width; large.height=repeat?sprite.height*2:sprite.height;
+          large.width=sprite.width*(repeat?2:1); large.height=sprite.height*(repeat?2:1);
           const ctx=large.getContext('2d'); ctx.imageSmoothingEnabled=false;
-          if(repeat) {ctx.fillStyle=ctx.createPattern(sprite,'repeat');ctx.fillRect(0,0,large.width,large.height);} else ctx.drawImage(sprite,0,0);
+          if(repeat) {ctx.fillStyle=ctx.createPattern(sprite,'repeat');ctx.fillRect(0,0,large.width,large.height);}
           document.querySelector('#detail-stage').replaceChildren(large);
           document.querySelector('#detail-note').textContent=repeat?'같은 바닥 타일을 가로·세로 두 번 반복한 모습입니다.':'개별 배치에 사용할 원본 오브젝트입니다.';
           dialog.showModal();
           const stage=document.querySelector('#detail-stage');
           const scale=Math.max(1,Math.floor(Math.min((stage.clientWidth-16)/large.width,(stage.clientHeight-16)/large.height)));
           large.style.width=large.width*scale+'px';large.style.height=large.height*scale+'px';
+          if(!repeat)renderer.attach(large,source);
         });
       } catch(error) {errors++;stage.textContent='불러오지 못했습니다';card.dataset.loaded='false';console.error(asset.id,error);}
     }));
@@ -116,35 +120,38 @@
       const canvas=document.createElement('canvas'); canvas.width=w;canvas.height=h;
       canvas.dataset.module=id;canvas.dataset.layer=layer;canvas.title=plan.assets.find(asset=>asset.id===id).name;
       canvas.style.cssText=`left:${x/8}%;top:${y/5}%;width:${w/8}%;height:${h/5}%;`;
+      if(id==='stone-foot')canvas.style.zIndex='2';
+      if(id==='beam-vertical'||(id==='partition-panel'&&y>200))canvas.style.zIndex='3';
       const ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;
-      if(repeat) {
-        // Keep one pattern origin across the employee room, doorway and entrance.
-        const origin=id==='floor-parquet'?[32,132]:[x,y];
-        ctx.translate(origin[0]-x,origin[1]-y);
-        ctx.fillStyle=ctx.createPattern(sprite,'repeat');
-        ctx.fillRect(x-origin[0],y-origin[1],w,h);
-      } else ctx.drawImage(sprite,0,0,w,h);
+      if(repeat){
+        if(id==='floor-parquet' && w===68){const floor=createRoomFloor(436,302,true);ctx.drawImage(floor,x-32,floor.height-h,w,h,0,0,w,h);}
+        else ctx.drawImage(createRoomFloor(w,h,id==='floor-parquet'),0,0);
+      }
       room.append(canvas);
+      if(!repeat){
+        const frame=['entrance','manager-front'].includes(id)?createPixelSprite(createFrontSection(sprite,id==='entrance'),w,h,{preserveColors:true}):id==='eave'?createPixelSprite(extendRoof(sprite),768,6,{preserveColors:true}):['beam-horizontal','beam-vertical','partition-panel'].includes(id)?fitPixelFrame(sprite,w,h):createPixelSprite(sprite,w,h,{preserveColors:true,outline:!['wall-panel','passage-wood'].includes(id)});
+        if(['beam-vertical','partition-panel','passage-wood'].includes(id))finishTimber(frame,id==='passage-wood',id==='beam-vertical'||(id==='partition-panel'&&y>200));
+        if(['beam-horizontal','beam-vertical','partition-panel','wall-panel'].includes(id))matchFrameTimber(frame,timberReference);
+        renderer.attach(canvas,frame);
+      }
     }
 
     // An 800x500 review layout, composed from independent modules, not the original room PNG.
-    place('floor-parquet',32,132,436,306,'floor',true);
-    place('floor-parquet',246,438,80,34,'floor',true);
-    place('floor-parquet',468,246,20,46,'floor',true);
-    place('floor-checker',488,166,280,272,'floor',true);
+    place('floor-parquet',32,136,436,302,'floor',true);
+    place('passage-wood',468,238,20,52,'floor');
+    place('floor-checker',488,170,280,268,'floor',true);
     place('wall-panel',32,30,436,106,'wall');
     place('wall-panel',488,30,280,140,'wall');
-    place('wall-panel',32,454,214,26,'wall');
-    place('wall-panel',326,454,442,26,'wall');
-    place('partition-panel',468,30,20,208,'wall');
-    place('partition-panel',468,290,20,190,'wall');
+    place('eave',16,9,768,6,'entry');
     place('beam-horizontal',16,14,768,16,'entry');
-    place('beam-horizontal',16,438,230,16,'entry');
-    place('beam-horizontal',326,438,458,16,'entry');
-    place('beam-vertical',16,14,16,466,'entry');
-    place('beam-vertical',768,14,16,466,'entry');
-    [[16,14],[760,14],[466,14],[466,226],[466,282],[466,438],[16,438],[760,438],[228,438],[320,438]].forEach(([x,y])=>place('timber-post',x,y,24,24,'entry'));
-    place('entrance-steps',246,468,80,28,'entry');
+    place('entrance',31,438,438,44,'entry');
+    place('manager-front',487,438,282,32,'entry');
+    place('beam-vertical',16,14,16,436,'entry');
+    place('beam-vertical',768,14,16,436,'entry');
+    place('partition-panel',468,14,20,224,'wall');
+    place('partition-panel',468,290,20,160,'wall');
+    for(const [x,w] of [[12,24],[464,28],[764,24]])place('stone-foot',x,448,w,22,'entry');
+    place('floor-parquet',252,438,68,8,'floor',true);
     for(const [text,x,y] of [['Tomade · 직원 사무실',7.5,10],['부장실',67,10]]) {
       const label=document.createElement('span');label.className='room-word';label.textContent=text;label.style.left=x+'%';label.style.top=y+'%';room.append(label);
     }
@@ -154,6 +161,7 @@
     document.querySelector('#close').addEventListener('click',()=>dialog.close());
     document.querySelector('#ready').textContent=errors?`${errors}개 불러오기 실패`:`${sprites.size}개 오브젝트 · ${room.querySelectorAll('canvas').length}개 배치`;
     document.body.dataset.ready=String(errors===0);
+    window.addEventListener('pagehide',event=>{if(!event.persisted){renderer.dispose();stages.disconnect();}});
   </script>
 </body>
 </html>

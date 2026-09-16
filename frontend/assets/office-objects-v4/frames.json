@@ -1,0 +1,236 @@
+{
+  "managerDesk": {
+    "file": "furniture-atlas.png",
+    "frame": [
+      0,
+      0,
+      0.36,
+      0.3333333333333333
+    ]
+  },
+  "blueChair": {
+    "file": "furniture-atlas.png",
+    "frame": [
+      0.4,
+      0,
+      0.63,
+      0.3333333333333333
+    ]
+  },
+  "greenChair": {
+    "file": "furniture-atlas.png",
+    "frame": [
+      0.7,
+      0,
+      1,
+      0.3333333333333333
+    ]
+  },
+  "managerChair": {
+    "file": "furniture-atlas.png",
+    "frame": [
+      0,
+      0.3333333333333333,
+      0.3333333333333333,
+      0.6666666666666666
+    ]
+  },
+  "sofa": {
+    "file": "furniture-atlas.png",
+    "frame": [
+      0.3333333333333333,
+      0.3333333333333333,
+      0.6666666666666666,
+      0.63
+    ]
+  },
+  "cabinet": {
+    "file": "furniture-atlas.png",
+    "frame": [
+      0.6666666666666666,
+      0.3333333333333333,
+      1,
+      0.6666666666666666
+    ]
+  },
+  "window": {
+    "file": "furniture-atlas.png",
+    "frame": [
+      0,
+      0.6666666666666666,
+      0.3333333333333333,
+      1
+    ]
+  },
+  "stove": {
+    "file": "furniture-atlas.png",
+    "frame": [
+      0.3333333333333333,
+      0.63,
+      0.6666666666666666,
+      1
+    ]
+  },
+  "rug": {
+    "file": "furniture-atlas.png",
+    "frame": [
+      0.6666666666666666,
+      0.6666666666666666,
+      1,
+      1
+    ]
+  },
+  "businessMonitor": {
+    "file": "details-atlas.png",
+    "frame": [
+      0,
+      0,
+      0.3333333333333333,
+      0.3333333333333333
+    ]
+  },
+  "macroMonitor": {
+    "file": "details-atlas.png",
+    "frame": [
+      0.3333333333333333,
+      0,
+      0.6666666666666666,
+      0.3333333333333333
+    ]
+  },
+  "eventMonitor": {
+    "file": "details-atlas.png",
+    "frame": [
+      0.6666666666666666,
+      0,
+      1,
+      0.3333333333333333
+    ]
+  },
+  "backMonitor": {
+    "file": "details-atlas.png",
+    "frame": [
+      0,
+      0.3333333333333333,
+      0.3333333333333333,
+      0.6666666666666666
+    ]
+  },
+  "nameplate": {
+    "file": "details-atlas.png",
+    "frame": [
+      0.3333333333333333,
+      0.3333333333333333,
+      0.6666666666666666,
+      0.6666666666666666
+    ]
+  },
+  "shelf": {
+    "file": "details-atlas.png",
+    "frame": [
+      0.6666666666666666,
+      0.3333333333333333,
+      1,
+      0.6666666666666666
+    ]
+  },
+  "tools": {
+    "file": "details-atlas.png",
+    "frame": [
+      0,
+      0.6666666666666666,
+      0.3333333333333333,
+      1
+    ]
+  },
+  "picture": {
+    "file": "details-atlas.png",
+    "frame": [
+      0.3333333333333333,
+      0.6666666666666666,
+      0.6666666666666666,
+      1
+    ]
+  },
+  "plant": {
+    "file": "details-atlas.png",
+    "frame": [
+      0.6666666666666666,
+      0.6666666666666666,
+      1,
+      1
+    ]
+  },
+  "tomato": {
+    "file": "structure-atlas.png",
+    "frame": [
+      0,
+      0,
+      0.5,
+      0.25
+    ]
+  },
+  "mug": {
+    "file": "structure-atlas.png",
+    "frame": [
+      0.5,
+      0,
+      1,
+      0.25
+    ]
+  },
+  "beamH": {
+    "file": "structure-atlas.png",
+    "frame": [
+      0,
+      0.25,
+      0.5,
+      0.5
+    ]
+  },
+  "beamV": {
+    "file": "structure-atlas.png",
+    "frame": [
+      0.5,
+      0.25,
+      1,
+      0.5
+    ]
+  },
+  "partition": {
+    "file": "structure-atlas.png",
+    "frame": [
+      0,
+      0.5,
+      0.5,
+      0.75
+    ]
+  },
+  "post": {
+    "file": "structure-atlas.png",
+    "frame": [
+      0.5,
+      0.5,
+      1,
+      0.75
+    ]
+  },
+  "steps": {
+    "file": "structure-atlas.png",
+    "frame": [
+      0,
+      0.75,
+      0.5,
+      1
+    ]
+  },
+  "wall": {
+    "file": "structure-atlas.png",
+    "frame": [
+      0.55,
+      0.77,
+      0.95,
+      0.95
+    ]
+  }
+}

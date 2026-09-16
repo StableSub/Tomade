@@ -2,155 +2,492 @@
   "version": 1,
   "reference": "../research-office.png",
   "generationTool": "built-in image_gen",
-  "rendering": "magenta color key, original PNGs preserved; alpha removed at display time",
+  "rendering": "Original source RGB, fixed character-scale pixel grid and closed two-cell contours; exact floor tile geometry preserved.",
   "commonPrompt": "Use case: style-transfer.\nAsset type: ONE individually reusable 2D RPG pixel-art furniture sprite for Tomade.\nInput image 1 is STYLE AND OBJECT DESIGN REFERENCE, not the room layout to reproduce.\nRedraw only the specified object as deliberately simple hand-placed pixel art. Use crisp square pixel steps, a consistent fine grid, a limited harmonious palette and TWO OR THREE FLAT COLOR TONES per material. NO gradients, mottled texture, painterly grain, blur, anti-aliasing, 3D render or photographic lighting. Wood is quiet honey-oak, accents sage green/teal/blue/cream, dark brown or charcoal outlines. Match the reference's axis-aligned upright elevated RPG projection: horizontal front edges, a little top surface visible, no diagonal isometric view and no perspective vanishing points.\nOUTPUT: one centered COMPLETE object in square canvas, about 70-80% of frame, with generous empty padding. Background must be a PERFECTLY FLAT EXACT SOLID MAGENTA RGB(255,0,255), hex #FF00FF, everywhere outside the object AND THROUGH any holes between its legs, rails and handle. This color is a technical transparency key for the game renderer. NO alpha checker pattern, white background, wall, floor, contact shadow, vignette, title, label, caption, grid, dimensions, watermark or character. Do not use magenta anywhere INSIDE the object. The sprite has clean hard edges against magenta. Think of a simple 96px native sprite enlarged with nearest-neighbor, and keep all materials flat.\nObject: ",
   "assets": [
     {
       "id": "worker-desk",
       "name": "직원 책상",
       "group": "업무 가구",
-      "width": 200,
-      "prompt": "Honey-oak employee desk, broad EMPTY rectangular desktop, short legs, two right-side drawers with dark handles. No monitor/chair/nameplate."
+      "width": 138,
+      "prompt": "Honey-oak employee desk, broad EMPTY rectangular desktop, short legs, two right-side drawers with dark handles. No monitor/chair/nameplate.",
+      "file": "../office-objects-v3/worker-desk-trial.png",
+      "height": 72,
+      "preserveColors": true
     },
     {
       "id": "manager-desk",
       "name": "부장 책상",
       "group": "업무 가구",
-      "width": 216,
-      "prompt": "Wide honey-oak manager desk, EMPTY rectangular desktop, simple apron and four short block legs, no drawers, no monitor/chair/nameplate."
+      "width": 148,
+      "prompt": "Wide honey-oak manager desk, EMPTY rectangular desktop, simple apron and four short block legs, no drawers, no monitor/chair/nameplate.",
+      "file": "../office-objects-v4/furniture-atlas.png",
+      "height": 76,
+      "frame": [
+        0,
+        0,
+        0.36,
+        0.3333333333333333
+      ],
+      "preserveColors": true
     },
     {
       "id": "worker-chair-blue",
       "name": "직원 의자 · 파랑",
       "group": "업무 가구",
-      "width": 76,
-      "prompt": "Wooden employee chair viewed from BACK facing north. Two vertical wood back posts, horizontal backrest, blue upholstered seat visible through frame, four short legs. Chair alone."
+      "width": 40,
+      "prompt": "Wooden employee chair viewed from BACK facing north. Two vertical wood back posts, horizontal backrest, blue upholstered seat visible through frame, four short legs. Chair alone.",
+      "file": "../office-objects-v4/furniture-atlas.png",
+      "height": 52,
+      "frame": [
+        0.4,
+        0,
+        0.63,
+        0.3333333333333333
+      ],
+      "preserveColors": true
     },
     {
       "id": "worker-chair-green",
       "name": "직원 의자 · 초록",
       "group": "업무 가구",
-      "width": 76,
-      "prompt": "Wooden employee chair viewed from BACK facing north. Two vertical wood back posts, horizontal backrest, sage-green upholstered seat visible through frame, four short legs. Chair alone. Same as blue chair in reference except seat color."
+      "width": 40,
+      "prompt": "Wooden employee chair viewed from BACK facing north. Two vertical wood back posts, horizontal backrest, sage-green upholstered seat visible through frame, four short legs. Chair alone. Same as blue chair in reference except seat color.",
+      "file": "../office-objects-v4/furniture-atlas.png",
+      "height": 52,
+      "frame": [
+        0.7,
+        0,
+        1,
+        0.3333333333333333
+      ],
+      "preserveColors": true
     },
     {
       "id": "manager-chair",
       "name": "부장 의자",
       "group": "업무 가구",
-      "width": 86,
-      "prompt": "Wooden manager chair viewed from FRONT facing south, complete tall sage-green upholstered backrest and sage seat, short wooden arms and four short legs. No desk."
+      "width": 44,
+      "prompt": "Wooden manager chair viewed from FRONT facing south, complete tall sage-green upholstered backrest and sage seat, short wooden arms and four short legs. No desk.",
+      "file": "../office-objects-v4/furniture-atlas.png",
+      "height": 62,
+      "frame": [
+        0,
+        0.3333333333333333,
+        0.3333333333333333,
+        0.6666666666666666
+      ],
+      "preserveColors": true
     },
     {
       "id": "monitor-business",
       "name": "비즈니스 모니터",
       "group": "모니터",
-      "width": 86,
-      "prompt": "Black desktop monitor and short pedestal stand, FRONT screen showing cream earnings dashboard, three teal ascending bars left, three gray-blue document rows right. Symbols only. No letters/numbers/keyboard/desk."
+      "width": 48,
+      "prompt": "Black desktop monitor and short pedestal stand, FRONT screen showing cream earnings dashboard, three teal ascending bars left, three gray-blue document rows right. Symbols only. No letters/numbers/keyboard/desk.",
+      "file": "../office-objects-v4/details-atlas.png",
+      "height": 40,
+      "frame": [
+        0,
+        0,
+        0.3333333333333333,
+        0.3333333333333333
+      ],
+      "preserveColors": true
     },
     {
       "id": "monitor-macro",
       "name": "매크로 / 섹터 모니터",
       "group": "모니터",
-      "width": 86,
-      "prompt": "Black desktop monitor and short pedestal stand, FRONT cream display showing simple stepped blue upward market line at top, three muted green/blue/red sector blocks bottom. Symbols only. No letters/numbers/keyboard/desk. Same shape as business monitor."
+      "width": 48,
+      "prompt": "Black desktop monitor and short pedestal stand, FRONT cream display showing simple stepped blue upward market line at top, three muted green/blue/red sector blocks bottom. Symbols only. No letters/numbers/keyboard/desk. Same shape as business monitor.",
+      "file": "../office-objects-v4/details-atlas.png",
+      "height": 40,
+      "frame": [
+        0.3333333333333333,
+        0,
+        0.6666666666666666,
+        0.3333333333333333
+      ],
+      "preserveColors": true
     },
     {
       "id": "monitor-event",
       "name": "이벤트 / 카탈리스트 모니터",
       "group": "모니터",
-      "width": 86,
-      "prompt": "Black desktop monitor and short pedestal stand, FRONT cream display showing small blue-gray calendar on left with ONE red date, three gray-blue news rows right. Symbols only. No letters/numbers/keyboard/desk. Same shape as business monitor."
+      "width": 48,
+      "prompt": "Black desktop monitor and short pedestal stand, FRONT cream display showing small blue-gray calendar on left with ONE red date, three gray-blue news rows right. Symbols only. No letters/numbers/keyboard/desk. Same shape as business monitor.",
+      "file": "../office-objects-v4/details-atlas.png",
+      "height": 40,
+      "frame": [
+        0.6666666666666666,
+        0,
+        1,
+        0.3333333333333333
+      ],
+      "preserveColors": true
     },
     {
       "id": "monitor-back",
       "name": "부장 모니터 · 뒷면",
       "group": "모니터",
-      "width": 86,
-      "prompt": "Dark navy-charcoal desktop monitor seen FROM BEHIND, rectangular shell with one subtle vent line, vertical support and broad pedestal. NO visible screen. No desk/cables. Same basic shape as other monitors."
+      "width": 48,
+      "prompt": "Dark navy-charcoal desktop monitor seen FROM BEHIND, rectangular shell with one subtle vent line, vertical support and broad pedestal. NO visible screen. No desk/cables. Same basic shape as other monitors.",
+      "file": "../office-objects-v4/details-atlas.png",
+      "height": 38,
+      "frame": [
+        0,
+        0.3333333333333333,
+        0.3333333333333333,
+        0.6666666666666666
+      ],
+      "preserveColors": true
     },
     {
       "id": "nameplate",
       "name": "공용 명패 · 빈 판",
       "group": "업무 가구",
-      "width": 110,
-      "prompt": "One BLANK horizontal desktop nameplate. Warm ivory rectangle face, thin honey-oak border, tiny darker bottom base. Width 3.5x height. Completely NO TEXT so HTML text can be placed over it later. No glow or desk."
+      "width": 64,
+      "prompt": "One BLANK horizontal desktop nameplate. Warm ivory rectangle face, thin honey-oak border, tiny darker bottom base. Width 3.5x height. Completely NO TEXT so HTML text can be placed over it later. No glow or desk.",
+      "file": "../office-objects-v4/details-atlas.png",
+      "height": 20,
+      "frame": [
+        0.3333333333333333,
+        0.3333333333333333,
+        0.6666666666666666,
+        0.6666666666666666
+      ],
+      "preserveColors": true
     },
     {
       "id": "window",
       "name": "체크 커튼 창문",
       "group": "집 소품",
-      "width": 150,
-      "prompt": "Small honey-oak window, blue-and-cream checked curtains tied back at sides, simple pixel blue sky/cloud/green hills inside. One complete wall fixture, no plant, wall or sill accessories."
+      "width": 88,
+      "prompt": "Small honey-oak window, blue-and-cream checked curtains tied back at sides, simple pixel blue sky/cloud/green hills inside. One complete wall fixture, no plant, wall or sill accessories.",
+      "file": "../office-objects-v4/furniture-atlas.png",
+      "height": 58,
+      "frame": [
+        0,
+        0.6666666666666666,
+        0.3333333333333333,
+        1
+      ],
+      "preserveColors": true
     },
     {
       "id": "stove",
       "name": "녹색 타일 난로",
       "group": "집 소품",
-      "width": 105,
-      "prompt": "Tall emerald/sage tiled wood-burning stove, sparse tile lines, small dark iron fire door low down with two orange ember pixels, short dark bent chimney turning LEFT. Complete object including pipe, no logs/floor/wall."
+      "width": 56,
+      "prompt": "Tall emerald/sage tiled wood-burning stove, sparse tile lines, small dark iron fire door low down with two orange ember pixels, short dark bent chimney turning LEFT. Complete object including pipe, no logs/floor/wall.",
+      "file": "../office-objects-v4/furniture-atlas.png",
+      "height": 115,
+      "frame": [
+        0.3333333333333333,
+        0.63,
+        0.6666666666666666,
+        1
+      ],
+      "preserveColors": true
     },
     {
       "id": "sofa",
       "name": "청록색 소파",
       "group": "집 소품",
-      "width": 170,
-      "prompt": "Small teal-blue two-seat sofa, two back cushions and seats, square arms, four short wood feet, ONE plain ivory pillow on right. Clean flat cushions, remove fabric noise, no rug."
+      "width": 106,
+      "prompt": "Small teal-blue two-seat sofa, two back cushions and seats, square arms, four short wood feet, ONE plain ivory pillow on right. Clean flat cushions, remove fabric noise, no rug.",
+      "file": "../office-objects-v4/furniture-atlas.png",
+      "height": 68,
+      "frame": [
+        0.3333333333333333,
+        0.3333333333333333,
+        0.6666666666666666,
+        0.63
+      ],
+      "preserveColors": true
     },
     {
       "id": "rug",
       "name": "베이지 러그",
       "group": "집 소품",
-      "width": 180,
-      "prompt": "Flat beige rectangular rug, strict axis-aligned overhead rectangle, 1.6:1 width/height, thin double muted brown border, plain beige center, only 3 or 4 sparse weave pixels. No fringe/pattern/noise/shadow."
+      "width": 146,
+      "prompt": "Flat beige rectangular rug, strict axis-aligned overhead rectangle, 1.6:1 width/height, thin double muted brown border, plain beige center, only 3 or 4 sparse weave pixels. No fringe/pattern/noise/shadow.",
+      "file": "../office-objects-v4/furniture-atlas.png",
+      "height": 90,
+      "frame": [
+        0.6666666666666666,
+        0.6666666666666666,
+        1,
+        1
+      ],
+      "preserveColors": true
     },
     {
       "id": "tool-rack",
       "name": "벽걸이 공구",
       "group": "집 소품",
-      "width": 110,
-      "prompt": "Single horizontal wooden wall tool rack with exactly three hanging tools: hammer, silver handsaw with orange handle, silver open-end wrench. One combined wall fixture. No wall or extra props."
+      "width": 62,
+      "prompt": "Single horizontal wooden wall tool rack with exactly three hanging tools: hammer, silver handsaw with orange handle, silver open-end wrench. One combined wall fixture. No wall or extra props.",
+      "file": "../office-objects-v4/details-atlas.png",
+      "height": 48,
+      "frame": [
+        0,
+        0.6666666666666666,
+        0.3333333333333333,
+        1
+      ],
+      "preserveColors": true
     },
     {
       "id": "wall-shelf",
       "name": "책 선반",
       "group": "집 소품",
-      "width": 122,
-      "prompt": "Small wooden wall shelf with two mounting brackets, a few upright green/rust-red/navy books and one cream mug with tiny tomato symbol. Single shelf with its contents, no wall, no readable book text."
+      "width": 66,
+      "prompt": "Small wooden wall shelf with two mounting brackets, a few upright green/rust-red/navy books and one cream mug with tiny tomato symbol. Single shelf with its contents, no wall, no readable book text.",
+      "file": "../office-objects-v4/details-atlas.png",
+      "height": 46,
+      "frame": [
+        0.6666666666666666,
+        0.3333333333333333,
+        1,
+        0.6666666666666666
+      ],
+      "preserveColors": true
     },
     {
       "id": "cabinet",
       "name": "수납장",
       "group": "집 소품",
-      "width": 86,
-      "prompt": "Slim honey-oak standing cabinet, flat top, open upper cubby with three green/red/blue books, lower closed wood door with dark handle, short feet. No adjacent objects."
+      "width": 44,
+      "prompt": "Slim honey-oak standing cabinet, flat top, open upper cubby with three green/red/blue books, lower closed wood door with dark handle, short feet. No adjacent objects.",
+      "file": "../office-objects-v4/furniture-atlas.png",
+      "height": 82,
+      "frame": [
+        0.6666666666666666,
+        0.3333333333333333,
+        1,
+        0.6666666666666666
+      ],
+      "preserveColors": true
     },
     {
       "id": "tomato-sign",
       "name": "토마토 심볼",
       "group": "집 소품",
-      "width": 48,
-      "prompt": "Only the small red tomato symbol next to the Tomade text. Round red tomato, deep-red lower shade, one pale-red highlight cluster, simple five-point green leafy calyx. NO face, text, board or letters."
+      "width": 22,
+      "prompt": "Only the small red tomato symbol next to the Tomade text. Round red tomato, deep-red lower shade, one pale-red highlight cluster, simple five-point green leafy calyx. NO face, text, board or letters.",
+      "file": "../office-objects-v4/structure-atlas.png",
+      "height": 24,
+      "frame": [
+        0,
+        0,
+        0.5,
+        0.25
+      ],
+      "preserveColors": true
     },
     {
       "id": "plant",
       "name": "작은 화분",
       "group": "집 소품",
-      "width": 44,
-      "prompt": "Tiny terracotta flowerpot with three or four broad plain green leaves, as on manager window sill. No fruit/flowers/window/sill/table."
+      "width": 22,
+      "prompt": "Tiny terracotta flowerpot with three or four broad plain green leaves, as on manager window sill. No fruit/flowers/window/sill/table.",
+      "file": "../office-objects-v4/details-atlas.png",
+      "height": 26,
+      "frame": [
+        0.6666666666666666,
+        0.6666666666666666,
+        1,
+        1
+      ],
+      "preserveColors": true
     },
     {
       "id": "wall-picture",
       "name": "작은 풍경 액자",
       "group": "집 소품",
-      "width": 82,
-      "prompt": "Small honey-oak rectangular framed landscape, cream mat, tiny flat pixel scene blue sky, green hills, one cream cottage with muted red roof. No wall/text/extra ornament."
+      "width": 48,
+      "prompt": "Small honey-oak rectangular framed landscape, cream mat, tiny flat pixel scene blue sky, green hills, one cream cottage with muted red roof. No wall/text/extra ornament.",
+      "file": "../office-objects-v4/details-atlas.png",
+      "height": 38,
+      "frame": [
+        0.3333333333333333,
+        0.6666666666666666,
+        0.6666666666666666,
+        1
+      ],
+      "preserveColors": true
     },
     {
       "id": "tomato-mug",
       "name": "토마토 머그",
       "group": "집 소품",
+      "width": 18,
+      "prompt": "One small cream mug with handle on RIGHT, dark open top rim, tiny red tomato/green leaf symbol centered on front. Two-tone cream shading. No steam/spoon/coaster/table.",
+      "file": "../office-objects-v4/structure-atlas.png",
+      "height": 20,
+      "frame": [
+        0.5,
+        0,
+        1,
+        0.25
+      ],
+      "preserveColors": true
+    },
+    {
+      "id": "garden-tree",
+      "name": "마당 나무",
+      "width": 80,
+      "height": 78,
+      "frame": [
+        0,
+        0,
+        0.3333333333333333,
+        0.3333333333333333
+      ],
+      "group": "마당",
+      "file": "../office-courtyard-v2/garden-atlas.png",
+      "outline": true,
+      "preserveColors": true
+    },
+    {
+      "id": "flowering-shrub",
+      "name": "꽃 관목",
+      "width": 46,
+      "height": 34,
+      "frame": [
+        0.3333333333333333,
+        0,
+        0.6666666666666666,
+        0.3333333333333333
+      ],
+      "group": "마당",
+      "file": "../office-courtyard-v2/garden-atlas.png",
+      "outline": true,
+      "preserveColors": true
+    },
+    {
+      "id": "tomato-planter",
+      "name": "토마토 화분",
       "width": 38,
-      "prompt": "One small cream mug with handle on RIGHT, dark open top rim, tiny red tomato/green leaf symbol centered on front. Two-tone cream shading. No steam/spoon/coaster/table."
+      "height": 50,
+      "frame": [
+        0.6666666666666666,
+        0,
+        1,
+        0.3333333333333333
+      ],
+      "group": "마당",
+      "file": "../office-courtyard-v2/garden-atlas.png",
+      "outline": true,
+      "preserveColors": true
+    },
+    {
+      "id": "garden-bench",
+      "name": "마당 벤치",
+      "width": 90,
+      "height": 65,
+      "frame": [
+        0,
+        0.3333333333333333,
+        0.3333333333333333,
+        0.6666666666666666
+      ],
+      "group": "마당",
+      "file": "../office-courtyard-v2/garden-atlas.png",
+      "outline": true,
+      "preserveColors": true
+    },
+    {
+      "id": "tomato-bed",
+      "name": "토마토 화단과 물뿌리개",
+      "width": 174,
+      "height": 92,
+      "frame": [
+        0.3333333333333333,
+        0.3333333333333333,
+        0.725,
+        0.6666666666666666
+      ],
+      "group": "마당",
+      "file": "../office-courtyard-v2/garden-atlas.png",
+      "outline": true,
+      "preserveColors": true
+    },
+    {
+      "id": "stepping-stone",
+      "name": "징검돌",
+      "width": 62,
+      "height": 20,
+      "frame": [
+        0.735,
+        0.3333333333333333,
+        1,
+        0.6666666666666666
+      ],
+      "group": "마당",
+      "file": "../office-courtyard-v2/garden-atlas.png",
+      "outline": true,
+      "preserveColors": true
+    },
+    {
+      "id": "garden-rocks",
+      "name": "정원 돌",
+      "width": 30,
+      "height": 22,
+      "frame": [
+        0,
+        0.6666666666666666,
+        0.3333333333333333,
+        1
+      ],
+      "group": "마당",
+      "file": "../office-courtyard-v2/garden-atlas.png",
+      "outline": true,
+      "preserveColors": true
+    },
+    {
+      "id": "grass",
+      "name": "작은 풀",
+      "width": 14,
+      "height": 7,
+      "frame": [
+        0.3333333333333333,
+        0.6666666666666666,
+        0.6666666666666666,
+        1
+      ],
+      "group": "마당",
+      "file": "../office-courtyard-v2/garden-atlas.png",
+      "outline": false,
+      "preserveColors": true
+    },
+    {
+      "id": "flowers",
+      "name": "작은 들꽃",
+      "width": 14,
+      "height": 18,
+      "frame": [
+        0.6666666666666666,
+        0.6666666666666666,
+        1,
+        1
+      ],
+      "group": "마당",
+      "file": "../office-courtyard-v2/garden-atlas.png",
+      "outline": false,
+      "preserveColors": true
+    },
+    {
+      "id": "worker-desk-trial",
+      "name": "패트 책상 · 새 스타일",
+      "width": 138,
+      "height": 72,
+      "group": "업무 가구",
+      "file": "../office-objects-v3/worker-desk-trial.png",
+      "preserveColors": true
     }
-  ]
+  ],
+  "activeVersion": 2
 }

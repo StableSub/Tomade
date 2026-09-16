@@ -1,0 +1,23 @@
+{
+  "version": 2,
+  "generationTool": "built-in image_gen",
+  "styleReference": "../office-objects-v1/stove.png",
+  "assets": [
+    {
+      "id": "wall-panel",
+      "file": "wall-panel.png",
+      "width": 160,
+      "height": 106,
+      "source": "/Users/anjeongseob/.codex/generated_images/01a09e8f-b7c6-7990-aeaf-b83cc9294f84/exec-05c13ffa-67e2-4d3e-a88a-0ff79ae6a03f.png",
+      "prompt": "Use case: style-transfer. Create a TILEABLE 2D pixel-art wall texture for the same game as the green stove reference. EXACTLY THREE PERFECTLY FLAT HORIZONTAL RECTANGLES fill the entire output image from left to right, with no padding: upper 74 percent warm ivory #F7EFDA, next 20 percent muted sage #8DB689, lower 6 percent honey-oak baseboard #A27440. Absolutely constant solid colors throughout each rectangle. Straight hard horizontal boundaries. No black outline, frame, holes, objects, magenta, gradients, texture, brush marks, grain, spots, grunge, mottling, highlights, dither or decoration. This is a very simple 160x106 native game wall tile shown enlarged. Produce just the flat material bands, not a scene."
+    },
+    {
+      "id": "entrance-steps",
+      "file": "entrance-steps.png",
+      "width": 80,
+      "height": 28,
+      "source": "/Users/anjeongseob/.codex/generated_images/01a09e8f-b7c6-7990-aeaf-b83cc9294f84/exec-88b20153-7b28-49ca-9b79-681ec97d97f5.png",
+      "prompt": "Use case: style-transfer.\nAsset type: ONE reusable native-grid pixel-art sprite for the existing Tomade 2D game UI.\nReference image: the green tiled stove is the STYLE MASTER, not the object to include.\nMatch its restrained pixel work: thin continuous ONE-native-pixel dark outline, single-pixel highlights, simple two/three flat tones per material, straight horizontal edges and short crisp staircase corners. Same pixel density in WORLD SPACE as a stove 56 pixels wide and 115 pixels tall. Objects must look like one artist drew the entire tileset. Larger furniture has MORE pixels across its surface, NOT thicker/blockier pixels. Small furniture has LESS detail, NOT tiny intricate strokes.\nOrthogonal elevated RPG view, front edge horizontal, top surface visible, no isometric diagonal view.\nQuiet honey oak, muted sage/teal, slate blue iron, warm ivory. No glossy shading, gradients, grain, realistic wood streaks, sketchy uneven outlines or tiny subpixel detail.\nOutput one complete isolated object centered, with generous padding on perfectly solid RGB(255,0,255) magenta for the existing color-key loader. Magenta also fills all holes. No cast shadow, floor, room, other objects, text, labels, measurements or grids.\nThink of the exact native sprite specified below enlarged with nearest-neighbor. The logical dimensions below describe the OBJECT, not the square output canvas.\nObject specification:\nNative object 80 x 28 pixels. Three straight gray entrance steps seen in elevated orthogonal front view. Three plain horizontal light gray treads, slate risers, crisp little stepped/sloping ends, thin ONE-pixel outer outline. Each tread is ONE CONSTANT flat color #D4D7C9, each riser ONE CONSTANT gray #718189. Absolutely no texture, stains, shine, weathering, grain, dithering, mottling or wavy stripes. Simple regular geometric solid blocks."
+    }
+  ]
+}
