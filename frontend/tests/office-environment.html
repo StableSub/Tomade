@@ -15,6 +15,7 @@
   import { loadSpriteSource } from '../sprite-renderer.ts';
   import { createPixelSprite, OBJECT_PIXEL_SIZE } from '../pixel-style.ts';
   import { paintWindowView, contactShadowImage } from '../office-architecture.ts';
+  import { createOfficeCamera } from '../office-camera.ts';
   const checks = [];
   const check = (condition, message) => { if (!condition) throw new Error(message); checks.push(`PASS ${message}`); };
   try {
@@ -61,9 +62,9 @@
       for(let i=0;i<300 && world.dataset.roomState==='loading';i++) await new Promise(requestAnimationFrame);
       check(world.dataset.roomState==='ready',`${width}×${height}: all assets load`);
       const objects=[...doc.querySelectorAll('[data-room-object]')];
-      check(objects.length===131 && doc.documentElement.scrollWidth<=width+1 && doc.documentElement.scrollHeight<=height+1 && objects.every(node=>{
+      check(objects.length===194 && doc.documentElement.scrollWidth<=width+1 && doc.documentElement.scrollHeight<=height+1 && objects.every(node=>{
         const b=node.getBoundingClientRect(); return b.left>=0 && b.top>=0 && b.right<=width+1 && b.bottom<=height+1;
-      }),`${width}×${height}: all 131 objects fit without clipping`);
+      }),`${width}×${height}: all 194 objects fit without clipping`);
       const addedIds=['picnicTable','gardenFence','mailbox','firewood','rainBarrel','harvestBasket','flowerBed','birdbath'];
       const additions=objects.filter(node=>addedIds.includes(node.dataset.roomObject)), house=world.getBoundingClientRect();
       check(additions.length===13 && additions.every(node=>{
@@ -76,6 +77,39 @@
         && [...doc.querySelectorAll('[data-courtyard]')].every(node=>frame.contentWindow.getComputedStyle(node).visibility==='hidden'),
         `${width}×${height}: panorama and courtyard hide in chat mode`);
       doc.querySelector('.office-app').classList.remove('is-chatting');
+      const viewport=doc.querySelector('.office-scroll'), map=doc.querySelector('.office-map');
+      const controls=doc.createElement('div');
+      controls.innerHTML='<button data-zoom="out">−</button><button data-zoom="reset">100%</button><button data-zoom="in">+</button>';
+      doc.body.append(controls);
+      const camera=createOfficeCamera(viewport,controls);
+      const into=controls.querySelector('[data-zoom="in"]'), out=controls.querySelector('[data-zoom="out"]'), reset=controls.querySelector('[data-zoom="reset"]');
+      const base=map.getBoundingClientRect().width;
+      into.click(); into.click();
+      check(Math.abs(map.getBoundingClientRect().width/base-1.5)<.01,`${width}×${height}: zoom enlarges actual layout to 150%`);
+      for(let i=0;i<12;i++) into.click();
+      check(into.disabled && reset.textContent==='300%',`${width}×${height}: zoom stops at 300%`);
+      viewport.scrollTop=100; viewport.scrollLeft=100;
+      check(viewport.scrollTop===0 && viewport.scrollLeft===0,`${width}×${height}: focus cannot introduce native scroll alongside camera panning`);
+      const rect=viewport.getBoundingClientRect();
+      const wheel=new frame.contentWindow.WheelEvent('wheel',{deltaY:100,clientX:rect.right-10,clientY:rect.bottom-10,cancelable:true});
+      viewport.dispatchEvent(wheel);
+      const moved=map.getBoundingClientRect();
+      check(wheel.defaultPrevented && reset.textContent==='275%' &&
+        (moved.width<=rect.width+1 || moved.left<=rect.left+1 && moved.right>=rect.right-1) &&
+        (moved.height<=rect.height+1 || moved.top<=rect.top+1 && moved.bottom>=rect.bottom-1),`${width}×${height}: wheel zoom stays within map bounds`);
+      const browserZoom=new frame.contentWindow.WheelEvent('wheel',{deltaY:-100,ctrlKey:true,cancelable:true});
+      viewport.dispatchEvent(browserZoom);
+      check(!browserZoom.defaultPrevented && reset.textContent==='275%',`${width}×${height}: browser zoom shortcut is preserved`);
+      reset.click();
+      check(out.disabled && !viewport.classList.contains('is-zoomed') && map.style.transform==='' && Math.abs(map.getBoundingClientRect().width-base)<1,`${width}×${height}: reset restores the full garden`);
+      into.click(); camera.setEnabled(false);
+      into.click(); viewport.dispatchEvent(new frame.contentWindow.WheelEvent('wheel',{deltaY:-100}));
+      check(controls.hidden && reset.textContent==='100%' && !viewport.classList.contains('camera-ready'),`${width}×${height}: chat mode disables and resets the camera`);
+      camera.setEnabled(true); into.click();
+      check(!controls.hidden && reset.textContent==='125%',`${width}×${height}: camera works again after leaving chat`);
+      camera.dispose(); into.click();
+      check(!map.style.getPropertyValue('--office-zoom') && map.style.transform==='' && reset.textContent==='125%',`${width}×${height}: disposal removes camera handlers and transforms`);
+      controls.remove();
       if(width!==390) frame.remove();
     }
     document.body.dataset.result='passed';

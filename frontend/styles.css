@@ -78,10 +78,24 @@ h1,h2,p {
 }
 .office-map {
   flex: none;
-  width: min(100cqw, 109.8901cqh);
+  width: min(calc(100cqw * var(--office-zoom, 1)), calc(109.8901cqh * var(--office-zoom, 1)));
   aspect-ratio: 1000 / 910;
 }
 .office-map::before { content: ''; display: block; padding-top: 21%; }
+.office-scroll.camera-ready { pointer-events: auto; }
+.office-scroll.is-zoomed { overflow: clip; cursor: grab; touch-action: none; user-select: none; }
+.office-scroll.is-panning, .office-scroll.is-panning * { cursor: grabbing !important; }
+.office-zoom {
+  position: absolute; top: 10px; right: 24px; z-index: 30;
+  display: flex; gap: 2px; padding: 2px;
+  background: #f2f4ef; border: 1px solid #d5dcd2; border-radius: 8px;
+}
+.office-zoom[hidden] { display: none; }
+.office-zoom button { min-width: 40px; min-height: 38px; border: 0; border-radius: 5px; background: transparent; color: #414c43; font-size: 20px; cursor: pointer; }
+.office-zoom [data-zoom=reset] { min-width: 62px; font-size: 13px; font-variant-numeric: tabular-nums; }
+.office-zoom button:hover:not(:disabled) { background: #dfe7d8; }
+.office-zoom button:disabled { opacity: .35; cursor: default; }
+.office-zoom button:focus-visible { outline: 2px solid #748c74; outline-offset: 1px; }
 .office-world {
   position: relative;
   width: 80%;
@@ -108,7 +122,7 @@ h1,h2,p {
   pointer-events: none;
   image-rendering: pixelated;
 }
-.office-object[data-room-object=grass] { opacity: .45; }
+.office-object[data-room-object=grass] { opacity: .95; filter: saturate(1.2) contrast(1.15); }
 .office-object {
   position: absolute;
   user-select: none;
@@ -592,6 +606,7 @@ h1,h2,p {
 @media(max-width:760px) {
   .office-app { --header-height: 58px; --chat-width: 100%; }
   .office-hud { padding: 0 16px; }
+  .office-zoom { right: 16px; top: 7px; }
   .brand { font-size: 21px; }
   .brand svg { width: 24px; height: 24px; }
   .office-scroll { inset: 70px 8px 68px; }

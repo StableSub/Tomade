@@ -1,5 +1,6 @@
 import { OfficeScene, paintPortrait, type AgentId } from "./office-scene";
 import { OfficeRoom } from "./office-room";
+import { createOfficeCamera } from "./office-camera";
 import { PortfolioCharacter } from "./portfolio-character";
 
 type NodeName = AgentId | "request_parser";
@@ -57,6 +58,7 @@ const selectAgent = (id: AgentId, trigger: HTMLButtonElement) => {
   else openAgentJournal(id);
 };
 const room = new OfficeRoom(officeWorld);
+const camera = createOfficeCamera(element("officeScroll"), element("officeZoom"));
 const scene = new OfficeScene(officeWorld, selectAgent, motionPreference);
 const portfolioCharacter = new PortfolioCharacter(element<HTMLCanvasElement>("portfolioSprite"), motionPreference);
 paintPortrait(element<HTMLCanvasElement>("managerPortrait"), "upper_agent");
@@ -143,6 +145,7 @@ function setOfficeMode(chatting: boolean): void {
   if (officeApp.classList.contains("is-chatting") === chatting) return;
   const before = officeWorld.getBoundingClientRect();
   roomTransition?.cancel();
+  camera.setEnabled(!chatting);
   officeApp.classList.toggle("is-chatting", chatting);
   returnToOffice.hidden = !chatting;
   for (const actor of officeWorld.querySelectorAll<HTMLElement>(".office-agent, .portfolio-character")) actor.inert = chatting;
@@ -456,4 +459,4 @@ void changeConversation(() => loadConversations(new URLSearchParams(location.has
   .then(() => { if (phase === "error") openManager(); });
 window.addEventListener("resize", () => roomTransition?.cancel());
 motionPreference.addEventListener("change", () => { if (motionPreference.matches) roomTransition?.cancel(); });
-window.addEventListener("pagehide", event => { if (!event.persisted) { scene.dispose(); room.dispose(); portfolioCharacter.dispose(); } });
+window.addEventListener("pagehide", event => { if (!event.persisted) { camera.dispose(); scene.dispose(); room.dispose(); portfolioCharacter.dispose(); } });

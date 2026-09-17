@@ -289,7 +289,7 @@ async function modularObjects(browser) {
   const { page } = f;
   try {
     const objects = await page.locator('[data-room-object]').evaluateAll(nodes => nodes.map(node => ({ asset: node.dataset.roomObject, state: node.dataset.objectState })));
-    assert.equal(objects.length, 131, 'Background and furniture are independently placed objects');
+    assert.equal(objects.length, 194, 'Background and furniture are independently placed objects');
     assert.equal(new Set(objects.map(object => object.asset)).size, 49, 'Room assets exclude the removed desk nameplates');
     assert.ok(objects.every(object => object.state === 'ready'));
     assert.equal(objects.filter(object => object.asset === 'trialDesk').length, 1, 'Pat keeps the approved desk placement');
@@ -358,7 +358,7 @@ async function modularObjects(browser) {
     const garden = await page.locator('[data-room-object][data-courtyard]').evaluateAll(nodes => nodes.map(node => ({
       asset: node.dataset.roomObject, events: getComputedStyle(node).pointerEvents,
     })));
-    assert.equal(garden.length, 88, 'Seventeen courtyard asset types form the garden');
+    assert.equal(garden.length, 151, 'Seventeen courtyard asset types form the garden');
     assert.ok(garden.every(node => node.events === 'none'), 'Courtyard decorations never intercept clicks');
     assert.equal(await page.locator('.office-background, .furniture-occluder').count(), 0, 'The old monolithic background and clipped copies are removed');
     assert.equal(await page.evaluate(() => performance.getEntriesByType('resource').some(entry => entry.name.includes('/research-office'))), false, 'The app does not load the old background');
@@ -413,7 +413,7 @@ async function modularObjects(browser) {
     assert.ok(await page.locator('[data-courtyard]').evaluateAll(nodes => nodes.every(node => getComputedStyle(node).visibility === 'visible')));
     await page.screenshot({ path: `${screenshots}/modular-office.png` });
     f.check();
-    console.log('PASS modular room: 49 assets, 131 independent objects, exact floor seams, character navigation and minimap interaction');
+    console.log('PASS modular room: 49 assets, 194 independent objects, exact floor seams, character navigation and minimap interaction');
   } finally { await f.dispose(); }
 }
 
@@ -446,7 +446,7 @@ async function spriteContours(page) {
       if (!sprites.has(id)) sprites.set(id, sprite);
       if (!instances.has(id)) instances.set(id, []);
       instances.get(id).push(sprite);
-      if (['wall', 'passageWood', 'grass', 'flowers'].includes(id)) continue;
+      if (['wall', 'passageWood', 'grass', 'flowers', 'flowerBed'].includes(id)) continue;
       const width = sprite.width, height = sprite.height, silhouette = mask(sprite);
       // Two independent 8-neighbor erosions identify the required inner contour.
       let interior = silhouette;
@@ -560,7 +560,7 @@ async function spriteRendering(browser) {
           return canvas.width === Math.round(parseFloat(style.width) * devicePixelRatio)
             && canvas.height === Math.round(parseFloat(style.height) * devicePixelRatio);
         }));
-        assert.equal(await page.locator('canvas.office-object[data-sampled]').count(), 128, 'Every non-tiled prop renders at its physical display resolution');
+        assert.equal(await page.locator('canvas.office-object[data-sampled]').count(), 191, 'Every non-tiled prop renders at its physical display resolution');
         assert.ok(await page.locator('canvas.office-object[data-sampled]').evaluateAll(canvases => canvases.every(canvas => {
           const object = canvas.closest('[data-room-object]');
           const character = document.querySelector('.office-agent[data-agent="business"] .agent-sprite');

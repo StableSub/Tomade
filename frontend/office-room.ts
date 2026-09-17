@@ -119,10 +119,6 @@ function placements(): Placement[] {
   garden('tomatoBed', 12, 528, 174, 92);
   for (const [x,y,w,h] of [[752,-40,26,20],[470,606,26,20],[764,668,20,16]]) garden('gardenRocks', x,y,w,h);
   for (const [x,y] of [[82,490],[449,540],[442,648],[15,610],[204,579],[582,-28]]) garden('flowers', x,y,14,18);
-  for (const [x,y] of [[174,-36],[254,-53],[360,-20],[449,-45],[540,-16],[618,-51],
-    [0,82],[2,203],[0,349],[0,442],[786,112],[786,264],[786,400],
-    [50,486],[130,499],[408,490],[497,480],[558,509],[641,493],[768,480],
-    [201,536],[394,550],[474,572],[27,512],[714,617],[392,610],[208,618],[96,623],[552,622]]) garden('grass', x,y,14,7);
 
   // Side gardens occupy the map's 100-unit margins; house/character coordinates stay unchanged.
   for (const x of [-85, 222, 484, 800]) garden('gardenFence', x, -113, 90, 34);
@@ -134,8 +130,26 @@ function placements(): Placement[] {
   garden('birdbath', 823, 212, 50, 62);
   garden('flowerBed', 818, 280, 62, 30);
   for (const [x,y] of [[333,638],[381,630],[613,613],[802,267],[878,292]]) garden('flowers', x,y,14,18);
-  for (const [x,y] of [[-73,77],[-47,121],[-76,283],[-56,351],[-81,413],[-44,485],[-67,645],
-    [827,73],[871,141],[813,183],[852,330],[821,397],[873,452],[828,527],[866,597],[846,656]]) garden('grass', x,y,14,7);
+  // Uneven clusters share three cached sprite sizes; paths and prop silhouettes stay clear.
+  const grassClusters = [
+    [-43,-45],[260,-34],[498,-48],[532,-12],[806,-28],[245,-70],[521,-105],
+    [-65,40],[-42,105],[-67,292],[-45,347],[-69,410],[-44,475],[-61,542],[-56,654],
+    [838,45],[853,119],[828,175],[850,336],[826,400],[853,460],[828,524],[850,618],
+    [62,490],[139,504],[406,493],[498,481],[587,507],[770,485],
+    [211,545],[404,553],[502,529],[205,640],[407,628],[537,642],[82,646],
+  ];
+  const grassShapes = [
+    [[-14,2,14],[9,-5,22],[0,12,18]],
+    [[-12,-3,18],[13,3,14],[-2,10,22]],
+    [[-16,8,22],[7,-4,18],[16,12,14]],
+  ];
+  grassClusters.forEach(([x,y], index) => {
+    const direction = index % 2 ? -1 : 1;
+    for (const [dx,dy,width] of grassShapes[index % grassShapes.length]) {
+      parts.push({ asset: 'grass', x: x + dx * direction, y: y + dy,
+        width, height: width / 2, depth: 3, courtyard: true });
+    }
+  });
 
   add('window', 128, 64, 88, 58, 10);
   add('window', 294, 64, 88, 58, 10);
