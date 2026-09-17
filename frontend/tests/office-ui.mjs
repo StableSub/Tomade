@@ -292,7 +292,20 @@ async function modularObjects(browser) {
     assert.ok(objects.every(object => object.state === 'ready'));
     assert.equal(objects.filter(object => object.asset === 'trialDesk').length, 1, 'Pat keeps the approved desk placement');
     assert.equal(objects.filter(object => object.asset === 'workerDesk').length, 2, 'Both other employee desks receive the approved style');
-    assert.ok(await page.locator('#officeWorld').evaluate(node => getComputedStyle(node, '::before').content === 'none'), 'No cream terrace remains around the house');
+    const environment = await page.locator('#officeWorld').evaluate(node => {
+      const canopy = [...node.querySelectorAll('[data-room-object="gardenTree"]')];
+      const rear = canopy.filter(tree => parseFloat(tree.style.top) < 0);
+      const sky = getComputedStyle(node, '::before');
+      return {
+        panorama: sky.backgroundImage.includes('garden-horizon.webp'),
+        grounded: rear.length === 2 && rear.every(tree => parseFloat(tree.style.top) * 5 + Number(tree.dataset.worldHeight) <= -20),
+        mature: canopy.every(tree => Number(tree.dataset.worldHeight) >= 160),
+        fixedShadow: [...node.querySelectorAll('.office-contact-shadow')].every(shadow =>
+          getComputedStyle(shadow).clipPath === 'none' && shadow.style.backgroundImage.includes('data:image/png')),
+      };
+    });
+    assert.ok(environment.panorama && environment.grounded && environment.mature, 'Mature trees stand on rear ground, separated from the eave and backed by a shared panorama');
+    assert.ok(environment.fixedShadow, 'Contact shadows use cached pixel images instead of scaled CSS stair steps');
     const joins = await page.evaluate(() => {
       const objects = [...document.querySelectorAll('[data-room-object]')];
       const box = node => ({ x: parseFloat(node.style.left) * 8, y: parseFloat(node.style.top) * 5,

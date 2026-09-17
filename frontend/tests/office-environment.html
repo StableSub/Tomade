@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8">
+<title>Office environment regression</title>
+<style>
+  body { font:16px system-ui; background:#ede7d7; color:#293b33; padding:24px; }
+  canvas, img { image-rendering:pixelated; margin:12px; vertical-align:middle; }
+  #windows canvas { width:326px; height:214px; }
+  #result { white-space:pre-wrap; }
+</style>
+<h1>창문·그림자 회귀 검사</h1>
+<p>왼쪽: 원본 창문 / 오른쪽: 외부 원경을 공유하는 창문</p>
+<div id="windows"></div><div id="shadows"></div><pre id="result">검사 중</pre><div id="mobile"></div>
+<script type="module">
+  import { loadSpriteSource } from '../sprite-renderer.ts';
+  import { createPixelSprite, OBJECT_PIXEL_SIZE } from '../pixel-style.ts';
+  import { paintWindowView, contactShadowImage } from '../office-architecture.ts';
+  const checks = [];
+  const check = (condition, message) => { if (!condition) throw new Error(message); checks.push(`PASS ${message}`); };
+  try {
+    const source = await loadSpriteSource('../assets/office-objects-v4/furniture-atlas.png', false, [0,2/3,1/3,1]);
+    const original = createPixelSprite(source,88,58,{preserveColors:true});
+    const edited = createPixelSprite(source,88,58,{preserveColors:true});
+    const landscape = await loadSpriteSource('../assets/office-landscape-v1/garden-horizon.webp',true);
+    paintWindowView(edited,landscape);
+    document.querySelector('#windows').append(original,edited);
+    const before = original.getContext('2d').getImageData(0,0,original.width,original.height).data;
+    const after = edited.getContext('2d').getImageData(0,0,edited.width,edited.height).data;
+    check(before.every((v,i) => i%4!==3 || v===after[i]),'Window silhouette and all alpha values are preserved');
+    let changed = 0;
+    for(let i=0;i<before.length;i+=4) if(before[i]!==after[i] || before[i+1]!==after[i+1] || before[i+2]!==after[i+2]) changed++;
+    check(changed>original.width*original.height*.10,'The panes show the new landscape');
+    for(const [x,y] of [[.1,.3],[.88,.7],[.50,.35],[.50,.52],[.50,.90]]) {
+      const i=(Math.floor(y*original.height)*original.width+Math.floor(x*original.width))*4;
+      check(before.slice(i,i+4).every((v,c)=>v===after[i+c]),`Curtain/frame anchor ${x},${y} is unchanged`);
+    }
+    for(const [width,height] of [[14,7],[141,24]]) {
+      const url=contactShadowImage(width,height), image=new Image(); image.src=url; await image.decode();
+      check(image.width===Math.round(width/OBJECT_PIXEL_SIZE) && image.height===Math.round(height/OBJECT_PIXEL_SIZE),`Shadow ${width}×${height} uses the furniture pixel grid`);
+      check(url===contactShadowImage(width,height),'Equal shadow sizes reuse their generated image');
+      const canvas=document.createElement('canvas'); canvas.width=image.width; canvas.height=image.height;
+      const ctx=canvas.getContext('2d'); ctx.drawImage(image,0,0);
+      const rgba=ctx.getImageData(0,0,canvas.width,canvas.height).data;
+      check(rgba.every((v,i)=>i%4!==3 || v===0 || v===255),'Shadow boundary contains only opaque or transparent pixels');
+      check(rgba.some((v,i)=>i%4===3 && v===0) && rgba.some((v,i)=>i%4===3 && v===255),'Shadow contains both ground and transparent corners');
+      image.style.width=`${width*2}px`; image.style.height=`${height*2}px`; document.querySelector('#shadows').append(image);
+    }
+    // Real CSS and OfficeRoom in isolated viewports; no app.ts, API or account data.
+    for(const [width,height] of [[1440,1000],[844,390],[390,844]]) {
+      const frame=document.createElement('iframe'); frame.style.cssText=`width:${width}px;height:${height}px;border:0`;
+      frame.title=`Office room ${width}×${height}`;
+      frame.srcdoc=`<!doctype html><link rel="stylesheet" href="/styles.css"><main class="office-app"><div class="office-scroll"><div class="office-map"><div class="office-world" id="officeWorld"></div></div></div><header class="office-hud">Tomade</header></main><script type="module">import { OfficeRoom } from '/office-room.ts'; new OfficeRoom(document.querySelector('#officeWorld'));<\/script>`;
+      const loaded=new Promise(resolve=>frame.addEventListener('load',resolve,{once:true}));
+      document.querySelector('#mobile').append(frame); await loaded;
+      const doc=frame.contentDocument, world=doc.querySelector('#officeWorld');
+      for(let i=0;i<300 && world.dataset.roomState==='loading';i++) await new Promise(requestAnimationFrame);
+      check(world.dataset.roomState==='ready',`${width}×${height}: all assets load`);
+      const objects=[...doc.querySelectorAll('[data-room-object]')];
+      check(objects.length===97 && objects.every(node=>{
+        const b=node.getBoundingClientRect(); return b.left>=0 && b.top>=0 && b.right<=width+1 && b.bottom<=height+1;
+      }),`${width}×${height}: all 97 objects fit without clipping`);
+      doc.querySelector('.office-app').classList.add('is-chatting');
+      check(frame.contentWindow.getComputedStyle(world,'::before').display==='none'
+        && [...doc.querySelectorAll('[data-courtyard]')].every(node=>frame.contentWindow.getComputedStyle(node).visibility==='hidden'),
+        `${width}×${height}: panorama and courtyard hide in chat mode`);
+      doc.querySelector('.office-app').classList.remove('is-chatting');
+      if(width!==390) frame.remove();
+    }
+    document.body.dataset.result='passed';
+    document.querySelector('#result').textContent=checks.join('\n');
+  } catch(error) {
+    document.body.dataset.result='failed'; document.querySelector('#result').textContent=checks.join('\n')+'\nFAIL '+error.message;
+    console.error(error);
+  }
+</script>
+</html>
