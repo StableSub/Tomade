@@ -10,7 +10,7 @@ from langchain_core.tools import tool
 
 from backend.short_term_memory import SessionSummary
 from stock_agent.gateways.agent import create_tool_agent
-from stock_agent.gateways.codex import CODEX_BASE_URL, ChatCodex, CodexHttpAuth
+from stock_agent.gateways.codex import CODEX_BASE_URL, ChatCodex, CodexHttpAuth, create_codex_model
 from stock_agent.gateways.codex_auth import CodexAuth, CodexCredentials
 from stock_agent.state import ParsedRequest
 
@@ -69,6 +69,21 @@ def sse_response(request_body, text="완료", *, call=None, terminal="completed"
 
 
 class CodexModelTest(unittest.IsolatedAsyncioTestCase):
+    async def test_factory_serializes_reasoning_into_responses_payload(self):
+        for effort in (None, "high", "none"):
+            model = create_codex_model("gpt-5.6-terra", reasoning_effort=effort)
+            try:
+                payload = model._get_request_payload("test")
+                if effort is None:
+                    self.assertNotIn("reasoning", payload)
+                else:
+                    self.assertEqual(payload["reasoning"], {"effort": effort})
+                self.assertTrue(payload["stream"])
+                self.assertFalse(payload["store"])
+            finally:
+                model.http_client.close()
+                await model.http_async_client.aclose()
+
     def model(self, handler, auth=None):
         auth = auth or Mock(spec=CodexAuth)
         if not auth.credentials.side_effect:

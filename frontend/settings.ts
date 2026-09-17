@@ -1,8 +1,8 @@
 /** 실행 중인 백엔드의 호출 방식과 프로젝트 전용 구독 로그인을 표시한다. */
 type Provider = "openai" | "openrouter" | "openai_codex";
-interface Connection { provider: Provider | null; auth_mode: string | null; models: Record<string, string>; busy: boolean }
+interface Connection { provider: Provider | null; auth_mode: string | null; models: Record<string, string>; reasoning_efforts?: Record<string, string | null>; busy: boolean }
 interface Login { id: string; state: string; message: string; user_code: string | null; interval: number; expires_in: number }
-interface Settings extends Connection { api_keys: Record<string, boolean>; codex: { state: string; message: string }; login: Login | null }
+interface Settings extends Connection { api_keys: Record<string, boolean>; codex: { state: string; message: string }; login: Login | null; codex_model_options?: Record<string, string[]> }
 const labels: Record<Provider, string> = { openai: "OpenAI · API Key", openrouter: "OpenRouter · API Key", openai_codex: "Codex · 구독 인증" };
 const roles: Record<string, string> = { planner: "부장 / 계획", parser: "질문 해석", worker: "조사", summary: "대화 요약" };
 const el = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -16,6 +16,45 @@ let login: Login | null = null;
 let timer: number | undefined;
 let generation = 0;
 let changing = false;
+let modelsDirty = false;
+const saveModels = el<HTMLButtonElement>("saveRoleModels");
+
+function renderModelEditor() {
+  const root = el("roleModelInputs"); root.replaceChildren();
+  for (const role of Object.keys(roles)) {
+    const row = document.createElement("fieldset");
+    const legend = document.createElement("legend"); legend.textContent = roles[role]; row.append(legend);
+    const model = document.createElement("select"); model.id = `role-model-${role}`;
+    model.setAttribute("aria-label", `${roles[role]} 모델`);
+    const options = settings?.codex_model_options ?? {};
+    for (const id of Object.keys(options)) model.add(new Option(id, id));
+    const current = settings?.models[role] ?? "";
+    if (current && !options[current]) model.add(new Option(`${current} (다른 모델을 선택하세요)`, current));
+    model.value = current;
+    const effort = document.createElement("select"); effort.id = `role-effort-${role}`;
+    effort.setAttribute("aria-label", `${roles[role]} 추론 깊이`);
+    const fillEfforts = (value: string) => {
+      effort.replaceChildren(new Option("추론: 기본값", ""));
+      for (const level of options[model.value] ?? []) effort.add(new Option(`추론: ${level}`, level));
+      if (value && !(options[model.value] ?? []).includes(value)) effort.add(new Option(`${value} (지원 안 됨)`, value));
+      effort.value = value;
+    };
+    fillEfforts(settings?.reasoning_efforts?.[role] ?? "");
+    model.addEventListener("change", () => {
+      const value = (options[model.value] ?? []).includes(effort.value) ? effort.value : "";
+      fillEfforts(value); modelsDirty = true; renderChoice();
+    });
+    effort.addEventListener("change", () => { modelsDirty = true; renderChoice(); });
+    row.append(model, effort); root.append(row);
+  }
+}
+
+function chosenModels() {
+  return Object.fromEntries(Object.keys(roles).map(role => [role, {
+    model: el<HTMLSelectElement>(`role-model-${role}`).value,
+    reasoning_effort: el<HTMLSelectElement>(`role-effort-${role}`).value || null,
+  }]));
+}
 
 async function request<T>(path: string, method = "GET", body?: unknown): Promise<T> {
   const response = await fetch(`/api/settings${path}`, {
@@ -40,6 +79,19 @@ function renderChoice() {
     ? ["signed_in", "expired"].includes(settings.codex.state) : settings.api_keys[provider]);
   apply.disabled = changing || !ready || !!settings?.busy || settings?.provider === provider;
   start.disabled = changing || !settings || login?.state === "pending";
+  el("codexModelEditor").hidden = provider !== "openai_codex";
+  const editable = !!settings && settings.provider === "openai_codex" && !settings.busy && !changing;
+  const inputs = el("roleModelInputs").querySelectorAll("select");
+  inputs.forEach(input => { input.disabled = !editable; });
+  const valid = inputs.length === 8 && Object.values(chosenModels()).every(value => {
+    const supported = settings?.codex_model_options?.[value.model];
+    return supported && (value.reasoning_effort === null || supported.includes(value.reasoning_effort));
+  });
+  saveModels.disabled = !editable || !modelsDirty || !valid;
+  el("roleModelHint").textContent = !settings ? "서버 상태를 확인하세요." : settings.provider !== "openai_codex"
+    ? "먼저 위에서 구독 인증 방식의 ‘이 방식 사용’을 누르세요."
+    : settings.busy ? "답변 또는 진단 완료 후 새로고침해 변경하세요."
+    : modelsDirty ? "아직 저장하지 않은 선택입니다." : "저장하면 다음 요청부터 적용됩니다.";
   el("providerAvailability").textContent = !settings ? "서버 상태를 확인하세요." : settings.busy
     ? "답변 또는 진단이 진행 중입니다. 완료 후 새로고침해 변경하세요."
     : provider === "openai_codex" ? (ready ? "저장된 구독 인증을 사용합니다. 계정의 구독 한도를 소비합니다." : "아래에서 먼저 구독 로그인을 완료하세요.")
@@ -55,9 +107,11 @@ function renderSettings(resetSelection = false) {
   const list = el("modelRoles"); list.replaceChildren();
   for (const [role, model] of Object.entries(settings?.models ?? {})) {
     const term = document.createElement("dt"); term.textContent = roles[role] ?? role;
-    const value = document.createElement("dd"); value.textContent = model;
+    const value = document.createElement("dd"); value.textContent = model + (settings?.provider === "openai_codex"
+      ? ` · ${settings.reasoning_efforts?.[role] ?? "추론 기본값"}` : "");
     list.append(term, value);
   }
+  if (resetSelection || !modelsDirty) { modelsDirty = false; renderModelEditor(); }
   renderChoice();
 }
 
@@ -115,6 +169,16 @@ el("openSettings").addEventListener("click", () => {
 });
 dialog.addEventListener("close", () => { generation++; window.clearTimeout(timer); });
 selector.addEventListener("change", renderChoice);
+saveModels.addEventListener("click", async () => {
+  const payload = chosenModels();
+  changing = true; notice.textContent = "모델 설정을 저장하고 있습니다…"; renderChoice();
+  try {
+    settings = await request<Settings>("/codex/models", "PUT", payload);
+    modelsDirty = false; renderSettings();
+    notice.textContent = "모델·추론 설정을 저장했습니다. 다음 요청부터 적용됩니다.";
+  } catch (error) { notice.textContent = errorMessage(error); }
+  finally { changing = false; renderChoice(); }
+});
 el("refreshSettings").addEventListener("click", () => { notice.textContent = ""; void refresh(); });
 apply.addEventListener("click", async () => {
   changing = true; notice.textContent = "호출 방식을 적용하고 있습니다…"; renderChoice();

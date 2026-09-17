@@ -49,3 +49,21 @@ class ModelProviderTest(unittest.TestCase):
                 self.assertEqual(_resolve_provider(), "openai")
         with patch.dict(os.environ, {"LLM_PROVIDER": "unknown"}), self.assertRaises(ValueError):
             _resolve_provider()
+
+    def test_role_effort_only_reaches_subscription_provider(self):
+        with patch.dict(os.environ, {"LLM_PROVIDER": "openai_codex", "PLANNER_MODEL": "gpt-6-astra",
+                                     "CODEX_PLANNER_REASONING_EFFORT": "high"}), \
+             patch("stock_agent.gateways.codex.create_codex_model") as factory:
+            get_chat_model("planner")
+            factory.assert_called_once_with("gpt-6-astra", reasoning_effort="high")
+        get_chat_model.cache_clear()
+        with patch.dict(os.environ, {"LLM_PROVIDER": "openai", "OPENAI_API_KEY": "unused",
+                                     "CODEX_PLANNER_REASONING_EFFORT": "high"}), \
+             patch("stock_agent.gateways.llm.ChatOpenAI") as factory:
+            get_chat_model("planner")
+            self.assertNotIn("reasoning", factory.call_args.kwargs)
+        get_chat_model.cache_clear()
+        with patch.dict(os.environ, {"LLM_PROVIDER": "openai_codex", "PLANNER_MODEL": "gpt-6-astra",
+                                     "CODEX_PLANNER_REASONING_EFFORT": "none"}):
+            with self.assertRaises(ValueError):
+                get_chat_model("planner")

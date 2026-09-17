@@ -146,12 +146,13 @@ class ChatCodex(ChatOpenAI):
             raise ValueError("Codex 스트림이 완료 이벤트 없이 종료되었습니다.")
 
 
-def create_codex_model(model: str, auth: CodexAuth | None = None) -> ChatCodex:
+def create_codex_model(model: str, auth: CodexAuth | None = None, *, reasoning_effort: str | None = None) -> ChatCodex:
     """구독 인증을 적용한 모델을 만든다. 생성 시에는 로그인·외부 호출을 하지 않는다.
 
     Args:
         model: 역할별 Codex 모델 ID.
         auth: 선택적인 인증 관리자. 생략하면 프로젝트 전용 기본 저장소를 사용한다.
+        reasoning_effort: Responses reasoning.effort에 전달할 깊이. None이면 명시하지 않는다.
     Returns:
         invoke/ainvoke/stream/astream과 기존 Tool·구조화 출력을 제공하는 모델.
     Note:
@@ -162,6 +163,7 @@ def create_codex_model(model: str, auth: CodexAuth | None = None) -> ChatCodex:
     timeout = httpx.Timeout(120, connect=10)
     return ChatCodex(
         model=model,
+        reasoning={"effort": reasoning_effort} if reasoning_effort is not None else None,
         api_key="codex-oauth",
         base_url=CODEX_BASE_URL,
         streaming=True,

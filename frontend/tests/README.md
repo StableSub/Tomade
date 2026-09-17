@@ -4,6 +4,8 @@
 
 `node frontend/tests/settings-ui.mjs`로 1440px·390px에서 톱니바퀴 설정 창, 기기 코드 발급·완료·취소·실패, 로그인과 공급자 적용 분리, 실행 중 변경 금지, 서버 조회 실패 표시, Escape와 포커스 복귀를 검사한다. 아래와 같은 `PLAYWRIGHT_MODULE_PATH`, `OFFICE_BROWSER_CHANNEL`, `OFFICE_BASE_URL` 환경변수를 사용할 수 있다. 모든 API는 Mock이며 실제 계정 로그인·모델 호출은 하지 않는다. 캡처는 `/tmp/stock-settings-ui`에 저장한다.
 
+역할 설정 검사에는 모델·추론 선택, Astra에서 none 제외, 새로고침 시 미저장 선택 보존, 저장 후 페이지 재로딩 복원, 저장 실패 시 현재 값 유지, 실행 중 저장 차단도 포함한다. 실제 구독 모델 접근 권한이나 응답 품질은 검증하지 않는다.
+
 ## 전체 사무실 검사
 
 Vite를 실행한 상태에서 Node와 설치된 Playwright로 실행합니다. 모든 `/api/**` 요청은 테스트의 메모리 데이터와 제어 가능한 SSE 스트림으로 가로채므로 실제 대화 DB·Toss·LLM을 호출하지 않습니다.

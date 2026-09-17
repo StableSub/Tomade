@@ -104,7 +104,16 @@
               <p class="settings-help" id="deviceLoginMessage" role="status"></p>
             </div>
           </section>
-          <section class="settings-section"><h3>현재 역할별 모델</h3><dl class="model-list" id="modelRoles"></dl><p class="settings-help">모델과 API 키는 서버의 .env에서 변경합니다. 구독에서 사용할 수 있는 모델인지 확인하세요.</p></section>
+          <section class="settings-section"><h3>현재 역할별 모델</h3><dl class="model-list" id="modelRoles"></dl></section>
+          <section class="settings-section" id="codexModelEditor" hidden>
+            <h3>구독 모델 · 추론 깊이 변경</h3>
+            <p class="settings-help">부장은 대화·계획·종합, 조사는 세 Worker가 함께 사용합니다. 포트폴리오 분류·해설도 조사·부장 설정을 따릅니다.</p>
+            <div id="roleModelInputs" class="role-model-inputs"></div>
+            <p class="settings-help">기본값은 추론 깊이를 지정하지 않습니다. 높일수록 응답 시간·구독 사용량이 늘 수 있습니다. 목록은 앱의 지원 모델이며 계정의 접근 권한을 보장하지 않습니다.</p>
+            <button class="workspace-primary" id="saveRoleModels" type="button">모델 설정 저장</button>
+            <p class="settings-help" id="roleModelHint"></p>
+          </section>
+          <p class="settings-help">선택값은 서버의 .env에 저장됩니다. API 키는 .env에서 관리합니다. 역할별 모델은 API Key 방식에서도 같은 값을 사용합니다.</p>
           <p class="settings-notice" id="settingsNotice" role="status" aria-live="polite"></p>
           <button class="quiet-button" id="refreshSettings" type="button">상태 새로고침</button>
         </div>

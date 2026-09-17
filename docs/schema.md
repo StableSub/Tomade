@@ -13,6 +13,8 @@
 | provider | 위 세 공급자 또는 미설정·잘못된 설정이면 null |
 | auth_mode | api_key / subscription / null |
 | models | planner, parser, worker, summary별 최종 모델 ID. 공급자 미설정이면 빈 객체 |
+| reasoning_efforts | 같은 네 역할의 추론 깊이 또는 null(기본값). API Key 방식은 null |
+| codex_model_options | 앱이 허용하는 모델 ID → 추론 깊이 배열. 계정 접근 권한 목록은 아님 |
 | busy | Chat·Research·포트폴리오 진단 실행 중 여부 |
 | api_keys | openai, openrouter 키 존재 여부 boolean. 키 값 제외 |
 | codex | state(signed_out/signed_in/expired/error), message. 저장된 인증의 로컬 상태 |
@@ -20,7 +22,9 @@
 
 로그인 상태는 `id`(UUID), `state`(pending/completed/expired/error), `message`, `user_code`(pending일 때만 문자열, 그 외 null), `verification_url`(고정 OpenAI 기기 로그인 주소), `interval`(조회 간격 초), `expires_in`(남은 초)다. 서버의 `LoginSession`에 있는 인증 객체·기기 인증 ID·토큰은 직렬화하지 않는다. 대기 세션은 메모리, 완료한 인증은 프로젝트 전용 파일에 저장한다.
 
-SSE `run.started`는 `run_id` 외에 `connection: {provider, auth_mode, models, busy}`를 포함한다. 요청의 선택 설정이며 실제 인증 성공 기록은 아니다. 대화 DB에는 저장하지 않는다.
+`PUT /api/settings/codex/models`의 `CodexRoleSettings`는 planner, parser, worker, summary 네 필드를 모두 요구한다. 각 값은 `{model, reasoning_effort}`다. model은 gpt-6-astra 또는 gpt-5.6-sol/terra/luna이며 reasoning_effort는 null·none·low·medium·high·xhigh·max다. Astra의 none, 모르는 모델/단계, 추가 필드, 누락 역할은 422다. 추론 기본값은 null이며 누락해도 null로 처리한다.
+
+SSE `run.started`는 `run_id` 외에 `connection: {provider, auth_mode, models, reasoning_efforts, busy}`를 포함한다. 요청의 선택 설정이며 실제 인증 성공 기록은 아니다. 대화 DB에는 저장하지 않는다.
 
 ## Chat
 

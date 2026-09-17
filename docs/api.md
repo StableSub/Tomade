@@ -47,13 +47,16 @@ run.error(code=node_execution_failed)를 전송하며 현재 답변을 error로 
 | --- | --- |
 | GET /api/settings/models | 현재 공급자·인증 방식·역할별 모델·실행 여부·키 유무·Codex 로그인 상태 조회. 외부 호출 없음 |
 | PUT /api/settings/models | `{provider: openai 또는 openrouter 또는 openai_codex}`. `.env` 저장·현재 프로세스 적용 후 조회와 같은 응답 |
+| PUT /api/settings/codex/models | `{planner, parser, worker, summary}` 각각 `{model, reasoning_effort}`. 구독 활성 상태에서 네 역할을 함께 저장하고 조회와 같은 응답 |
 | POST /api/settings/codex/login | 기기 코드 발급. 진행 중 로그인은 재사용 |
 | POST /api/settings/codex/login/{id}/poll | 간격을 지켜 승인 조회. 완료 시 프로젝트 전용 인증 저장. 공급자는 유지 |
 | DELETE /api/settings/codex/login/{id} | 로그인 대기 종료. `{cancelled: true}`. 저장된 인증은 삭제하지 않음 |
 
-조회 응답은 `provider`, `auth_mode`, `models`, `busy`, `api_keys`, `codex`, `login`이다. 로그인 응답은 `id`, `state`, `message`, `user_code`, 고정 `verification_url`, `interval`, `expires_in`이다. 필드와 상태는 [스키마](schema.md#모델-연결-설정)를 따른다. 토큰·계정 ID·API 키 값·내부 기기 인증 ID는 반환하지 않는다.
+조회 응답은 `provider`, `auth_mode`, `models`, `reasoning_efforts`, `codex_model_options`, `busy`, `api_keys`, `codex`, `login`이다. 로그인 응답은 `id`, `state`, `message`, `user_code`, 고정 `verification_url`, `interval`, `expires_in`이다. 필드와 상태는 [스키마](schema.md#모델-연결-설정)를 따른다. 토큰·계정 ID·API 키 값·내부 기기 인증 ID는 반환하지 않는다.
 
 PUT은 저장된 구독 인증 또는 API 키가 없거나 실행 중이면 409, 잘못된 공급자는 422, 파일 저장 실패는 500이다. 로그인 발급 실패는 정제된 메시지와 502, 없는 대기 ID는 404다. 승인 조회 실패는 로그인 `state=error`로 전달한다. 로그인 시간은 최대 15분이며 서버 재시작 시 대기 세션은 사라진다. 상태 조회는 실제 모델 인증·권한 검증을 수행하지 않는다.
+
+역할 설정 PUT은 실행 중 또는 구독 방식이 아니면 409, 모델·추론 조합이나 역할 스키마가 잘못되면 422, 저장 실패는 500이다. 네 역할의 설정을 원자적으로 저장하고 캐시를 비운다. 실제 모델 호출은 수행하지 않는다.
 
 ### 독립 포트폴리오 API — 구현
 
@@ -166,11 +169,11 @@ event_catalyst
 
 ### 5.1 `run.started`
 
-Chat/Research Run이 시작됐음을 알린다. `connection`에는 해당 요청이 선택한 공급자·인증 방식·역할별 모델·실행 상태를 담는다. 모델 호출 성공 여부는 아니다.
+Chat/Research Run이 시작됐음을 알린다. `connection`에는 해당 요청이 선택한 공급자·인증 방식·역할별 모델·추론 깊이·실행 상태를 담는다. 모델 호출 성공 여부는 아니다.
 
 ```text
 event: run.started
-data: {"run_id":"run-123","connection":{"provider":"openai_codex","auth_mode":"subscription","models":{"planner":"gpt-5.6-luna","parser":"gpt-5.6-luna","worker":"gpt-5.6-luna","summary":"gpt-5.6-luna"},"busy":true}}
+data: {"run_id":"run-123","connection":{"provider":"openai_codex","auth_mode":"subscription","models":{"planner":"gpt-5.6-luna","parser":"gpt-5.6-luna","worker":"gpt-5.6-luna","summary":"gpt-5.6-luna"},"reasoning_efforts":{"planner":null,"parser":null,"worker":null,"summary":null},"busy":true}}
 
 ```
 

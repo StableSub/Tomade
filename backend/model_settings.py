@@ -12,7 +12,10 @@ from pydantic import BaseModel
 
 from backend.portfolio import require_local
 from stock_agent.gateways.codex_auth import CodexAuth, CodexAuthError, CodexDeviceLogin, DEVICE_VERIFICATION_URL
-from stock_agent.gateways.llm import model_configuration, set_model_provider
+from stock_agent.gateways.llm import (
+    CODEX_MODEL_OPTIONS, CodexRoleSettings, model_configuration,
+    set_model_provider, set_codex_role_settings,
+)
 
 router = APIRouter(prefix="/api/settings", dependencies=[Depends(require_local)])
 _login_lock = RLock()
@@ -61,7 +64,20 @@ def settings() -> dict:
         return {**model_configuration(), "api_keys": {
                     "openai": bool(os.environ.get("OPENAI_API_KEY", "").strip()),
                     "openrouter": bool(os.environ.get("OPENROUTER_API_KEY", "").strip())},
-                "codex": _codex_status(), "login": _login.public() if _login else None}
+                "codex": _codex_status(), "login": _login.public() if _login else None,
+                "codex_model_options": CODEX_MODEL_OPTIONS}
+
+
+@router.put("/codex/models")
+def select_role_models(selection: CodexRoleSettings) -> dict:
+    """구독의 역할별 모델·추론을 저장한다. 실행 중/다른 공급자는 409, 저장 실패는 500이다."""
+    try:
+        set_codex_role_settings(selection)
+    except RuntimeError as error:
+        raise HTTPException(409, str(error)) from None
+    except OSError:
+        raise HTTPException(500, "모델 설정을 저장하지 못했습니다. 서버 설정 파일의 권한을 확인하세요.") from None
+    return settings()
 
 
 class ProviderSelection(BaseModel):

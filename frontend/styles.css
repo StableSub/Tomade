@@ -641,4 +641,9 @@ h1,h2,p {
 .model-list { margin: 0; display: grid; grid-template-columns: 100px 1fr; gap: 7px; font-size: 12px; line-height: 1.5; }
 .model-list dt { color: #747b70; }.model-list dd { margin: 0; overflow-wrap: anywhere; }
 .settings-notice { margin: 16px 0 8px; min-height: 1em; color: #a04f3a; font-size: 13px; line-height: 1.6; }
+.role-model-inputs { display: grid; gap: 12px; }
+.role-model-inputs fieldset { display: grid; grid-template-columns: minmax(0, 1fr) 135px; gap: 8px; min-width: 0; margin: 0; padding: 10px; border: 1px solid #dce0d8; border-radius: 7px; }
+.role-model-inputs legend { padding: 0 5px; font-size: 12px; }
+.role-model-inputs select { width: 100%; min-width: 0; padding: 9px 5px; background: white; border: 1px solid #dce0d8; border-radius: 5px; font: inherit; font-size: 12px; }
+@media(max-width:600px) { .role-model-inputs fieldset { grid-template-columns: minmax(0, 1fr); } }
 @media(max-width:600px) { .settings-body { padding: 20px; } .connection-settings { font-size: 10px; gap: 6px; padding: 7px; } }

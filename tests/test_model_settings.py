@@ -10,6 +10,7 @@ import unittest
 from unittest.mock import patch
 
 import httpx
+from dotenv import dotenv_values
 from fastapi.testclient import TestClient
 
 from backend.main import app, _stream_chat_events, _stream_research_events
@@ -19,6 +20,11 @@ from tests.test_codex_auth import _token_response
 
 
 class ModelSettingsTest(unittest.TestCase):
+    def role_payload(self):
+        return {role: {"model": "gpt-6-astra" if role in {"planner", "worker"} else "gpt-5.6-terra",
+                       "reasoning_effort": "high" if role in {"planner", "worker"} else "low"}
+                for role in llm.CONFIGURABLE_ROLES}
+
     def setUp(self):
         directory = self.enterContext(tempfile.TemporaryDirectory())
         self.env_path = Path(directory) / ".env"
@@ -152,3 +158,58 @@ class ModelSettingsTest(unittest.TestCase):
             self.assertEqual(response.status_code, 403)
         with TestClient(app, base_url="http://localhost", client=("203.0.113.2", 9999)) as client:
             self.assertEqual(client.get("/api/settings/models").status_code, 403)
+
+    def test_role_models_persist_reload_and_clear_cache(self):
+        os.environ["LLM_PROVIDER"] = "openai_codex"
+        with patch.object(llm.get_chat_model, "cache_clear") as clear:
+            response = self.client.put("/api/settings/codex/models", json=self.role_payload())
+        self.assertEqual(response.status_code, 200)
+        clear.assert_called_once()
+        self.assertEqual(response.json()["models"]["planner"], "gpt-6-astra")
+        self.assertEqual(response.json()["reasoning_efforts"]["planner"], "high")
+        saved = dotenv_values(self.env_path)
+        self.assertEqual(saved["OPENAI_API_KEY"], "keep-secret")
+        self.assertEqual(saved["OTHER_SETTING"], "keep-me")
+        with patch.dict(os.environ, saved, clear=True):
+            self.assertEqual(llm._resolve_model("openai_codex", "parser"), "gpt-5.6-terra")
+            self.assertEqual(llm._resolve_effort("parser"), "low")
+        payload = self.role_payload()
+        payload["planner"]["reasoning_effort"] = None
+        self.assertEqual(self.client.put("/api/settings/codex/models", json=payload).status_code, 200)
+        self.assertIsNone(llm._resolve_effort("planner"))
+
+    def test_role_validation_busy_provider_and_origin(self):
+        url = "/api/settings/codex/models"
+        payload = self.role_payload()
+        self.assertEqual(self.client.put(url, json=payload).status_code, 409)
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(self.client.put(url, json=payload).status_code, 409)
+        os.environ["LLM_PROVIDER"] = "openai_codex"
+        with llm.model_session():
+            self.assertEqual(self.client.put(url, json=payload).status_code, 409)
+        self.assertEqual(self.client.put(url, json=payload, headers={"Origin": "https://example.com"}).status_code, 403)
+        for field, invalid in (("model", "unverified-model"), ("reasoning_effort", "ultra"), ("reasoning_effort", "none")):
+            wrong = self.role_payload()
+            wrong["planner"][field] = invalid
+            self.assertEqual(self.client.put(url, json=wrong).status_code, 422)
+        self.assertEqual(self.client.put(url, json={"planner": payload["planner"]}).status_code, 422)
+        self.assertNotIn("PLANNER_MODEL", self.env_path.read_text())
+
+    def test_role_write_failure_preserves_file_and_runtime(self):
+        os.environ["LLM_PROVIDER"] = "openai_codex"
+        before = self.env_path.read_bytes()
+        real_set_key = llm.set_key
+        calls = 0
+        def fail_midway(*args):
+            nonlocal calls
+            calls += 1
+            if calls == 3:
+                raise OSError("private path")
+            return real_set_key(*args)
+        with patch.object(llm, "set_key", side_effect=fail_midway):
+            response = self.client.put("/api/settings/codex/models", json=self.role_payload())
+        self.assertEqual(response.status_code, 500)
+        self.assertNotIn("private path", response.text)
+        self.assertEqual(self.env_path.read_bytes(), before)
+        self.assertNotIn("PLANNER_MODEL", os.environ)
+        self.assertEqual(list(self.env_path.parent.glob(".model-settings-*")), [])
