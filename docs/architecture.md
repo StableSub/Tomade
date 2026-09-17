@@ -81,6 +81,16 @@
                                                 같은 상위 Agent → 종합 답변
 ```
 
+### 모델 공급자와 Codex 구독 인증
+
+- `gateways/llm.py:get_chat_model()`이 `openai`, `openrouter`, `openai_codex`를 선택한다. 구독은 `LLM_PROVIDER=openai_codex`로 명시적으로 선택하며 API 키 유무에 따른 기존 자동 선택은 API 공급자에만 적용한다. 역할별 모델 선택과 Agent·Tool·프롬프트·Memory 흐름은 유지한다.
+- `gateways/codex_auth.py`의 CLI가 기기 코드 OAuth 로그인을 제공한다. `CODEX_AUTH_PATH` 또는 `~/.config/stock-agent/codex-auth.json`에 프로젝트 전용 세션을 저장하며 다른 앱의 Codex 인증 파일은 읽거나 수정하지 않는다. 파일은 현재 사용자 소유의 일반 파일·권한 600을 요구한다. 임시 파일과 원자적 교체로 갱신하며 로그아웃은 로컬 파일만 삭제한다.
+- 호출 시 최신 토큰을 읽고 만료 60초 전부터 갱신한다. 파일 잠금으로 스레드·프로세스의 동시 갱신을 직렬화하며 잠금 대기는 60초로 제한한다. 401이면 거절된 토큰과 현재 저장 토큰을 비교해 이미 갱신된 값은 재사용하고 한 번만 재요청한다. 인증 누락·취소·갱신 실패·429에 API Key fallback은 없다.
+- `gateways/codex.py`의 `ChatCodex`는 `ChatOpenAI`를 확장해 기존 SDK의 Tool Call·Pydantic 구조화 출력·메시지 변환을 재사용한다. `store=false`, `stream=true`, `instructions`와 암호화된 reasoning 재전송을 설정하고 인증 헤더는 고정 Codex Responses 주소에만 보낸다. 도구 호출 ID는 유지하며 서버 저장 item ID에는 의존하지 않는다.
+- `invoke`·`ainvoke`도 내부 스트림을 모아 반환한다. 완료 이벤트가 없거나 incomplete이면 실패한다. 401의 한 번 갱신 외 모델 요청 자동 재시도는 없으며 연결 제한은 10초, 네트워크 읽기 제한은 120초다. 중간 Token은 기존 스트리밍 경로로 전달하지만 완료 전 실패는 기존 오류 처리 경로로 전달한다.
+- Codex 기본 모델은 `gpt-5.6-luna`이며 역할별 환경변수가 우선한다. 구독에서 실제 허용된 ID를 설정해야 한다. 출력 Token 상한·temperature·top_p·previous_response_id 설정은 지원하지 않고 오류를 반환한다. API 공급자의 기존 설정은 유지한다.
+- 인증·도구 재호출·스키마·동기/비동기 스트리밍은 Mock HTTP와 실제 LangChain으로 검증한다. 실제 구독 로그인·모델 접근·응답 품질·한도와 금융 API 통합은 별도 검증 대상이다. 평가 기록은 구독 공급자를 `openai_codex`로 구분한다.
+
 ## 노드 책임
 
 ### 독립 포트폴리오 진단

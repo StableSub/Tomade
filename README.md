@@ -95,8 +95,9 @@ npm --prefix frontend install
 
 | 설정 | 사용처 |
 | --- | --- |
-| `LLM_PROVIDER` | `openai` 또는 `openrouter` 선택 |
-| `OPENAI_API_KEY` / `OPENROUTER_API_KEY` | 선택한 모델 공급자의 API 인증 |
+| `LLM_PROVIDER` | `openai` / `openrouter`는 API Key, `openai_codex`는 ChatGPT 구독 OAuth |
+| `OPENAI_API_KEY` / `OPENROUTER_API_KEY` | API 공급자의 인증. `openai_codex`에서는 사용하지 않음 |
+| `CODEX_AUTH_PATH` | 구독 인증 파일. 기본 `~/.config/stock-agent/codex-auth.json` |
 | `SUMMARY_MODEL` | 단기 요약 전용. 기본 `gpt-5.6-luna`, OpenRouter는 `openai/gpt-5.6-luna`. `LLM_MODEL`과 별도 |
 | `PARSER_MODEL` · `PLANNER_MODEL` · `WORKER_MODEL` | 역할별 모델. 공통 기본값은 `LLM_MODEL` |
 | `DART_OPENAPI_KEY` | 회사 확인·공시 조회 |
@@ -105,8 +106,25 @@ npm --prefix frontend install
 
 Parser 모델을 생략하면 Worker 모델 설정을 먼저 사용합니다. 상위 Agent의 일반 답변·조사 계획·결과 종합은 Planner, 포트폴리오 업종 분류는 Worker, 해설은 Planner 모델을 사용합니다. 환경 설정 변경 후에는 서버를 재시작하세요.
 
+#### ChatGPT 구독으로 모델 호출
+
+macOS/Linux에서 다음 명령을 실행하고 출력된 OpenAI URL에 기기 코드를 입력합니다. ChatGPT 보안 설정이나 워크스페이스에서 **기기 코드 로그인**이 활성화되어 있어야 합니다.
+
+```bash
+.venv/bin/python -m stock_agent.gateways.codex_auth login
+.venv/bin/python -m stock_agent.gateways.codex_auth status
+```
+
+로그인 후 `.env`의 `LLM_PROVIDER=openai_codex`, `LLM_MODEL=gpt-5.6-luna`를 설정하고 서버를 재시작합니다. 기존 `PARSER_MODEL`·`PLANNER_MODEL`·`WORKER_MODEL`·`SUMMARY_MODEL`에 별도 모델을 지정했다면 해당 ID도 구독 계정에서 사용할 수 있는 모델로 맞추세요. Codex 공급자의 모델 미지정 기본값은 `gpt-5.6-luna`이며 실제 계정의 모델 접근 권한을 보장하지 않습니다. API 전용 기본값인 `gpt-4o-mini`를 그대로 두지 마세요.
+
+인증은 프로젝트 전용 파일에 권한 `600`으로 저장하며 `~/.codex/auth.json`이나 다른 하네스의 세션을 읽거나 변경하지 않습니다. CLI도 `.env`의 `CODEX_AUTH_PATH`를 읽습니다. 토큰 파일은 저장소 밖에 두고 공유하지 마세요. 로컬 로그아웃은 `.venv/bin/python -m stock_agent.gateways.codex_auth logout`이며 서버 측 세션 폐기는 아닙니다.
+
+LangGraph·Tool·Memory 흐름은 동일하고 모델 통신만 Codex Responses로 전환합니다. 만료 전 갱신과 401의 한 번 재인증을 지원하며, 429·한도 소진·다른 오류에는 유료 API로 자동 전환하지 않습니다. API Key 모드도 계속 사용할 수 있습니다. 호출은 API 비용 또는 선택한 계정의 구독 사용량을 소비합니다.
+
+구독 경로는 외부 하네스의 공개 구현을 참고한 연동으로 전용 엔드포인트 변경 시 유지보수가 필요합니다. 현재 자동 검증은 Mock HTTP 기반 인증·도구 호출·구조화 출력·스트리밍이며 실제 계정 로그인·모델 호출은 별도 확인 대상입니다. [OpenAI 인증 안내](https://learn.chatgpt.com/docs/auth), [참고한 PI 구현](https://github.com/earendil-works/pi/tree/e4c75a73222ae2c72abb5f5314fa35ee8effc508/packages/ai/src)
+
 > [!WARNING]
-> Toss 키가 설정되어 있으면 **포트폴리오 창을 처음 열 때 첫 BROKERAGE 계좌를 조회하고 유료 LLM 진단을 실행**합니다. 새로고침 후 창을 다시 열면 새 진단 비용이 발생합니다. 키가 없거나 진단에 실패해도 부장 대화는 유지되지만, 시세 등 각 경로에 필요한 연동은 별도로 설정해야 합니다.
+> Toss 키가 설정되어 있으면 **포트폴리오 창을 처음 열 때 첫 BROKERAGE 계좌를 조회하고 LLM 진단을 실행**합니다. 새로고침 후 창을 다시 열면 새 API 비용 또는 구독 사용량이 발생합니다. 키가 없거나 진단에 실패해도 부장 대화는 유지되지만, 시세 등 각 경로에 필요한 연동은 별도로 설정해야 합니다.
 
 ### 3. 실행
 
@@ -136,7 +154,7 @@ bash scripts/dev.sh
 # 외부 API 없이 주요 회귀 테스트
 .venv/bin/python -m unittest tests.test_eval_contract tests.test_portfolio tests.test_conversations tests.test_short_term_memory tests.test_chat_router
 
-# 유료 LLM 평가: 실행 시 API 비용 발생
+# 실제 LLM 평가: 실행 시 API 비용 또는 구독 사용량 발생
 .venv/bin/python evals/scripts/run_eval.py --suite parsing,routing --label baseline --runs 3
 ```
 
@@ -158,7 +176,7 @@ bash scripts/dev.sh
 
 **Backend** · Python, LangGraph, LangChain, FastAPI, Uvicorn, SSE, SQLite  
 **Frontend** · Vanilla TypeScript, Vite  
-**Integrations** · OpenAI / OpenRouter, DART, Tavily, Toss Securities Open API
+**Integrations** · OpenAI API / Codex 구독 / OpenRouter, DART, Tavily, Toss Securities Open API
 
 | 문서 | 내용 |
 | --- | --- |

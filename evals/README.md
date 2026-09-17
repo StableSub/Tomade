@@ -17,7 +17,7 @@
 ## 데이터와 채점
 
 - `input_parsing.json`: `today`와 기대 기준일을 고정한다. `fixtures/companies.json`으로 회사 조회를 대체한다.
-- 제품 Parser 모듈의 날짜와 회사 조회만 평가 실행 중 교체한다. 모델 호출은 실제 LLM을 사용하므로 유료다. 평가 함수는 순차 실행한다.
+- 제품 Parser 모듈의 날짜와 회사 조회만 평가 실행 중 교체한다. 모델 호출은 실제 LLM을 사용하므로 API 비용 또는 구독 사용량을 소비한다. 평가 함수는 순차 실행한다.
 - 회사명 표기는 현재 계약대로 Exact Match한다. 현대차·현대자동차는 매핑에서 같은 코드지만, 표시명 정확성은 별도 계약 검사다.
 - 오류는 존재 여부와 `expected_error_pattern`을 모두 검사한다. 패턴은 문구 기반 휴리스틱이며 오류 의미를 완전히 검증하지 않는다. 안정적인 유형 채점에는 제품 오류 코드 도입이 후속으로 필요하다.
 - `expected_question_intent`의 의미, Plan 질문 누락·역할 적합성은 `unscored`로 표시한다. 현재 통과율에 의미 품질을 포함하지 않는다.
@@ -50,7 +50,7 @@
 # 외부 API 없이 평가기 회귀 테스트
 .venv/bin/python -m unittest tests.test_eval_contract
 
-# 유료 LLM 평가: 승인된 실행에만 사용
+# 실제 LLM 평가: API 비용 또는 구독 사용량을 소비하므로 승인된 실행에만 사용
 .venv/bin/python evals/scripts/run_eval.py --suite parsing,routing --label contract-v2 --runs 3
 
 # 같은 사례·반복 수·채점 계약의 이전 결과와 비교
@@ -64,7 +64,7 @@
 
 기존처럼 `results/<label>/<시각>/runs.json`, `summary.json`, `report.md`를 저장한다.
 
-- 실제 모델 객체의 모델 이름·공급자·Responses 설정·추론/temperature 설정을 허용 목록으로 기록한다. API 키·헤더는 모델 메타데이터에 포함하지 않는다.
+- 실제 모델 객체의 모델 이름·공급자·Responses 설정·추론/temperature 설정을 허용 목록으로 기록한다. Codex 구독 공급자는 `openai_codex`로 구분한다. API 키·OAuth 토큰·헤더는 모델 메타데이터에 포함하지 않는다.
 - 공통 지침을 조립한 Parser·Planner 프롬프트 해시, 제품 Python 코드 해시, 데이터·회사 Fixture·채점 코드 해시를 기록한다. 프롬프트 해시는 날짜를 `<runtime-date>`로 고정하고 Planner는 initial·빈 기억을 사용하므로 실행일이나 개인 기억에 따라 바뀌지 않는다.
 - 사례별 통과/실행·오류 횟수, 지연과 Routing 지표를 제공한다. 모델 토큰·비용 수집은 후속 작업이다.
 - 비교는 동일 사례·반복 수·계약 해시가 필요하다. 해시 없는 과거 baseline은 그대로 보존하고 비교 입력으로는 거부한다.
