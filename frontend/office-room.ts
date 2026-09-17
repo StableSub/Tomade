@@ -1,4 +1,4 @@
-import { createRoomFloor, finishTimber, createFrontSection, extendRoof, matchFrameTimber } from './office-architecture';
+import { createRoomFloor, finishTimber, createFrontSection, extendRoof, matchFrameTimber, paintWindowView, contactShadowImage } from './office-architecture';
 import type { AgentId } from './office-scene';
 import { loadSpriteSource, SpriteRenderer } from './sprite-renderer';
 import { createPixelSprite, fitPixelFrame } from './pixel-style';
@@ -12,10 +12,12 @@ export const OFFICE_SEATS: Record<AgentId, { x: number; y: number }> = {
 };
 
 const GARDEN_ATLAS = new URL('./assets/office-courtyard-v2/garden-atlas.png', import.meta.url).href;
+const GARDEN_DETAILS = new URL('./assets/office-garden-details-v1/garden-details.webp', import.meta.url).href;
 
 const SHELL_ATLAS = new URL('./assets/office-shell-v1/shell-atlas.png', import.meta.url).href;
 
 const ASSETS = {
+  landscape: { url: new URL('./assets/office-landscape-v1/garden-horizon.webp', import.meta.url).href, width: 800, opaque: true },
   parquet: { url: new URL('./assets/office-environment-v1/floor-parquet.svg', import.meta.url).href, width: 96, opaque: true },
   checker: { url: new URL('./assets/office-environment-v1/floor-checker.svg', import.meta.url).href, width: 96, opaque: true },
   wall: { url: new URL('./assets/office-objects-v4/structure-atlas.png', import.meta.url).href, frame: [0.55,0.77,0.95,0.95], width: 160, opaque: true },
@@ -59,6 +61,14 @@ const ASSETS = {
   gardenRocks: { url: GARDEN_ATLAS, frame: [0, 2/3, 1/3, 1], width: 30, opaque: false },
   grass: { url: GARDEN_ATLAS, frame: [1/3, 2/3, 2/3, 1], width: 14, opaque: false },
   flowers: { url: GARDEN_ATLAS, frame: [2/3, 2/3, 1, 1], width: 14, opaque: false },
+  picnicTable: { url: GARDEN_DETAILS, frame: [0, 0, .25, .5], width: 142, opaque: false },
+  gardenFence: { url: GARDEN_DETAILS, frame: [.25, 0, .5, .5], width: 90, opaque: false },
+  mailbox: { url: GARDEN_DETAILS, frame: [.5, 0, .75, .5], width: 32, opaque: false },
+  firewood: { url: GARDEN_DETAILS, frame: [.75, 0, 1, .5], width: 70, opaque: false },
+  rainBarrel: { url: GARDEN_DETAILS, frame: [0, .5, .25, 1], width: 44, opaque: false },
+  harvestBasket: { url: GARDEN_DETAILS, frame: [.25, .5, .5, 1], width: 34, opaque: false },
+  flowerBed: { url: GARDEN_DETAILS, frame: [.5, .5, .75, 1], width: 62, opaque: false },
+  birdbath: { url: GARDEN_DETAILS, frame: [.75, .5, 1, 1], width: 50, opaque: false },
 } as const;
 type AssetId = keyof typeof ASSETS;
 type Placement = {
@@ -94,24 +104,52 @@ function placements(): Placement[] {
   // The house keeps its 800x500 coordinates; its courtyard extends below the entrance.
   const garden = (asset: AssetId, x: number, y: number, width: number, height: number) =>
     parts.push({ asset, x, y, width, height, depth: 4, courtyard: true });
-  for (let i = 0; i < 5; i++) garden('steppingStone', 255, 486 + i * 26, 62, 20);
+  for (let i = 0; i < 7; i++) garden('steppingStone', 255, 486 + i * 26, 62, 20);
   garden('tomatoPlanter', 194, 484, 38, 50);
   garden('tomatoPlanter', 340, 484, 38, 50);
-  garden('gardenTree', 12, -66, 80, 78);
-  garden('gardenTree', 704, -66, 80, 78);
-  garden('gardenTree', 688, 512, 82, 92);
-  garden('shrub', 92, -28, 55, 36);
-  garden('shrub', 656, -20, 40, 28);
-  garden('shrub', 515, 572, 45, 36);
-  garden('shrub', 658, 574, 45, 36);
-  garden('gardenBench', 568, 550, 90, 65);
+  // Mature trees are grounded behind the house, clear of its y=9 eave.
+  garden('gardenTree', 22, -198, 180, 176);
+  garden('gardenTree', 598, -198, 180, 176);
+  garden('gardenTree', 637, 510, 150, 168);
+  garden('shrub', 186, -49, 55, 36);
+  garden('shrub', 561, -41, 40, 28);
+  garden('flowerBed', 448, 574, 62, 30);
+  garden('flowerBed', 576, 640, 55, 27);
+  garden('gardenBench', 520, 550, 90, 65);
   garden('tomatoBed', 12, 528, 174, 92);
-  for (const [x,y,w,h] of [[752,-12,26,20],[470,606,26,20],[774,509,20,16]]) garden('gardenRocks', x,y,w,h);
-  for (const [x,y] of [[82,490],[449,540],[748,610],[15,610],[204,579],[582,-28]]) garden('flowers', x,y,14,18);
-  for (const [x,y] of [[174,-36],[254,-53],[360,-20],[449,-45],[540,-16],[618,-51],
-    [0,82],[2,203],[0,349],[0,442],[786,112],[786,264],[786,400],
-    [50,486],[130,499],[408,490],[497,480],[558,509],[641,493],[768,480],
-    [201,536],[394,550],[474,572],[27,512],[714,617],[392,610],[208,618],[96,623],[552,622]]) garden('grass', x,y,14,7);
+  for (const [x,y,w,h] of [[752,-40,26,20],[470,606,26,20],[764,668,20,16]]) garden('gardenRocks', x,y,w,h);
+  for (const [x,y] of [[82,490],[449,540],[442,648],[15,610],[204,579],[582,-28]]) garden('flowers', x,y,14,18);
+
+  // Side gardens occupy the map's 100-unit margins; house/character coordinates stay unchanged.
+  for (const x of [-85, 222, 484, 800]) garden('gardenFence', x, -113, 90, 34);
+  garden('picnicTable', 326, -85, 142, 70);
+  garden('mailbox', 349, 586, 32, 58);
+  garden('firewood', -86, 145, 70, 55);
+  garden('rainBarrel', -61, 223, 44, 52);
+  garden('harvestBasket', -28, 582, 34, 29);
+  garden('birdbath', 823, 212, 50, 62);
+  garden('flowerBed', 818, 280, 62, 30);
+  for (const [x,y] of [[333,638],[381,630],[613,613],[802,267],[878,292]]) garden('flowers', x,y,14,18);
+  // Uneven clusters share three cached sprite sizes; paths and prop silhouettes stay clear.
+  const grassClusters = [
+    [-43,-45],[260,-34],[498,-48],[532,-12],[806,-28],[245,-70],[521,-105],
+    [-65,40],[-42,105],[-67,292],[-45,347],[-69,410],[-44,475],[-61,542],[-56,654],
+    [838,45],[853,119],[828,175],[850,336],[826,400],[853,460],[828,524],[850,618],
+    [62,490],[139,504],[406,493],[498,481],[587,507],[770,485],
+    [211,545],[404,553],[502,529],[205,640],[407,628],[537,642],[82,646],
+  ];
+  const grassShapes = [
+    [[-14,2,14],[9,-5,22],[0,12,18]],
+    [[-12,-3,18],[13,3,14],[-2,10,22]],
+    [[-16,8,22],[7,-4,18],[16,12,14]],
+  ];
+  grassClusters.forEach(([x,y], index) => {
+    const direction = index % 2 ? -1 : 1;
+    for (const [dx,dy,width] of grassShapes[index % grassShapes.length]) {
+      parts.push({ asset: 'grass', x: x + dx * direction, y: y + dy,
+        width, height: width / 2, depth: 3, courtyard: true });
+    }
+  });
 
   add('window', 128, 64, 88, 58, 10);
   add('window', 294, 64, 88, 58, 10);
@@ -159,6 +197,7 @@ function contactShadows(part: Placement): HTMLElement[] {
     shadow.style.top = `${(part.y + y) / 5}%`;
     shadow.style.width = `${width / 8}%`; shadow.style.height = `${height / 5}%`;
     shadow.style.opacity = String(opacity);
+    shadow.style.backgroundImage = `url(${contactShadowImage(width, height)})`;
     // Same depth as the prop, inserted before it: above the support, below the prop.
     shadow.style.zIndex = String(surface ? part.depth : 2);
     shadows.push(shadow);
@@ -179,7 +218,22 @@ function contactShadows(part: Placement): HTMLElement[] {
     // The watering can shares the atlas sprite, but has its own raised footprint.
     patch(w * .78, h * .89, w * .23, 9, .12);
     patch(w * .81, h * .91, w * .16, 5, .23);
-  } else if (asset === 'tomatoPlanter' || asset === 'shrub' || asset === 'gardenTree' || asset === 'gardenBench' || asset === 'gardenRocks') {
+  } else if (asset === 'picnicTable' || asset === 'firewood') {
+    patch(4, h - 7, w - 4, 12, .12);
+    patch(3, h - 3, 10, 5, .23);
+    patch(w - 13, h - 3, 10, 5, .23);
+  } else if (asset === 'gardenFence') {
+    patch(4, h - 3, 9, 5, .18);
+    patch(w - 13, h - 3, 9, 5, .18);
+  } else if (asset === 'mailbox' || asset === 'birdbath') {
+    patch(w * .25 + 3, h - 4, w * .66, 8, .12);
+    patch(w * .31, h - 2, w * .42, 5, .23);
+  } else if (asset === 'rainBarrel' || asset === 'harvestBasket') {
+    patch(3, h - 4, w - 2, 7, .18);
+  } else if (asset === 'gardenTree') {
+    patch(w * .12 + 8, h - 12, w * .78, 22, .10);
+    patch(w * .40, h - 4, w * .22, 7, .22);
+  } else if (asset === 'tomatoPlanter' || asset === 'shrub' || asset === 'gardenBench' || asset === 'gardenRocks') {
     patch(3, h - 4, w - 1, 7, .18);
   } else if (asset === 'foundation' || asset === 'stoneFoot') {
     patch(0, h - 1, w, 5, .16);
@@ -259,6 +313,7 @@ export class OfficeRoom {
       return canvasFor(part.asset).then(async sprite => {
         const timberReference = ['beamH', 'beamV', 'partition', 'wall'].includes(part.asset)
           ? await canvasFor('entrance') : undefined;
+        const landscape = part.asset === 'window' ? await canvasFor('landscape') : undefined;
         if (this.disposed) return;
         const ctx = canvas.getContext('2d')!;
         ctx.imageSmoothingEnabled = false;
@@ -284,7 +339,7 @@ export class OfficeRoom {
               : frame
               ? fitPixelFrame(createPixelSprite(sprite, ...frame, { preserveColors: true }), part.width, part.height)
               : createPixelSprite(sprite, part.width, part.height, {
-                outline: !['wall', 'passageWood', 'grass', 'flowers'].includes(part.asset),
+                outline: !['wall', 'passageWood', 'grass', 'flowers', 'flowerBed'].includes(part.asset),
                 preserveColors: true,
               }));
             if (['partition', 'beamV', 'passageWood'].includes(part.asset)) {
@@ -292,6 +347,7 @@ export class OfficeRoom {
                 part.asset === 'beamV' || (part.asset === 'partition' && part.y > 200));
             }
             if (timberReference) matchFrameTimber(styled.get(key)!, timberReference);
+            if (landscape) paintWindowView(styled.get(key)!, landscape);
           }
           this.renderer.attach(canvas, styled.get(key)!);
         }

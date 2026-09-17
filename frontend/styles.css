@@ -78,13 +78,28 @@ h1,h2,p {
 }
 .office-map {
   flex: none;
-  width: min(100cqw, 114.2857cqh);
-  aspect-ratio: 800 / 700;
+  width: min(calc(100cqw * var(--office-zoom, 1)), calc(109.8901cqh * var(--office-zoom, 1)));
+  aspect-ratio: 1000 / 910;
 }
-.office-map::before { content: ''; display: block; padding-top: 8.75%; }
+.office-map::before { content: ''; display: block; padding-top: 21%; }
+.office-scroll.camera-ready { pointer-events: auto; }
+.office-scroll.is-zoomed { overflow: clip; cursor: grab; touch-action: none; user-select: none; }
+.office-scroll.is-panning, .office-scroll.is-panning * { cursor: grabbing !important; }
+.office-zoom {
+  position: absolute; top: 80px; right: 24px; z-index: 10;
+  display: flex; gap: 2px; padding: 2px;
+  background: #f2f4ef; border: 1px solid #d5dcd2; border-radius: 8px;
+}
+.office-zoom[hidden] { display: none; }
+.office-zoom button { min-width: 40px; min-height: 38px; border: 0; border-radius: 5px; background: transparent; color: #414c43; font-size: 20px; cursor: pointer; }
+.office-zoom [data-zoom=reset] { min-width: 62px; font-size: 13px; font-variant-numeric: tabular-nums; }
+.office-zoom button:hover:not(:disabled) { background: #dfe7d8; }
+.office-zoom button:disabled { opacity: .35; cursor: default; }
+.office-zoom button:focus-visible { outline: 2px solid #748c74; outline-offset: 1px; }
 .office-world {
   position: relative;
-  width: 100%;
+  width: 80%;
+  margin-inline: auto;
   aspect-ratio: 8 / 5;
   container-type: inline-size;
   isolation: isolate;
@@ -93,7 +108,21 @@ h1,h2,p {
   background: transparent;
   overflow: visible;
 }
-.office-object[data-room-object=grass] { opacity: .45; }
+.office-world::before {
+  content: '';
+  position: absolute;
+  left: 50%; bottom: 100%;
+  width: 100vw; height: 100vh;
+  transform: translateX(-50%);
+  background-color: #9fcef0;
+  background-image: linear-gradient(to bottom, #9fcef0, transparent 10%, transparent 85%, #9bb97e), url('./assets/office-landscape-v1/garden-horizon.webp');
+  background-position: center bottom;
+  background-size: 100% 26.25cqw, auto 26.25cqw;
+  background-repeat: no-repeat, repeat-x;
+  pointer-events: none;
+  image-rendering: pixelated;
+}
+.office-object[data-room-object=grass] { opacity: .95; filter: saturate(1.2) contrast(1.15); }
 .office-object {
   position: absolute;
   user-select: none;
@@ -126,7 +155,8 @@ h1,h2,p {
 }
 .office-app.is-chatting .office-map { width: min(100cqw, calc(160cqh - 116px)); aspect-ratio: auto; }
 .office-app.is-chatting .office-map::before { display: none; }
-.office-app.is-chatting .office-world { border-radius: 10px; overflow: hidden; }
+.office-app.is-chatting .office-world { width: 100%; border-radius: 10px; overflow: hidden; }
+.office-app.is-chatting .office-world::before { display: none; }
 .office-app.is-chatting [data-courtyard] { visibility: hidden; }
 .office-app.is-chatting .minimap-label { display: block; font-size: 15px; color: #666d72; margin: 0 0 14px; }
 .office-app.is-chatting .minimap-caption { display: block; text-align: center; font-size: 13px; color: #747a7d; margin-top: 16px; }
@@ -170,7 +200,14 @@ h1,h2,p {
   clip-path: polygon(0 35%, 8% 35%, 8% 20%, 22% 20%, 22% 8%, 36% 8%, 36% 0, 64% 0, 64% 8%, 78% 8%, 78% 20%, 92% 20%, 92% 35%, 100% 35%, 100% 65%, 92% 65%, 92% 80%, 78% 80%, 78% 92%, 64% 92%, 64% 100%, 36% 100%, 36% 92%, 22% 92%, 22% 80%, 8% 80%, 8% 65%, 0 65%);
   pointer-events: none;
 }
-.office-contact-shadow { position: absolute; }
+.office-contact-shadow {
+  position: absolute;
+  background-color: transparent;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  clip-path: none;
+  image-rendering: pixelated;
+}
 .office-house-shadow {
   position: absolute;
   left: 1.25%; top: 90%; width: 98%; height: 8.8%;
@@ -569,6 +606,7 @@ h1,h2,p {
 @media(max-width:760px) {
   .office-app { --header-height: 58px; --chat-width: 100%; }
   .office-hud { padding: 0 16px; }
+  .office-zoom { right: 16px; top: 70px; }
   .brand { font-size: 21px; }
   .brand svg { width: 24px; height: 24px; }
   .office-scroll { inset: 70px 8px 68px; }

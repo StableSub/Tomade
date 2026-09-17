@@ -338,8 +338,8 @@
     {
       "id": "garden-tree",
       "name": "마당 나무",
-      "width": 80,
-      "height": 78,
+      "width": 180,
+      "height": 176,
       "frame": [
         0,
         0,
@@ -486,6 +486,134 @@
       "height": 72,
       "group": "업무 가구",
       "file": "../office-objects-v3/worker-desk-trial.png",
+      "preserveColors": true
+    },
+    {
+      "id": "picnic-table",
+      "name": "피크닉 테이블",
+      "group": "마당",
+      "width": 142,
+      "height": 70,
+      "file": "../office-garden-details-v1/garden-details.webp",
+      "frame": [
+        0.0,
+        0.0,
+        0.25,
+        0.5
+      ],
+      "outline": true,
+      "preserveColors": true
+    },
+    {
+      "id": "garden-fence",
+      "name": "목재 울타리",
+      "group": "마당",
+      "width": 90,
+      "height": 34,
+      "file": "../office-garden-details-v1/garden-details.webp",
+      "frame": [
+        0.25,
+        0.0,
+        0.5,
+        0.5
+      ],
+      "outline": true,
+      "preserveColors": true
+    },
+    {
+      "id": "mailbox",
+      "name": "토마토 우편함",
+      "group": "마당",
+      "width": 32,
+      "height": 58,
+      "file": "../office-garden-details-v1/garden-details.webp",
+      "frame": [
+        0.5,
+        0.0,
+        0.75,
+        0.5
+      ],
+      "outline": true,
+      "preserveColors": true
+    },
+    {
+      "id": "firewood",
+      "name": "장작 보관대",
+      "group": "마당",
+      "width": 70,
+      "height": 55,
+      "file": "../office-garden-details-v1/garden-details.webp",
+      "frame": [
+        0.75,
+        0.0,
+        1.0,
+        0.5
+      ],
+      "outline": true,
+      "preserveColors": true
+    },
+    {
+      "id": "rain-barrel",
+      "name": "빗물통",
+      "group": "마당",
+      "width": 44,
+      "height": 52,
+      "file": "../office-garden-details-v1/garden-details.webp",
+      "frame": [
+        0.0,
+        0.5,
+        0.25,
+        1.0
+      ],
+      "outline": true,
+      "preserveColors": true
+    },
+    {
+      "id": "harvest-basket",
+      "name": "수확 바구니",
+      "group": "마당",
+      "width": 34,
+      "height": 29,
+      "file": "../office-garden-details-v1/garden-details.webp",
+      "frame": [
+        0.25,
+        0.5,
+        0.5,
+        1.0
+      ],
+      "outline": true,
+      "preserveColors": true
+    },
+    {
+      "id": "flower-bed",
+      "name": "정원 꽃밭",
+      "group": "마당",
+      "width": 62,
+      "height": 30,
+      "file": "../office-garden-details-v1/garden-details.webp",
+      "frame": [
+        0.5,
+        0.5,
+        0.75,
+        1.0
+      ],
+      "outline": false,
+      "preserveColors": true
+    },
+    {
+      "id": "birdbath",
+      "name": "새 목욕대",
+      "group": "마당",
+      "width": 50,
+      "height": 62,
+      "file": "../office-garden-details-v1/garden-details.webp",
+      "frame": [
+        0.75,
+        0.5,
+        1.0,
+        1.0
+      ],
+      "outline": true,
       "preserveColors": true
     }
   ],
