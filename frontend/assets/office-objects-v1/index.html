@@ -61,6 +61,7 @@
   <script type="module">
     import { loadSpriteSource, SpriteRenderer } from '../../sprite-renderer.ts';
     import { createPixelSprite, OBJECT_PIXEL_SIZE } from '../../pixel-style.ts';
+    import { paintWindowView } from '../../office-architecture.ts';
     const renderer = new SpriteRenderer();
     const manifest = await fetch('./prompts.json').then(r => r.json());
     const largest = { width: Math.max(...manifest.assets.map(a => a.width)), height: Math.max(...manifest.assets.map(a => a.height)) };
@@ -103,6 +104,7 @@
       try {
         const original = await loadSpriteSource(asset.file ?? `./${asset.id}.png`, false, asset.frame);
         const source = createPixelSprite(original, asset.width, asset.height, { outline: asset.outline !== false, preserveColors: true });
+        if (asset.id === 'window') paintWindowView(source, await loadSpriteSource('../office-landscape-v1/garden-horizon.webp', true));
         const sprite = document.createElement('canvas');
         sprite.dataset.logicalWidth = asset.width; sprite.dataset.ratio = source.width / source.height;
         sprite.style.width = asset.width + 'px'; sprite.style.height = asset.width * source.height / source.width + 'px';

@@ -78,10 +78,10 @@ h1,h2,p {
 }
 .office-map {
   flex: none;
-  width: min(100cqw, 114.2857cqh);
-  aspect-ratio: 800 / 700;
+  width: min(100cqw, 87.9121cqh);
+  aspect-ratio: 800 / 910;
 }
-.office-map::before { content: ''; display: block; padding-top: 8.75%; }
+.office-map::before { content: ''; display: block; padding-top: 26.25%; }
 .office-world {
   position: relative;
   width: 100%;
@@ -92,6 +92,20 @@ h1,h2,p {
   pointer-events: auto;
   background: transparent;
   overflow: visible;
+}
+.office-world::before {
+  content: '';
+  position: absolute;
+  left: 50%; bottom: 100%;
+  width: 100vw; height: 100vh;
+  transform: translateX(-50%);
+  background-color: #9fcef0;
+  background-image: linear-gradient(to bottom, #9fcef0, transparent 10%, transparent 85%, #9bb97e), url('./assets/office-landscape-v1/garden-horizon.webp');
+  background-position: center bottom;
+  background-size: 100% 26.25cqw, auto 26.25cqw;
+  background-repeat: no-repeat, repeat-x;
+  pointer-events: none;
+  image-rendering: pixelated;
 }
 .office-object[data-room-object=grass] { opacity: .45; }
 .office-object {
@@ -127,6 +141,7 @@ h1,h2,p {
 .office-app.is-chatting .office-map { width: min(100cqw, calc(160cqh - 116px)); aspect-ratio: auto; }
 .office-app.is-chatting .office-map::before { display: none; }
 .office-app.is-chatting .office-world { border-radius: 10px; overflow: hidden; }
+.office-app.is-chatting .office-world::before { display: none; }
 .office-app.is-chatting [data-courtyard] { visibility: hidden; }
 .office-app.is-chatting .minimap-label { display: block; font-size: 15px; color: #666d72; margin: 0 0 14px; }
 .office-app.is-chatting .minimap-caption { display: block; text-align: center; font-size: 13px; color: #747a7d; margin-top: 16px; }
@@ -170,7 +185,14 @@ h1,h2,p {
   clip-path: polygon(0 35%, 8% 35%, 8% 20%, 22% 20%, 22% 8%, 36% 8%, 36% 0, 64% 0, 64% 8%, 78% 8%, 78% 20%, 92% 20%, 92% 35%, 100% 35%, 100% 65%, 92% 65%, 92% 80%, 78% 80%, 78% 92%, 64% 92%, 64% 100%, 36% 100%, 36% 92%, 22% 92%, 22% 80%, 8% 80%, 8% 65%, 0 65%);
   pointer-events: none;
 }
-.office-contact-shadow { position: absolute; }
+.office-contact-shadow {
+  position: absolute;
+  background-color: transparent;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  clip-path: none;
+  image-rendering: pixelated;
+}
 .office-house-shadow {
   position: absolute;
   left: 1.25%; top: 90%; width: 98%; height: 8.8%;

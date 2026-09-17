@@ -1,4 +1,4 @@
-import { createRoomFloor, finishTimber, createFrontSection, extendRoof, matchFrameTimber } from './office-architecture';
+import { createRoomFloor, finishTimber, createFrontSection, extendRoof, matchFrameTimber, paintWindowView, contactShadowImage } from './office-architecture';
 import type { AgentId } from './office-scene';
 import { loadSpriteSource, SpriteRenderer } from './sprite-renderer';
 import { createPixelSprite, fitPixelFrame } from './pixel-style';
@@ -16,6 +16,7 @@ const GARDEN_ATLAS = new URL('./assets/office-courtyard-v2/garden-atlas.png', im
 const SHELL_ATLAS = new URL('./assets/office-shell-v1/shell-atlas.png', import.meta.url).href;
 
 const ASSETS = {
+  landscape: { url: new URL('./assets/office-landscape-v1/garden-horizon.webp', import.meta.url).href, width: 800, opaque: true },
   parquet: { url: new URL('./assets/office-environment-v1/floor-parquet.svg', import.meta.url).href, width: 96, opaque: true },
   checker: { url: new URL('./assets/office-environment-v1/floor-checker.svg', import.meta.url).href, width: 96, opaque: true },
   wall: { url: new URL('./assets/office-objects-v4/structure-atlas.png', import.meta.url).href, frame: [0.55,0.77,0.95,0.95], width: 160, opaque: true },
@@ -97,16 +98,17 @@ function placements(): Placement[] {
   for (let i = 0; i < 5; i++) garden('steppingStone', 255, 486 + i * 26, 62, 20);
   garden('tomatoPlanter', 194, 484, 38, 50);
   garden('tomatoPlanter', 340, 484, 38, 50);
-  garden('gardenTree', 12, -66, 80, 78);
-  garden('gardenTree', 704, -66, 80, 78);
-  garden('gardenTree', 688, 512, 82, 92);
-  garden('shrub', 92, -28, 55, 36);
-  garden('shrub', 656, -20, 40, 28);
+  // Mature trees are grounded behind the house, clear of its y=9 eave.
+  garden('gardenTree', 22, -198, 180, 176);
+  garden('gardenTree', 598, -198, 180, 176);
+  garden('gardenTree', 637, 510, 150, 168);
+  garden('shrub', 186, -49, 55, 36);
+  garden('shrub', 561, -41, 40, 28);
   garden('shrub', 515, 572, 45, 36);
-  garden('shrub', 658, 574, 45, 36);
-  garden('gardenBench', 568, 550, 90, 65);
+  garden('shrub', 624, 632, 45, 36);
+  garden('gardenBench', 520, 550, 90, 65);
   garden('tomatoBed', 12, 528, 174, 92);
-  for (const [x,y,w,h] of [[752,-12,26,20],[470,606,26,20],[774,509,20,16]]) garden('gardenRocks', x,y,w,h);
+  for (const [x,y,w,h] of [[752,-40,26,20],[470,606,26,20],[764,668,20,16]]) garden('gardenRocks', x,y,w,h);
   for (const [x,y] of [[82,490],[449,540],[748,610],[15,610],[204,579],[582,-28]]) garden('flowers', x,y,14,18);
   for (const [x,y] of [[174,-36],[254,-53],[360,-20],[449,-45],[540,-16],[618,-51],
     [0,82],[2,203],[0,349],[0,442],[786,112],[786,264],[786,400],
@@ -159,6 +161,7 @@ function contactShadows(part: Placement): HTMLElement[] {
     shadow.style.top = `${(part.y + y) / 5}%`;
     shadow.style.width = `${width / 8}%`; shadow.style.height = `${height / 5}%`;
     shadow.style.opacity = String(opacity);
+    shadow.style.backgroundImage = `url(${contactShadowImage(width, height)})`;
     // Same depth as the prop, inserted before it: above the support, below the prop.
     shadow.style.zIndex = String(surface ? part.depth : 2);
     shadows.push(shadow);
@@ -179,7 +182,10 @@ function contactShadows(part: Placement): HTMLElement[] {
     // The watering can shares the atlas sprite, but has its own raised footprint.
     patch(w * .78, h * .89, w * .23, 9, .12);
     patch(w * .81, h * .91, w * .16, 5, .23);
-  } else if (asset === 'tomatoPlanter' || asset === 'shrub' || asset === 'gardenTree' || asset === 'gardenBench' || asset === 'gardenRocks') {
+  } else if (asset === 'gardenTree') {
+    patch(w * .12 + 8, h - 12, w * .78, 22, .10);
+    patch(w * .40, h - 4, w * .22, 7, .22);
+  } else if (asset === 'tomatoPlanter' || asset === 'shrub' || asset === 'gardenBench' || asset === 'gardenRocks') {
     patch(3, h - 4, w - 1, 7, .18);
   } else if (asset === 'foundation' || asset === 'stoneFoot') {
     patch(0, h - 1, w, 5, .16);
@@ -259,6 +265,7 @@ export class OfficeRoom {
       return canvasFor(part.asset).then(async sprite => {
         const timberReference = ['beamH', 'beamV', 'partition', 'wall'].includes(part.asset)
           ? await canvasFor('entrance') : undefined;
+        const landscape = part.asset === 'window' ? await canvasFor('landscape') : undefined;
         if (this.disposed) return;
         const ctx = canvas.getContext('2d')!;
         ctx.imageSmoothingEnabled = false;
@@ -292,6 +299,7 @@ export class OfficeRoom {
                 part.asset === 'beamV' || (part.asset === 'partition' && part.y > 200));
             }
             if (timberReference) matchFrameTimber(styled.get(key)!, timberReference);
+            if (landscape) paintWindowView(styled.get(key)!, landscape);
           }
           this.renderer.attach(canvas, styled.get(key)!);
         }

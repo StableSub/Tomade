@@ -1,3 +1,58 @@
+import { OBJECT_PIXEL_SIZE } from './pixel-style';
+
+const shadowImages = new Map<string, string>();
+
+/** Rasterize a contact patch on the furniture pixel grid and reuse it by size.
+ * Returns a local PNG data URL; no network access or scene mutations. A larger
+ * patch has more pixels, rather than enlarging a fixed CSS polygon's steps.
+ */
+export function contactShadowImage(width: number, height: number): string {
+  const w = Math.max(1, Math.round(width / OBJECT_PIXEL_SIZE));
+  const h = Math.max(1, Math.round(height / OBJECT_PIXEL_SIZE));
+  const key = `${w}:${h}`;
+  if (!shadowImages.has(key)) {
+    const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext('2d')!; ctx.fillStyle = '#382817';
+    for (let y = 0; y < h; y++) {
+      const radius = Math.sqrt(1 - ((y + .5 - h / 2) / (h / 2)) ** 2) * w / 2;
+      const left = Math.round(w / 2 - radius), right = Math.round(w / 2 + radius);
+      ctx.fillRect(left, y, right - left, 1);
+    }
+    shadowImages.set(key, canvas.toDataURL());
+  }
+  return shadowImages.get(key)!;
+}
+
+/** Paint the shared outdoor panorama only into the four exposed window panes.
+ * Mutates an already normalized window sprite; curtains, mullions, sill and
+ * silhouette remain intact. Inputs are decoded local canvases; no I/O occurs.
+ */
+export function paintWindowView(window: HTMLCanvasElement, landscape: HTMLCanvasElement): void {
+  const ctx = window.getContext('2d')!, w = window.width, h = window.height;
+  // Pane masks follow the existing curtain silhouette in furniture-atlas.png.
+  const panes = [
+    [[.307,.162],[.465,.162],[.465,.468],[.254,.468],[.294,.33]],
+    [[.541,.162],[.698,.162],[.72,.33],[.767,.468],[.541,.468]],
+    [[.236,.558],[.465,.558],[.465,.829],[.251,.829]],
+    [[.541,.558],[.776,.558],[.751,.829],[.541,.829]],
+  ];
+  ctx.save(); ctx.beginPath();
+  for (const points of panes) {
+    points.forEach(([x,y], index) => {
+      const px = Math.round(x * w), py = Math.round(y * h);
+      if (index === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    });
+    ctx.closePath();
+  }
+  ctx.clip(); ctx.imageSmoothingEnabled = false;
+  const width = Math.round(w * .55), height = Math.round(h * .68);
+  // A window looks toward the treeline, rather than down at the nearby lawn.
+  const cropHeight = landscape.height * .70, cropWidth = cropHeight * width / height;
+  ctx.drawImage(landscape, (landscape.width - cropWidth) / 2, landscape.height * .12, cropWidth, cropHeight,
+    Math.round(w * .23), Math.round(h * .155), width, height);
+  ctx.restore();
+}
+
 /** Fit complete floor blocks to the room's inner faces, without cropped edge tiles.
  * Returns an opaque integer-pixel canvas; no network requests or scene mutations.
  */

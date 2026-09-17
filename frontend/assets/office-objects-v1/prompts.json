@@ -338,8 +338,8 @@
     {
       "id": "garden-tree",
       "name": "마당 나무",
-      "width": 80,
-      "height": 78,
+      "width": 180,
+      "height": 176,
       "frame": [
         0,
         0,
