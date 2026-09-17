@@ -20,6 +20,8 @@ from stock_agent.trajectory import TrajectoryRecorder, trajectory_run
 from backend.portfolio import router as portfolio_router, require_local
 from backend import conversations
 from backend.short_term_memory import prepare_short_term_memory
+from backend.model_settings import router as model_settings_router
+from stock_agent.gateways.llm import model_configuration, model_session
 
 logger = logging.getLogger(__name__)
 WORKER_NODES = {"business", "macro_sector", "event_catalyst"}
@@ -47,6 +49,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="stock_agent API", version="0.1.0", lifespan=lifespan)
 app.include_router(portfolio_router)
 app.include_router(conversations.router)
+app.include_router(model_settings_router)
 
 
 @app.post("/api/chat/stream", dependencies=[Depends(require_local)])
@@ -90,8 +93,10 @@ async def _stream_saved_chat_events(message: str, message_id: int) -> AsyncItera
 
 async def _stream_chat_events(message: str, *, message_id: int | None = None) -> AsyncIterator[str]:
     """Chat Graph 이벤트를 SSE로 변환한다. 실행 분기는 LangGraph가 담당한다."""
-    async for event in _stream_research_events_traced(message, str(uuid4()), None, chat=True, message_id=message_id):
-        yield event
+    with model_session():
+        async with aclosing(_stream_research_events_traced(message, str(uuid4()), None, chat=True, message_id=message_id)) as events:
+            async for event in events:
+                yield event
 
 
 @app.post("/api/research/stream")
@@ -127,7 +132,7 @@ async def stream_research(request: ResearchRequest) -> StreamingResponse:
 async def _stream_research_events(message: str, *, run_id: str | None = None) -> AsyncIterator[str]:
     """실행별 Trajectory 파일을 생성하며 브라우저용 SSE를 반환한다."""
     run_id = run_id or str(uuid4())
-    with trajectory_run(run_id) as trajectory:
+    with model_session(), trajectory_run(run_id) as trajectory:
         async for event in _stream_research_events_traced(
             message,
             run_id,
@@ -150,7 +155,7 @@ async def _stream_research_events_traced(
     active_node = first_node
     final_answer: str | None = None
 
-    yield _sse("run.started", {"run_id": run_id})
+    yield _sse("run.started", {"run_id": run_id, "connection": model_configuration()})
     yield _sse(
         "node.started",
         {"run_id": run_id, "node": first_node},

@@ -79,6 +79,7 @@ async function fixture(browser, options = {}) {
     const method = request.method();
     apiRequests.push({ method, path });
     const json = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
+    if (path === '/api/settings/models' && method === 'GET') return json({ provider: 'openai', auth_mode: 'api_key', models: { planner: 'mock-model' }, busy: false, api_keys: { openai: true, openrouter: false }, codex: { state: 'signed_out', message: '구독 로그인 없음' }, login: null });
     if (path === '/api/conversations' && method === 'GET') {
       return json([...conversations.values()].map(({ id, title }) => ({ id, title })));
     }

@@ -2,15 +2,62 @@
 
 import os
 from functools import lru_cache
+from contextlib import contextmanager
+from pathlib import Path
+from threading import RLock
 from typing import Literal
 
-from dotenv import load_dotenv
+from dotenv import load_dotenv, set_key
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_openai import ChatOpenAI
 
 load_dotenv()
 
 ModelRole = Literal["parser", "planner", "worker", "reviewer", "summary"]
+ENV_PATH = Path(__file__).resolve().parents[3] / ".env"
+_settings_lock = RLock()
+_active_sessions = 0
+
+
+def model_configuration() -> dict:
+    """서버 프로세스가 실제 선택하는 공급자·역할별 모델만 반환한다. 비밀·외부 호출은 없다."""
+    with _settings_lock:
+        try:
+            provider = _resolve_provider()
+        except ValueError:
+            return {"provider": None, "auth_mode": None, "models": {}, "busy": bool(_active_sessions)}
+        return {"provider": provider, "auth_mode": "subscription" if provider == "openai_codex" else "api_key",
+                "models": {role: _resolve_model(provider, role) for role in ("planner", "parser", "worker", "summary")},
+                "busy": bool(_active_sessions)}
+
+
+@contextmanager
+def model_session():
+    """요청 실행 중 공급자 변경을 막는다. 오류·취소 시에도 실행 카운트를 해제한다."""
+    global _active_sessions
+    with _settings_lock:
+        _active_sessions += 1
+    try:
+        yield
+    finally:
+        with _settings_lock:
+            _active_sessions -= 1
+
+
+def set_model_provider(provider: str) -> None:
+    """공급자를 .env와 현재 서버에 반영한다. 실행 중에는 RuntimeError, 저장 실패는 OSError다.
+
+    역할별 모델·키는 변경하지 않는다. 성공 후 캐시를 비워 다음 요청부터 적용한다.
+    이 설정 API는 기존 서버와 같이 단일 프로세스를 대상으로 한다.
+    """
+    if provider not in {"openai", "openrouter", "openai_codex"}:
+        raise ValueError("지원하지 않는 공급자입니다.")
+    with _settings_lock:
+        if _active_sessions:
+            raise RuntimeError("진행 중인 답변 또는 포트폴리오 진단이 끝난 뒤 변경하세요.")
+        set_key(ENV_PATH, "LLM_PROVIDER", provider)
+        os.environ["LLM_PROVIDER"] = provider
+        get_chat_model.cache_clear()
 
 
 @lru_cache(maxsize=5)

@@ -43,6 +43,16 @@ class CodexCredentials:
     expires_at: float
 
 
+@dataclass
+class CodexDeviceLogin:
+    """진행 중인 기기 로그인. 서버용 식별자는 브라우저에 공개하지 않는다."""
+
+    device_id: str = field(repr=False)
+    user_code: str
+    interval: float
+    deadline: float
+
+
 def _string(data: dict[str, Any], key: str) -> str:
     value = data.get(key)
     if not isinstance(value, str) or not value or any(ord(char) < 32 for char in value):
@@ -218,12 +228,8 @@ class CodexAuth:
         with self._lock():
             self.path.unlink(missing_ok=True)
 
-    def login(self) -> CodexCredentials:
-        """기기 코드·URL을 터미널에 출력하고 최대 15분 기다린 뒤 별도 세션을 저장한다.
-
-        Ctrl-C로 취소할 수 있다. 로그인 실패·만료 시 기존 파일을 보존하며
-        CodexAuthError를 전달한다. 성공 시 모델 요청에 쓸 자격 증명을 반환한다.
-        """
+    def start_login(self) -> CodexDeviceLogin:
+        """기기 코드를 발급해 반환한다. 외부 인증 호출 실패 시 기존 파일을 보존한다."""
         deadline = time.monotonic() + DEVICE_LOGIN_TIMEOUT
         response = _post("/api/accounts/deviceauth/usercode", json={"client_id": CLIENT_ID})
         if not response.is_success:
@@ -235,45 +241,64 @@ class CodexAuth:
         device_id = _string(device, "device_auth_id")
         user_code = _string(device, "user_code")
         interval = max(1.0, _number(device.get("interval", 5)))
-        print(f"브라우저에서 {DEVICE_VERIFICATION_URL} 를 열고 기기 코드를 입력하세요: {user_code}", flush=True)
-        print("로그인 대기 중입니다. 취소: Ctrl-C (최대 15분)", flush=True)
-        while time.monotonic() < deadline:
-            time.sleep(min(interval, max(0, deadline - time.monotonic())))
-            remaining = deadline - time.monotonic()
+        return CodexDeviceLogin(device_id, user_code, interval, deadline)
+
+    def poll_login(self, device: CodexDeviceLogin) -> CodexCredentials | None:
+        """한 번 승인 여부를 조회한다. 대기는 None, 성공은 저장한 인증, 실패는 안전한 오류다.
+
+        호출자는 device.interval 간격을 지켜야 한다. slow_down 응답은 간격을 늘린다.
+        기기 식별자·코드 검증값·토큰은 서버 안에서만 사용한다.
+        """
+        remaining = device.deadline - time.monotonic()
+        if remaining <= 0:
+            raise CodexAuthError("Codex 기기 코드 로그인 대기 시간이 만료되었습니다. 다시 로그인하세요.")
+        response = _post("/api/accounts/deviceauth/token", timeout=min(30, remaining), json={
+            "device_auth_id": device.device_id, "user_code": device.user_code,
+        })
+        if response.is_success:
+            authorization = _json(response)
+            remaining = device.deadline - time.monotonic()
             if remaining <= 0:
-                break
-            response = _post("/api/accounts/deviceauth/token", timeout=min(30, remaining), json={
-                "device_auth_id": device_id, "user_code": user_code,
-            })
-            if response.is_success:
-                authorization = _json(response)
-                remaining = deadline - time.monotonic()
-                if remaining <= 0:
-                    break
-                record = _token_record(_post("/oauth/token", timeout=min(30, remaining), data={
-                    "grant_type": "authorization_code",
-                    "client_id": CLIENT_ID,
-                    "code": _string(authorization, "authorization_code"),
-                    "code_verifier": _string(authorization, "code_verifier"),
-                    "redirect_uri": f"{AUTH_BASE_URL}/deviceauth/callback",
-                }))
-                with self._lock():
-                    self._save(record)
-                return _credentials(record)
-            try:
-                error = _json(response).get("error")
-            except CodexAuthError:
-                error = None
-            if isinstance(error, dict):
-                error = error.get("code")
-            if error in ("authorization_pending", "deviceauth_authorization_pending"):
-                continue
-            if error == "slow_down":
-                interval += 5
-                continue
-            if response.status_code in (403, 404) and error is None:
-                continue
-            raise CodexAuthError(f"Codex 기기 코드 로그인이 거부되었거나 만료되었습니다 (HTTP {response.status_code}). 다시 로그인하세요.")
+                raise CodexAuthError("Codex 기기 코드 로그인 대기 시간이 만료되었습니다. 다시 로그인하세요.")
+            record = _token_record(_post("/oauth/token", timeout=min(30, remaining), data={
+                "grant_type": "authorization_code",
+                "client_id": CLIENT_ID,
+                "code": _string(authorization, "authorization_code"),
+                "code_verifier": _string(authorization, "code_verifier"),
+                "redirect_uri": f"{AUTH_BASE_URL}/deviceauth/callback",
+            }))
+            with self._lock():
+                self._save(record)
+            return _credentials(record)
+        try:
+            error = _json(response).get("error")
+        except CodexAuthError:
+            error = None
+        if isinstance(error, dict):
+            error = error.get("code")
+        if error in ("authorization_pending", "deviceauth_authorization_pending"):
+            return None
+        if error == "slow_down":
+            device.interval += 5
+            return None
+        if response.status_code in (403, 404) and error is None:
+            return None
+        raise CodexAuthError(f"Codex 기기 코드 로그인이 거부되었거나 만료되었습니다 (HTTP {response.status_code}). 다시 로그인하세요.")
+
+    def login(self) -> CodexCredentials:
+        """기기 코드·URL을 출력하고 최대 15분 기다린 뒤 별도 세션을 저장한다.
+
+        CLI와 설정 UI는 같은 발급·승인 처리를 사용한다. Ctrl-C로 취소할 수 있고,
+        로그인 실패·만료 시 기존 파일을 보존하며 CodexAuthError를 전달한다.
+        """
+        device = self.start_login()
+        print(f"브라우저에서 {DEVICE_VERIFICATION_URL} 를 열고 기기 코드를 입력하세요: {device.user_code}", flush=True)
+        print("로그인 대기 중입니다. 취소: Ctrl-C (최대 15분)", flush=True)
+        while time.monotonic() < device.deadline:
+            time.sleep(min(device.interval, max(0, device.deadline - time.monotonic())))
+            credentials = self.poll_login(device)
+            if credentials is not None:
+                return credentials
         raise CodexAuthError("Codex 기기 코드 로그인 대기 시간이 만료되었습니다. 다시 로그인하세요.")
 
 

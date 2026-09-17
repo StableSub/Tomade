@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from stock_agent.portfolio.service import PortfolioExecutionError, diagnose_portfolio
 from stock_agent.vendors import toss_client
+from stock_agent.gateways.llm import model_session
 
 
 def require_local(request: Request, response: Response) -> None:
@@ -74,7 +75,8 @@ def diagnose(request: PortfolioRequest) -> dict:
     if not request.message.strip():
         raise HTTPException(422, "질문을 입력하세요.")
     try:
-        return diagnose_portfolio(request.account_seq, request.message.strip())
+        with model_session():
+            return diagnose_portfolio(request.account_seq, request.message.strip())
     except PortfolioExecutionError as error:
         logger.warning("Portfolio failed stage=%s type=%s upstream_status=%s",
                        error.stage, error.error_type, error.upstream_status)

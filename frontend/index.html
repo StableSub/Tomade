@@ -26,6 +26,10 @@
 
       <header class="office-hud">
         <h1 class="brand"><svg viewBox="0 0 32 32" aria-hidden="true"><path fill="#cb5545" d="M7 10h18v3h4v13h-4v3H7v-3H3V13h4z"/><path fill="#4f7553" d="M15 2h3v6l7-3-3 7-6-2-6 3-2-7 7 2z"/></svg>Tomade</h1>
+        <button class="connection-settings" id="openSettings" type="button" aria-label="모델 연결 설정" aria-haspopup="dialog" title="모델 연결 설정">
+          <span id="connectionBadge">연결 방식 확인 중</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 3-1 3-2 1-3-.5-2 3 2 2v2l-2 2 2 3 3-.5 2 1 1 3h4l1-3 2-1 3 .5 2-3-2-2v-2l2-2-2-3-3 .5-2-1-1-3z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
       </header>
 
       <div class="office-footer">
@@ -73,6 +77,37 @@
       <dialog class="journal workspace-dialog portfolio-journal" id="portfolioDialog" aria-labelledby="portfolioTitle">
         <header class="journal-heading"><h2 id="portfolioTitle">내 포트폴리오</h2><button class="icon-button" data-close="portfolioDialog" aria-label="포트폴리오 닫기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg></button></header>
         <div class="dialog-scroll" tabindex="0" role="region" aria-label="포트폴리오 분석 결과"><p id="portfolioStatus" role="status">포트폴리오를 불러오는 중입니다…</p><div id="portfolioResult"></div></div>
+      </dialog>
+      <dialog class="journal workspace-dialog settings-dialog" id="settingsDialog" aria-labelledby="settingsTitle">
+        <header class="journal-heading"><h2 id="settingsTitle">모델 연결 설정</h2><button class="icon-button" data-close="settingsDialog" aria-label="설정 닫기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg></button></header>
+        <div class="settings-body">
+          <section class="connection-card" aria-label="현재 호출 방식">
+            <p class="settings-eyebrow">현재 호출 방식</p><strong id="activeConnection">확인 중</strong>
+            <p class="settings-help">실행 중인 서버가 선택한 방식입니다. 실제 모델 연결 성공을 확인한 상태는 아닙니다.</p>
+            <p class="settings-help" id="lastRequestConnection" hidden></p>
+          </section>
+          <section class="settings-section" aria-labelledby="providerTitle">
+            <h3 id="providerTitle">사용할 연결</h3>
+            <label class="sr-only" for="modelProvider">사용할 인증 방식</label>
+            <select id="modelProvider"><option value="openai">OpenAI · API Key</option><option value="openrouter">OpenRouter · API Key</option><option value="openai_codex">Codex · 구독 인증</option></select>
+            <p class="settings-help" id="providerAvailability"></p>
+            <button class="primary-button" id="applyProvider" type="button" disabled>이 방식 사용</button>
+          </section>
+          <section class="settings-section" aria-labelledby="codexLoginTitle">
+            <h3 id="codexLoginTitle">ChatGPT 구독 로그인</h3>
+            <p class="settings-help" id="codexLoginStatus">확인 중</p>
+            <button class="quiet-button" id="startCodexLogin" type="button" disabled>ChatGPT 계정으로 로그인</button>
+            <div class="device-login" id="deviceLogin" hidden>
+              <p>아래 코드를 OpenAI 로그인 페이지에 입력하세요.</p>
+              <code id="deviceUserCode"></code>
+              <div class="settings-actions"><a class="primary-button" href="https://auth.openai.com/codex/device" target="_blank" rel="noopener noreferrer">로그인 페이지 열기 ↗</a><button class="quiet-button" id="cancelCodexLogin" type="button">취소</button></div>
+              <p class="settings-help" id="deviceLoginMessage" role="status"></p>
+            </div>
+          </section>
+          <section class="settings-section"><h3>현재 역할별 모델</h3><dl class="model-list" id="modelRoles"></dl><p class="settings-help">모델과 API 키는 서버의 .env에서 변경합니다. 구독에서 사용할 수 있는 모델인지 확인하세요.</p></section>
+          <p class="settings-notice" id="settingsNotice" role="status" aria-live="polite"></p>
+          <button class="quiet-button" id="refreshSettings" type="button">상태 새로고침</button>
+        </div>
       </dialog>
       <div class="sr-only" id="sessionState" role="status"><span>사무실을 여는 중</span></div>
       <div class="sr-only" id="announcement" role="status" aria-live="polite"></div>

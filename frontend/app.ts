@@ -1,6 +1,7 @@
 import { OfficeScene, paintPortrait, type AgentId } from "./office-scene";
 import { OfficeRoom } from "./office-room";
 import { PortfolioCharacter } from "./portfolio-character";
+import { showRequestConnection } from "./settings";
 
 type NodeName = AgentId | "request_parser";
 type NodeState = "idle" | "running" | "done" | "skipped" | "error";
@@ -331,6 +332,7 @@ function stopWithError(message: string): void {
   updateStatus(); refreshJournal(); announceAnswer();
 }
 function handleResearchEvent(event: SseEvent): boolean {
+  if (event.type === "run.started") showRequestConnection(event.data.connection);
   const rawNode = event.data.node;
   const node = typeof rawNode === "string" && nodes.includes(rawNode as NodeName) ? rawNode as NodeName : undefined;
   if (event.type === "node.started" && node) {
@@ -428,7 +430,7 @@ element("refreshConversation").addEventListener("click", () => {
 for (const button of document.querySelectorAll<HTMLButtonElement>("[data-close]")) button.addEventListener("click", () => element<HTMLDialogElement>(button.dataset.close!).close());
 agentJournal.addEventListener("close", () => scene.setSelected(managerDialog.hidden ? null : "upper_agent"));
 document.addEventListener("keydown", event => {
-  if (event.key === "Escape" && !managerDialog.hidden && ![agentJournal, portfolioDialog].some(dialog => dialog.open)) { event.preventDefault(); closeManager(); }
+  if (event.key === "Escape" && !managerDialog.hidden && ![agentJournal, portfolioDialog, element<HTMLDialogElement>("settingsDialog")].some(dialog => dialog.open)) { event.preventDefault(); closeManager(); }
 });
 element("portfolioCharacter").addEventListener("click", async () => {
   portfolioCharacter.setPaused(true);
