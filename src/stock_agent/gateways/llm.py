@@ -21,7 +21,7 @@ def get_chat_model(role: ModelRole = "worker") -> BaseChatModel:
         role: `parser`, `planner`, `worker`, `reviewer`, `summary` 중 사용할 모델 역할.
 
     Returns:
-        OpenAI 또는 OpenRouter에 연결된 LangChain `BaseChatModel`.
+        OpenAI API, Codex 구독 또는 OpenRouter에 연결된 LangChain `BaseChatModel`.
 
     Raises:
         ValueError: 공급자 이름이 잘못됐거나 필요한 API 키가 없는 경우.
@@ -32,6 +32,11 @@ def get_chat_model(role: ModelRole = "worker") -> BaseChatModel:
     """
     provider = _resolve_provider()
     model = _resolve_model(provider, role)
+
+    if provider == "openai_codex":
+        from stock_agent.gateways.codex import create_codex_model
+
+        return create_codex_model(model)
 
     if provider == "openai":
         return ChatOpenAI(
@@ -58,12 +63,14 @@ def _resolve_model(provider: str, role: ModelRole) -> str:
     }[role]
     configured = os.environ.get(role_env)
     if role == "summary":
-        return configured or ("gpt-5.6-luna" if provider == "openai" else "openai/gpt-5.6-luna")
+        return configured or ("openai/gpt-5.6-luna" if provider == "openrouter" else "gpt-5.6-luna")
     if role == "parser" and not configured:
         configured = os.environ.get("WORKER_MODEL")
     configured = configured or os.environ.get("LLM_MODEL")
     if configured:
         return configured
+    if provider == "openai_codex":
+        return "gpt-5.6-luna"
     if provider == "openai":
         return "gpt-4o-mini"
     return "openai/gpt-4o-mini"
@@ -73,8 +80,8 @@ def _resolve_provider() -> str:
     """환경변수와 API 키를 바탕으로 사용할 공급자를 결정한다."""
     provider = os.environ.get("LLM_PROVIDER", "").strip().lower()
     if provider:
-        if provider not in {"openai", "openrouter"}:
-            raise ValueError("LLM_PROVIDER는 'openai' 또는 'openrouter'여야 합니다.")
+        if provider not in {"openai", "openai_codex", "openrouter"}:
+            raise ValueError("LLM_PROVIDER는 'openai', 'openai_codex' 또는 'openrouter'여야 합니다.")
         return provider
 
     if os.environ.get("OPENAI_API_KEY"):

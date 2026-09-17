@@ -444,7 +444,10 @@ def current_model_config(suites: list[str]) -> dict[str, Any]:
         model = get_chat_model(role)
         result[role] = {
             "model": model.model_name,
-            "provider": "openrouter" if model.openai_api_base == "https://openrouter.ai/api/v1" else "openai",
+            "provider": {
+                "https://openrouter.ai/api/v1": "openrouter",
+                "https://chatgpt.com/backend-api/codex": "openai_codex",
+            }.get(model.openai_api_base, "openai"),
             "use_responses_api": model.use_responses_api,
             "temperature": model.temperature,
             "reasoning_effort": model.reasoning_effort,

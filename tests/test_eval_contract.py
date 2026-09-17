@@ -22,6 +22,13 @@ from stock_agent.state import ParsedRequest
 class EvalContractTest(unittest.TestCase):
     """정상/오류 반례와 고정 환경으로 평가 자체의 회귀를 검사한다."""
 
+    def test_codex_subscription_is_distinguished_from_api_billing(self):
+        model = Mock(model_name="gpt-5.6-luna", openai_api_base="https://chatgpt.com/backend-api/codex")
+        with patch.object(run_eval, "get_chat_model", return_value=model):
+            config = run_eval.current_model_config(["parsing"])
+        self.assertEqual(config["parser"]["provider"], "openai_codex")
+        self.assertNotIn("api_key", config["parser"])
+
     def test_prompt_hashes_include_common_rules_and_ignore_current_date(self):
         from stock_agent.prompts import builder
         before = run_eval.prompt_hashes()
