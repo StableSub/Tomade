@@ -1,6 +1,26 @@
 # 현재 스키마 — stock_agent
 
-> 2026-09-13 코드 대조. 목표 설계와 현재 계약을 구분한다.
+> 2026-09-17 모델 연결 설정 추가. 목표 설계와 현재 계약을 구분한다.
+
+## 모델 연결 설정
+
+`backend/model_settings.py`의 `ProviderSelection`은 `provider` 한 필드이며 `openai`, `openrouter`, `openai_codex`를 허용한다. API 키·모델 ID 변경은 받지 않는다.
+
+설정 조회/전환 응답:
+
+| 필드 | 계약 |
+| --- | --- |
+| provider | 위 세 공급자 또는 미설정·잘못된 설정이면 null |
+| auth_mode | api_key / subscription / null |
+| models | planner, parser, worker, summary별 최종 모델 ID. 공급자 미설정이면 빈 객체 |
+| busy | Chat·Research·포트폴리오 진단 실행 중 여부 |
+| api_keys | openai, openrouter 키 존재 여부 boolean. 키 값 제외 |
+| codex | state(signed_out/signed_in/expired/error), message. 저장된 인증의 로컬 상태 |
+| login | 아래 로그인 상태 또는 null |
+
+로그인 상태는 `id`(UUID), `state`(pending/completed/expired/error), `message`, `user_code`(pending일 때만 문자열, 그 외 null), `verification_url`(고정 OpenAI 기기 로그인 주소), `interval`(조회 간격 초), `expires_in`(남은 초)다. 서버의 `LoginSession`에 있는 인증 객체·기기 인증 ID·토큰은 직렬화하지 않는다. 대기 세션은 메모리, 완료한 인증은 프로젝트 전용 파일에 저장한다.
+
+SSE `run.started`는 `run_id` 외에 `connection: {provider, auth_mode, models, busy}`를 포함한다. 요청의 선택 설정이며 실제 인증 성공 기록은 아니다. 대화 DB에는 저장하지 않는다.
 
 ## Chat
 

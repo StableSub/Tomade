@@ -1,6 +1,6 @@
 # API 명세 — Tomade
 
-> 2026-09-13 코드 대조 기준. Chat·대화 저장·포트폴리오와 기존 Research SSE 계약.
+> 2026-09-17 모델 설정·로그인 API 추가. Chat·대화 저장·포트폴리오와 기존 Research SSE 계약.
 
 ## 1. 목적
 
@@ -38,6 +38,22 @@ UI는 URL의 대화 ID로 복원한다. 서버는 최근 완료된 10턴과 세�
 10턴 초과 시 SUMMARY_MODEL로 오래된 구간을 통합 요약한다. 요약 실패 시 기존 요약·경계를 보존하고
 run.error(code=node_execution_failed)를 전송하며 현재 답변을 error로 저장한다. 원문과 내부 오류는 응답에 노출하지 않는다.
 기록은 사용자 메시지·최종 답변·정제된 오류만이며 토큰·노드 출력·포트폴리오 상세 표는 제외한다.
+
+### 모델 연결 설정 API — 구현
+
+로컬 단일 사용자·단일 서버 프로세스 전용이다. `require_local`로 외부 접근을 403으로 거부하고 성공 응답은 `Cache-Control: no-store`다. 앱 사용자 로그인과 별개로 모델 공급자 인증을 다룬다.
+
+| 메서드·경로 | 동작 |
+| --- | --- |
+| GET /api/settings/models | 현재 공급자·인증 방식·역할별 모델·실행 여부·키 유무·Codex 로그인 상태 조회. 외부 호출 없음 |
+| PUT /api/settings/models | `{provider: openai 또는 openrouter 또는 openai_codex}`. `.env` 저장·현재 프로세스 적용 후 조회와 같은 응답 |
+| POST /api/settings/codex/login | 기기 코드 발급. 진행 중 로그인은 재사용 |
+| POST /api/settings/codex/login/{id}/poll | 간격을 지켜 승인 조회. 완료 시 프로젝트 전용 인증 저장. 공급자는 유지 |
+| DELETE /api/settings/codex/login/{id} | 로그인 대기 종료. `{cancelled: true}`. 저장된 인증은 삭제하지 않음 |
+
+조회 응답은 `provider`, `auth_mode`, `models`, `busy`, `api_keys`, `codex`, `login`이다. 로그인 응답은 `id`, `state`, `message`, `user_code`, 고정 `verification_url`, `interval`, `expires_in`이다. 필드와 상태는 [스키마](schema.md#모델-연결-설정)를 따른다. 토큰·계정 ID·API 키 값·내부 기기 인증 ID는 반환하지 않는다.
+
+PUT은 저장된 구독 인증 또는 API 키가 없거나 실행 중이면 409, 잘못된 공급자는 422, 파일 저장 실패는 500이다. 로그인 발급 실패는 정제된 메시지와 502, 없는 대기 ID는 404다. 승인 조회 실패는 로그인 `state=error`로 전달한다. 로그인 시간은 최대 15분이며 서버 재시작 시 대기 세션은 사라진다. 상태 조회는 실제 모델 인증·권한 검증을 수행하지 않는다.
 
 ### 독립 포트폴리오 API — 구현
 
@@ -150,11 +166,11 @@ event_catalyst
 
 ### 5.1 `run.started`
 
-Research Run이 시작됐음을 알린다.
+Chat/Research Run이 시작됐음을 알린다. `connection`에는 해당 요청이 선택한 공급자·인증 방식·역할별 모델·실행 상태를 담는다. 모델 호출 성공 여부는 아니다.
 
 ```text
 event: run.started
-data: {"run_id":"run-123"}
+data: {"run_id":"run-123","connection":{"provider":"openai_codex","auth_mode":"subscription","models":{"planner":"gpt-5.6-luna","parser":"gpt-5.6-luna","worker":"gpt-5.6-luna","summary":"gpt-5.6-luna"},"busy":true}}
 
 ```
 

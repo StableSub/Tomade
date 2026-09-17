@@ -83,6 +83,9 @@
 
 ### 모델 공급자와 Codex 구독 인증
 
+- 우측 상단 설정 창(`frontend/settings.ts`)은 `backend/model_settings.py`에서 서버의 실제 선택 공급자·역할별 모델·키 유무·저장된 인증 상태를 조회한다. 토큰·계정 식별자는 응답에 포함하지 않으며 조회만으로 모델 연결 성공을 판정하지 않는다. Chat/Research의 `run.started.connection`은 해당 요청이 선택한 방식도 전달한다.
+- 웹 기기 로그인은 CLI와 같은 `CodexAuth.start_login()`·`poll_login()`을 사용한다. 서버 단일 프로세스에 대기 세션 하나만 보관하고 창이 열렸을 때만 간격을 지켜 승인 조회한다. 로그인 성공은 인증 저장까지만 수행하며 공급자 변경은 별도 적용 버튼으로 요청한다.
+- 명시적 전환은 `.env`의 `LLM_PROVIDER` 저장 → 프로세스 환경 갱신 → 모델 캐시 비우기 순서다. `model_session()`이 Chat·Research·포트폴리오 진단 전체 실행을 감싸 진행 중 전환을 거부한다. 모델 ID·API 키·LangGraph 노드·Tool·Memory 계약은 바꾸지 않는다. 여러 서버 프로세스 사이의 설정 동기화는 지원하지 않는다.
 - `gateways/llm.py:get_chat_model()`이 `openai`, `openrouter`, `openai_codex`를 선택한다. 구독은 `LLM_PROVIDER=openai_codex`로 명시적으로 선택하며 API 키 유무에 따른 기존 자동 선택은 API 공급자에만 적용한다. 역할별 모델 선택과 Agent·Tool·프롬프트·Memory 흐름은 유지한다.
 - `gateways/codex_auth.py`의 CLI가 기기 코드 OAuth 로그인을 제공한다. `CODEX_AUTH_PATH` 또는 `~/.config/stock-agent/codex-auth.json`에 프로젝트 전용 세션을 저장하며 다른 앱의 Codex 인증 파일은 읽거나 수정하지 않는다. 파일은 현재 사용자 소유의 일반 파일·권한 600을 요구한다. 임시 파일과 원자적 교체로 갱신하며 로그아웃은 로컬 파일만 삭제한다.
 - 호출 시 최신 토큰을 읽고 만료 60초 전부터 갱신한다. 파일 잠금으로 스레드·프로세스의 동시 갱신을 직렬화하며 잠금 대기는 60초로 제한한다. 401이면 거절된 토큰과 현재 저장 토큰을 비교해 이미 갱신된 값은 재사용하고 한 번만 재요청한다. 인증 누락·취소·갱신 실패·429에 API Key fallback은 없다.
