@@ -1,7 +1,7 @@
 /** Normalized atlas bounds [left, top, right, bottom] before color-key cropping. */
 export type SpriteFrame = readonly [number, number, number, number];
 
-/** Decode a local sprite (or atlas frame) and remove its color-key padding.
+/** Decode a local sprite (or atlas frame), removing color-key and faint-alpha padding.
  * The returned canvas is an in-memory source; the asset file is never modified.
  * Image loading failures and empty keyed sprites reject the promise.
  */
@@ -22,7 +22,9 @@ export async function loadSpriteSource(url: string, opaque = false, frame: Sprit
   for (let y = 0; y < source.height; y++) for (let x = 0; x < source.width; x++) {
     const i = (y * source.width + x) * 4;
     const r = pixels.data[i], g = pixels.data[i + 1], b = pixels.data[i + 2];
-    if (r - g > 12 && b - g > 12 && b > r * .6) pixels.data[i + 3] = 0;
+    // Ignore the same faint alpha discarded by createPixelSprite; generated
+    // transparent padding must not determine an object's scale or ground point.
+    if (pixels.data[i + 3] < 96 || (r - g > 12 && b - g > 12 && b > r * .6)) pixels.data[i + 3] = 0;
     else if (pixels.data[i + 3]) {
       left = Math.min(left, x); top = Math.min(top, y);
       right = Math.max(right, x); bottom = Math.max(bottom, y);

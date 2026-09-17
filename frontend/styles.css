@@ -78,13 +78,14 @@ h1,h2,p {
 }
 .office-map {
   flex: none;
-  width: min(100cqw, 87.9121cqh);
-  aspect-ratio: 800 / 910;
+  width: min(100cqw, 109.8901cqh);
+  aspect-ratio: 1000 / 910;
 }
-.office-map::before { content: ''; display: block; padding-top: 26.25%; }
+.office-map::before { content: ''; display: block; padding-top: 21%; }
 .office-world {
   position: relative;
-  width: 100%;
+  width: 80%;
+  margin-inline: auto;
   aspect-ratio: 8 / 5;
   container-type: inline-size;
   isolation: isolate;
@@ -140,7 +141,7 @@ h1,h2,p {
 }
 .office-app.is-chatting .office-map { width: min(100cqw, calc(160cqh - 116px)); aspect-ratio: auto; }
 .office-app.is-chatting .office-map::before { display: none; }
-.office-app.is-chatting .office-world { border-radius: 10px; overflow: hidden; }
+.office-app.is-chatting .office-world { width: 100%; border-radius: 10px; overflow: hidden; }
 .office-app.is-chatting .office-world::before { display: none; }
 .office-app.is-chatting [data-courtyard] { visibility: hidden; }
 .office-app.is-chatting .minimap-label { display: block; font-size: 15px; color: #666d72; margin: 0 0 14px; }

@@ -18,6 +18,11 @@
   const checks = [];
   const check = (condition, message) => { if (!condition) throw new Error(message); checks.push(`PASS ${message}`); };
   try {
+    const padded=document.createElement('canvas'); padded.width=40; padded.height=40;
+    const padding=padded.getContext('2d'); padding.fillStyle='rgba(0,0,0,.05)'; padding.fillRect(0,0,40,40);
+    padding.fillStyle='#826448'; padding.fillRect(10,12,13,17);
+    const cropped=await loadSpriteSource(padded.toDataURL());
+    check(cropped.width===13 && cropped.height===17,'Faint alpha padding does not shrink or lift the visible sprite');
     const source = await loadSpriteSource('../assets/office-objects-v4/furniture-atlas.png', false, [0,2/3,1/3,1]);
     const original = createPixelSprite(source,88,58,{preserveColors:true});
     const edited = createPixelSprite(source,88,58,{preserveColors:true});
@@ -56,9 +61,16 @@
       for(let i=0;i<300 && world.dataset.roomState==='loading';i++) await new Promise(requestAnimationFrame);
       check(world.dataset.roomState==='ready',`${width}×${height}: all assets load`);
       const objects=[...doc.querySelectorAll('[data-room-object]')];
-      check(objects.length===97 && objects.every(node=>{
+      check(objects.length===131 && doc.documentElement.scrollWidth<=width+1 && doc.documentElement.scrollHeight<=height+1 && objects.every(node=>{
         const b=node.getBoundingClientRect(); return b.left>=0 && b.top>=0 && b.right<=width+1 && b.bottom<=height+1;
-      }),`${width}×${height}: all 97 objects fit without clipping`);
+      }),`${width}×${height}: all 131 objects fit without clipping`);
+      const addedIds=['picnicTable','gardenFence','mailbox','firewood','rainBarrel','harvestBasket','flowerBed','birdbath'];
+      const additions=objects.filter(node=>addedIds.includes(node.dataset.roomObject)), house=world.getBoundingClientRect();
+      check(additions.length===13 && additions.every(node=>{
+        const b=node.getBoundingClientRect();
+        return (b.right<=house.left || b.left>=house.right || b.bottom<=house.top || b.top>=house.bottom)
+          && frame.contentWindow.getComputedStyle(node).pointerEvents==='none';
+      }),`${width}×${height}: garden additions stay outside the house and do not intercept clicks`);
       doc.querySelector('.office-app').classList.add('is-chatting');
       check(frame.contentWindow.getComputedStyle(world,'::before').display==='none'
         && [...doc.querySelectorAll('[data-courtyard]')].every(node=>frame.contentWindow.getComputedStyle(node).visibility==='hidden'),

@@ -12,6 +12,7 @@ export const OFFICE_SEATS: Record<AgentId, { x: number; y: number }> = {
 };
 
 const GARDEN_ATLAS = new URL('./assets/office-courtyard-v2/garden-atlas.png', import.meta.url).href;
+const GARDEN_DETAILS = new URL('./assets/office-garden-details-v1/garden-details.webp', import.meta.url).href;
 
 const SHELL_ATLAS = new URL('./assets/office-shell-v1/shell-atlas.png', import.meta.url).href;
 
@@ -60,6 +61,14 @@ const ASSETS = {
   gardenRocks: { url: GARDEN_ATLAS, frame: [0, 2/3, 1/3, 1], width: 30, opaque: false },
   grass: { url: GARDEN_ATLAS, frame: [1/3, 2/3, 2/3, 1], width: 14, opaque: false },
   flowers: { url: GARDEN_ATLAS, frame: [2/3, 2/3, 1, 1], width: 14, opaque: false },
+  picnicTable: { url: GARDEN_DETAILS, frame: [0, 0, .25, .5], width: 142, opaque: false },
+  gardenFence: { url: GARDEN_DETAILS, frame: [.25, 0, .5, .5], width: 90, opaque: false },
+  mailbox: { url: GARDEN_DETAILS, frame: [.5, 0, .75, .5], width: 32, opaque: false },
+  firewood: { url: GARDEN_DETAILS, frame: [.75, 0, 1, .5], width: 70, opaque: false },
+  rainBarrel: { url: GARDEN_DETAILS, frame: [0, .5, .25, 1], width: 44, opaque: false },
+  harvestBasket: { url: GARDEN_DETAILS, frame: [.25, .5, .5, 1], width: 34, opaque: false },
+  flowerBed: { url: GARDEN_DETAILS, frame: [.5, .5, .75, 1], width: 62, opaque: false },
+  birdbath: { url: GARDEN_DETAILS, frame: [.75, .5, 1, 1], width: 50, opaque: false },
 } as const;
 type AssetId = keyof typeof ASSETS;
 type Placement = {
@@ -95,7 +104,7 @@ function placements(): Placement[] {
   // The house keeps its 800x500 coordinates; its courtyard extends below the entrance.
   const garden = (asset: AssetId, x: number, y: number, width: number, height: number) =>
     parts.push({ asset, x, y, width, height, depth: 4, courtyard: true });
-  for (let i = 0; i < 5; i++) garden('steppingStone', 255, 486 + i * 26, 62, 20);
+  for (let i = 0; i < 7; i++) garden('steppingStone', 255, 486 + i * 26, 62, 20);
   garden('tomatoPlanter', 194, 484, 38, 50);
   garden('tomatoPlanter', 340, 484, 38, 50);
   // Mature trees are grounded behind the house, clear of its y=9 eave.
@@ -104,16 +113,29 @@ function placements(): Placement[] {
   garden('gardenTree', 637, 510, 150, 168);
   garden('shrub', 186, -49, 55, 36);
   garden('shrub', 561, -41, 40, 28);
-  garden('shrub', 465, 572, 45, 36);
-  garden('shrub', 624, 632, 45, 36);
+  garden('flowerBed', 448, 574, 62, 30);
+  garden('flowerBed', 576, 640, 55, 27);
   garden('gardenBench', 520, 550, 90, 65);
   garden('tomatoBed', 12, 528, 174, 92);
   for (const [x,y,w,h] of [[752,-40,26,20],[470,606,26,20],[764,668,20,16]]) garden('gardenRocks', x,y,w,h);
-  for (const [x,y] of [[82,490],[449,540],[594,640],[15,610],[204,579],[582,-28]]) garden('flowers', x,y,14,18);
+  for (const [x,y] of [[82,490],[449,540],[442,648],[15,610],[204,579],[582,-28]]) garden('flowers', x,y,14,18);
   for (const [x,y] of [[174,-36],[254,-53],[360,-20],[449,-45],[540,-16],[618,-51],
     [0,82],[2,203],[0,349],[0,442],[786,112],[786,264],[786,400],
     [50,486],[130,499],[408,490],[497,480],[558,509],[641,493],[768,480],
     [201,536],[394,550],[474,572],[27,512],[714,617],[392,610],[208,618],[96,623],[552,622]]) garden('grass', x,y,14,7);
+
+  // Side gardens occupy the map's 100-unit margins; house/character coordinates stay unchanged.
+  for (const x of [-85, 222, 484, 800]) garden('gardenFence', x, -113, 90, 34);
+  garden('picnicTable', 326, -85, 142, 70);
+  garden('mailbox', 349, 586, 32, 58);
+  garden('firewood', -86, 145, 70, 55);
+  garden('rainBarrel', -61, 223, 44, 52);
+  garden('harvestBasket', -28, 582, 34, 29);
+  garden('birdbath', 823, 212, 50, 62);
+  garden('flowerBed', 818, 280, 62, 30);
+  for (const [x,y] of [[333,638],[381,630],[613,613],[802,267],[878,292]]) garden('flowers', x,y,14,18);
+  for (const [x,y] of [[-73,77],[-47,121],[-76,283],[-56,351],[-81,413],[-44,485],[-67,645],
+    [827,73],[871,141],[813,183],[852,330],[821,397],[873,452],[828,527],[866,597],[846,656]]) garden('grass', x,y,14,7);
 
   add('window', 128, 64, 88, 58, 10);
   add('window', 294, 64, 88, 58, 10);
@@ -182,6 +204,18 @@ function contactShadows(part: Placement): HTMLElement[] {
     // The watering can shares the atlas sprite, but has its own raised footprint.
     patch(w * .78, h * .89, w * .23, 9, .12);
     patch(w * .81, h * .91, w * .16, 5, .23);
+  } else if (asset === 'picnicTable' || asset === 'firewood') {
+    patch(4, h - 7, w - 4, 12, .12);
+    patch(3, h - 3, 10, 5, .23);
+    patch(w - 13, h - 3, 10, 5, .23);
+  } else if (asset === 'gardenFence') {
+    patch(4, h - 3, 9, 5, .18);
+    patch(w - 13, h - 3, 9, 5, .18);
+  } else if (asset === 'mailbox' || asset === 'birdbath') {
+    patch(w * .25 + 3, h - 4, w * .66, 8, .12);
+    patch(w * .31, h - 2, w * .42, 5, .23);
+  } else if (asset === 'rainBarrel' || asset === 'harvestBasket') {
+    patch(3, h - 4, w - 2, 7, .18);
   } else if (asset === 'gardenTree') {
     patch(w * .12 + 8, h - 12, w * .78, 22, .10);
     patch(w * .40, h - 4, w * .22, 7, .22);
@@ -291,7 +325,7 @@ export class OfficeRoom {
               : frame
               ? fitPixelFrame(createPixelSprite(sprite, ...frame, { preserveColors: true }), part.width, part.height)
               : createPixelSprite(sprite, part.width, part.height, {
-                outline: !['wall', 'passageWood', 'grass', 'flowers'].includes(part.asset),
+                outline: !['wall', 'passageWood', 'grass', 'flowers', 'flowerBed'].includes(part.asset),
                 preserveColors: true,
               }));
             if (['partition', 'beamV', 'passageWood'].includes(part.asset)) {

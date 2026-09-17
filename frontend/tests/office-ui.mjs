@@ -265,9 +265,11 @@ async function fullRoomFitting(browser) {
         assert.ok(Math.abs(sprite.width / sprite.height - 0.8) < 0.01, 'Larger characters retain their face and body proportions');
         assert.ok(hitArea.width + 1 >= sprite.width && hitArea.height + 1 >= sprite.height, 'The click target grows with the character');
       }
-      const overflow = await page.locator('#officeScroll').evaluate(room => ({
-        horizontal: room.scrollWidth - room.clientWidth,
-        vertical: room.scrollHeight - room.clientHeight,
+      // The decorative panorama spans the viewport beyond the scene container's
+      // gutters; check page scrolling and individual props, not that backdrop.
+      const overflow = await page.evaluate(() => ({
+        horizontal: document.documentElement.scrollWidth - innerWidth,
+        vertical: document.documentElement.scrollHeight - innerHeight,
       }));
       assert.ok(overflow.horizontal <= 1 && overflow.vertical <= 1, `No room panning should be needed: ${JSON.stringify(overflow)}`);
       for (const garden of await page.locator('[data-room-object][data-courtyard]').all()) {
@@ -287,8 +289,8 @@ async function modularObjects(browser) {
   const { page } = f;
   try {
     const objects = await page.locator('[data-room-object]').evaluateAll(nodes => nodes.map(node => ({ asset: node.dataset.roomObject, state: node.dataset.objectState })));
-    assert.equal(objects.length, 97, 'Background and furniture are independently placed objects');
-    assert.equal(new Set(objects.map(object => object.asset)).size, 41, 'Room assets exclude the removed desk nameplates');
+    assert.equal(objects.length, 131, 'Background and furniture are independently placed objects');
+    assert.equal(new Set(objects.map(object => object.asset)).size, 49, 'Room assets exclude the removed desk nameplates');
     assert.ok(objects.every(object => object.state === 'ready'));
     assert.equal(objects.filter(object => object.asset === 'trialDesk').length, 1, 'Pat keeps the approved desk placement');
     assert.equal(objects.filter(object => object.asset === 'workerDesk').length, 2, 'Both other employee desks receive the approved style');
@@ -356,7 +358,7 @@ async function modularObjects(browser) {
     const garden = await page.locator('[data-room-object][data-courtyard]').evaluateAll(nodes => nodes.map(node => ({
       asset: node.dataset.roomObject, events: getComputedStyle(node).pointerEvents,
     })));
-    assert.equal(garden.length, 54, 'Nine courtyard asset types form the fine-pixel garden');
+    assert.equal(garden.length, 88, 'Seventeen courtyard asset types form the garden');
     assert.ok(garden.every(node => node.events === 'none'), 'Courtyard decorations never intercept clicks');
     assert.equal(await page.locator('.office-background, .furniture-occluder').count(), 0, 'The old monolithic background and clipped copies are removed');
     assert.equal(await page.evaluate(() => performance.getEntriesByType('resource').some(entry => entry.name.includes('/research-office'))), false, 'The app does not load the old background');
@@ -411,7 +413,7 @@ async function modularObjects(browser) {
     assert.ok(await page.locator('[data-courtyard]').evaluateAll(nodes => nodes.every(node => getComputedStyle(node).visibility === 'visible')));
     await page.screenshot({ path: `${screenshots}/modular-office.png` });
     f.check();
-    console.log('PASS modular room: 41 assets, 97 independent objects, exact floor seams, character navigation and minimap interaction');
+    console.log('PASS modular room: 49 assets, 131 independent objects, exact floor seams, character navigation and minimap interaction');
   } finally { await f.dispose(); }
 }
 
@@ -520,7 +522,7 @@ async function spriteContours(page) {
       .map(([label, canvas]) => ({ label, width: canvas.width, height: canvas.height, url: canvas.toDataURL() }));
     return { contours, silhouettes, figures };
   }, propSourceContracts);
-  assert.equal(result.contours.length, 56, 'Every furniture/decor/structural sprite has a contour; flat walls and tiled floors are excluded');
+  assert.equal(result.contours.length, 66, 'Every furniture/decor/structural sprite has a contour; flat walls and tiled floors are excluded');
   for (const { id, boundary, broken, outline } of result.contours) {
     assert.equal(outline, '2', `${id} declares the character-sized two-cell outline`);
     assert.ok(boundary > 0, `${id} has a nonempty visible silhouette`);
@@ -558,7 +560,7 @@ async function spriteRendering(browser) {
           return canvas.width === Math.round(parseFloat(style.width) * devicePixelRatio)
             && canvas.height === Math.round(parseFloat(style.height) * devicePixelRatio);
         }));
-        assert.equal(await page.locator('canvas.office-object[data-sampled]').count(), 94, 'Every non-tiled prop renders at its physical display resolution');
+        assert.equal(await page.locator('canvas.office-object[data-sampled]').count(), 128, 'Every non-tiled prop renders at its physical display resolution');
         assert.ok(await page.locator('canvas.office-object[data-sampled]').evaluateAll(canvases => canvases.every(canvas => {
           const object = canvas.closest('[data-room-object]');
           const character = document.querySelector('.office-agent[data-agent="business"] .agent-sprite');
@@ -601,7 +603,7 @@ async function spriteRendering(browser) {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   try {
-    for (const [folder, count] of [['office-objects-v1', 31], ['office-environment-v1', 11]]) {
+    for (const [folder, count] of [['office-objects-v1', 39], ['office-environment-v1', 11]]) {
       await page.goto(`${baseUrl}/assets/${folder}/index.html`);
       await page.waitForFunction(() => document.body.dataset.ready === 'true');
       assert.equal(await page.locator('.card[data-loaded="true"]').count(), count);
@@ -620,7 +622,7 @@ async function spriteRendering(browser) {
     }
     assert.deepEqual(errors, [], 'Both viewers remain free of script/ResizeObserver errors');
   } finally { await context.close(); }
-  console.log('PASS sprite rendering: staff-matched density, source RGB across office/garden samples, complete contours and 42 working previews');
+  console.log('PASS sprite rendering: staff-matched density, source RGB across office/garden samples, complete contours and 50 working previews');
 }
 
 async function walkingMotion(browser) {

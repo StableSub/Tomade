@@ -56,7 +56,7 @@
   </nav>
   <p id="error" role="status"></p>
   <main class="grid" id="grid"></main>
-  <footer>명패의 글자는 실제 UI에서 올릴 수 있도록 비워 두었습니다. 캐릭터는 기존 에셋을 재사용합니다.<br>생성 원본의 자홍색 배경은 이 뷰어에서 투명하게 표시합니다. 원본 PNG 자체에는 알파 채널이 없습니다.<br><a href="../research-office.png" target="_blank" rel="noopener">기준 배경</a> · <a href="../office-objects-v2/prompts.json" target="_blank" rel="noopener">v2 생성 프롬프트</a></footer>
+  <footer>명패의 글자는 실제 UI에서 올릴 수 있도록 비워 두었습니다. 캐릭터는 기존 에셋을 재사용합니다.<br>기존 PNG의 자홍색 배경과 새 정원 WebP의 희미한 알파 여백을 공통 로더로 제거합니다.<br><a href="../research-office.png" target="_blank" rel="noopener">기준 배경</a> · <a href="../office-objects-v2/prompts.json" target="_blank" rel="noopener">v2 생성 프롬프트</a></footer>
   <dialog id="inspect"><div class="dialog-head"><div><h2 id="title"></h2><p id="filename"></p></div><button id="close" aria-label="닫기">×</button></div><div class="large-stage" id="largeStage"></div><label class="zoom">확대<input id="zoom" type="range" min="1" max="5" value="3" step="1"><span id="zoomValue">3×</span></label></dialog>
   <script type="module">
     import { loadSpriteSource, SpriteRenderer } from '../../sprite-renderer.ts';
@@ -64,6 +64,7 @@
     import { paintWindowView } from '../../office-architecture.ts';
     const renderer = new SpriteRenderer();
     const manifest = await fetch('./prompts.json').then(r => r.json());
+    document.querySelector('.count').textContent = `${manifest.assets.length} OBJECTS`;
     const largest = { width: Math.max(...manifest.assets.map(a => a.width)), height: Math.max(...manifest.assets.map(a => a.height)) };
     const grid = document.querySelector('#grid');
     const dialog = document.querySelector('#inspect');
