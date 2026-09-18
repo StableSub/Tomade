@@ -113,9 +113,11 @@ def _get_candles(
     interval: str,
     start_at: datetime.datetime,
     end_at: datetime.datetime,
+    *,
+    preserve_duplicates: bool = False,
 ) -> list[dict]:
     """지정 구간의 Candle을 Pagination해 Timestamp 오름차순으로 반환한다."""
-    candles_by_timestamp: dict[str, dict] = {}
+    collected: list[dict] = []
     before = end_at.isoformat()
 
     for _ in range(_MAX_CANDLE_PAGES):
@@ -133,8 +135,7 @@ def _get_candles(
         if not candles:
             break
 
-        for candle in candles:
-            candles_by_timestamp[candle["timestamp"]] = candle
+        collected.extend(candles)
 
         oldest = min(_parse_timestamp(candle["timestamp"]) for candle in candles)
         next_before = page.get("nextBefore")
@@ -144,14 +145,55 @@ def _get_candles(
     else:
         raise RuntimeError("토스증권 Candle 조회가 최대 페이지 수를 초과했습니다.")
 
+    if not preserve_duplicates:
+        collected = list({candle["timestamp"]: candle for candle in collected}.values())
     return sorted(
         (
             candle
-            for candle in candles_by_timestamp.values()
+            for candle in collected
             if start_at <= _parse_timestamp(candle["timestamp"]) <= end_at
         ),
         key=lambda candle: _parse_timestamp(candle["timestamp"]),
     )
+
+
+def get_daily_series(ticker: str, days: int, end_date: str) -> list[dict]:
+    """기술 지표용 일봉 종가·거래량을 정수 절삭 없이 조회한다.
+
+    Args:
+        ticker: 검증된 국내 주식 6자리 코드.
+        days: 종료일을 포함한 조회 달력 일수.
+        end_date: KST 기준 조회 종료일(YYYY-MM-DD).
+
+    Returns:
+        날짜와 제공처 원본 숫자 표현의 close·volume 목록. 같은 시각의 중복 봉도
+        보존하여 Tool이 상충 여부를 검증할 수 있다. 기존 시세 반환 계약과 독립적이다.
+
+    Raises:
+        ValueError: 날짜 또는 조회 기간이 잘못된 경우.
+        KeyError: 인증 설정 또는 제공처 응답의 필수 항목이 없는 경우.
+        requests.RequestException: 외부 인증·조회 실패.
+        RuntimeError: 페이지 조회 한도 초과.
+    """
+    if days < 1:
+        raise ValueError("조회 기간은 1일 이상이어야 합니다.")
+    end = datetime.date.fromisoformat(end_date)
+    start = end - datetime.timedelta(days=days - 1)
+    candles = _get_candles(
+        ticker,
+        "1d",
+        datetime.datetime.combine(start, datetime.time.min, tzinfo=_KST),
+        datetime.datetime.combine(end, datetime.time.max, tzinfo=_KST),
+        preserve_duplicates=True,
+    )
+    return [
+        {
+            "date": _parse_timestamp(candle["timestamp"]).date().isoformat(),
+            "close": candle["closePrice"],
+            "volume": candle["volume"],
+        }
+        for candle in candles
+    ]
 
 
 def get_ohlcv(
