@@ -4,9 +4,9 @@ from pathlib import Path
 import re
 from typing import Literal
 
-PromptAgent = Literal["orchestrator", "request_parser", "business", "macro_sector", "event_catalyst"]
+PromptAgent = Literal["orchestrator", "request_parser", "business", "macro_sector", "event_catalyst", "technical", "sentiment"]
 PROMPT_DIR = Path(__file__).parent
-_AGENTS = {"orchestrator", "request_parser", "business", "macro_sector", "event_catalyst"}
+_AGENTS = {"orchestrator", "request_parser", "business", "macro_sector", "event_catalyst", "technical", "sentiment"}
 _COMMON_KEYS = {"common_constraints", "worker_constraints", "worker_behavior"}
 _VARIABLE = re.compile(r"\{([a-z_]+)\}")
 
@@ -15,7 +15,7 @@ def build_system_prompt(agent: PromptAgent, **context: str) -> str:
     """역할별 파일·공통 지침을 읽고 동적 값을 한 번만 삽입한다.
 
     Args:
-        agent: 코드에서 지정한 다섯 역할 중 하나. 임의 파일 경로는 허용하지 않는다.
+        agent: 코드에서 지정한 일곱 역할 중 하나. 임의 파일 경로는 허용하지 않는다.
         context: 상위 Agent는 current_date·execution_stage(initial/synthesis)가 필수이며
             user_memory·short_term_summary는 생략하면 빈 문자열이다. Parser는
             current_date만 받는다. Worker의 작업 조건은 별도 메시지로 전달한다.

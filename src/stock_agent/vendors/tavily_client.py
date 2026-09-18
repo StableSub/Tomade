@@ -3,6 +3,8 @@
 import os
 
 import requests
+
+from stock_agent.control.external_budget import check_external_budget
 from dotenv import load_dotenv
 from tavily import TavilyClient
 from tavily.errors import (
@@ -33,6 +35,7 @@ def _get_client() -> TavilyClient:
 
 
 def _request(method: str, **kwargs) -> dict:
+    check_external_budget()
     try:
         result = getattr(_get_client(), method)(**kwargs, timeout=15)
     except InvalidAPIKeyError:

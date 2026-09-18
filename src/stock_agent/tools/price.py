@@ -1,6 +1,8 @@
 """Agent들이 공유하는 결정적 국내 시장 Evidence Tool."""
 
 import datetime
+import json
+from uuid import uuid4
 from functools import lru_cache
 from threading import Lock
 from typing import Annotated
@@ -11,6 +13,59 @@ from stock_agent.vendors import dart_client, toss_client
 
 _SIGNIFICANT_MOVE_PCT = 3.0
 _MARKET_CACHE_LOCK = Lock()
+
+
+def make_market_tool(mandate: dict):
+    """확정한 종목·기간을 고정한 Event용 시세 Tool을 생성한다.
+
+    Args: mandate는 검증된 회사·기준일·양끝 포함 조회 기간이다.
+    Returns: 인자 없는 get_market_evidence Tool. 가격 변동 원인 조사에 사용한다.
+    Note: 실제 조회는 호출 시 수행하며, 자료 없음과 인증·통신 오류를 JSON으로 구분한다.
+    """
+    @tool
+    def get_market_evidence() -> str:
+        """확정한 종목·기간의 가격 변동 사실을 조회한다.
+
+        가격 변동 원인·특정 날짜 주가 질문에 사용한다. 예정 사건·일정만 묻는
+        질문에는 호출하지 않는다. 종목·기간 변경 불가. 수익률·거래량·급등락일과
+        관측일·출처 JSON을 반환하며, 값은 사건과의 인과관계를 증명하지 않는다.
+        """
+        import requests
+        now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        ticker, end = mandate["ticker"], mandate["as_of_date"]
+        try:
+            records = toss_client.get_ohlcv(ticker, days=mandate["period_days"] - 1, end_date=end)
+            records = [r for r in records if mandate["query_start_date"] <= r["date"] <= end]
+            if not records:
+                return json.dumps({"status": "unavailable", "evidence": [], "limitations": ["요청 기간의 일봉 미확보"], "error": None}, ensure_ascii=False)
+            content = {
+                "ticker": ticker, "first_close": records[0]["close"], "last_close": records[-1]["close"],
+                "unit": "KRW", "period_return_pct": (records[-1]["close"] / records[0]["close"] - 1) * 100 if len(records) > 1 else None,
+                "latest_daily_change_pct": records[-1]["change_pct"],
+                "formula": "(last_close / first_close - 1) * 100", "observed_bars": len(records),
+                "average_volume": sum(r["volume"] for r in records) / len(records),
+                "significant_moves": [{"date": r["date"], "close": r["close"], "change_pct": r["change_pct"], "volume": r["volume"]}
+                                      for r in records if abs(r["change_pct"]) >= _SIGNIFICANT_MOVE_PCT][:12],
+                "significant_move_rule": "abs(daily change_pct) >= 3, oldest 12 within request",
+            }
+            limitations = ["수정주가의 과거 당시 이용 가능성 미검증", "시세의 동시 발생만으로 사건 인과관계 확정 불가"]
+            if len(records) == 1:
+                limitations.append("일봉 한 개이므로 기간 첫 종가 대비 수익률은 null. 일간 등락률은 전 거래일 대비")
+            if mandate["period_days"] == 1:
+                intraday = toss_client.get_intraday_ohlcv(ticker, end)
+                content["intraday_buckets"] = [{**bucket, "timestamp": bucket["timestamp"].isoformat()}
+                    for bucket in _bucket_intraday_records(intraday)]
+                if not intraday:
+                    limitations.append("요청 날짜의 1분봉 미확보. 일봉 사실만 반환")
+            item = {"evidence_id": f"market:{uuid4().hex}", "kind": "metric", "content": content,
+                "source": {"provider": "Toss Securities", "url": "https://developers.tossinvest.com/", "ticker": ticker},
+                "published_at": None, "observation_start": records[0]["date"], "observation_end": records[-1]["date"],
+                "retrieved_at": now, "limitations": limitations}
+            return json.dumps({"status": "complete", "evidence": [item], "limitations": limitations, "error": None}, ensure_ascii=False)
+        except (requests.RequestException, ValueError, KeyError, ArithmeticError, RuntimeError) as exc:
+            return json.dumps({"status": "error", "evidence": [], "limitations": [], "error": {
+                "code": type(exc).__name__, "message": "시세 조회 실패. 인증·허용 IP·입력·응답 확인 필요", "retryable": False}}, ensure_ascii=False)
+    return get_market_evidence
 
 
 def _resolve_ticker(raw: str) -> str | None:

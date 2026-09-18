@@ -9,8 +9,30 @@ from stock_agent.control.request_parser import _validate_parsed_request, request
 from stock_agent.state import ParsedRequest
 
 
+_REFERENCE_UTC = datetime.datetime(2026, 9, 17, 15, 30, tzinfo=datetime.timezone.utc)
+
+
+class FixedDateTime(datetime.datetime):
+    """UTC와 서울의 날짜가 다른 시각을 재현한다."""
+
+    @classmethod
+    def now(cls, tz=None):
+        return _REFERENCE_UTC.astimezone(tz) if tz else _REFERENCE_UTC.replace(tzinfo=None)
+
+
 class ParserDateContextTest(unittest.TestCase):
     """기준 날짜의 메시지 경계와 추출 이후 기간 처리를 검증한다."""
+
+    def setUp(self):
+        corp_code_patch = patch(
+            "stock_agent.control.request_parser.dart_client.find_corp_code",
+            return_value="00164742",
+        )
+        self.find_corp_code = corp_code_patch.start()
+        self.addCleanup(corp_code_patch.stop)
+        clock_patch = patch("stock_agent.control.request_parser.datetime.datetime", FixedDateTime)
+        clock_patch.start()
+        self.addCleanup(clock_patch.stop)
 
     @patch("stock_agent.control.request_parser.dart_client.find_ticker_by_name")
     @patch("stock_agent.control.request_parser.create_tool_agent")
@@ -29,18 +51,21 @@ class ParserDateContextTest(unittest.TestCase):
             {"messages": [("user", raw)]},
         )
         self.assertIn(
-            "상대 날짜 계산용 기준 날짜: " + datetime.date.today().isoformat(),
+            "상대 날짜 계산용 기준 날짜: 2026-09-18",
             create_agent.call_args.args[1],
         )
         self.assertEqual(result["research_mandate"]["period_days"], 30)
-        self.assertEqual(
-            result["research_mandate"]["as_of_date"], datetime.date.today().isoformat()
-        )
+        self.assertEqual(result["research_mandate"]["as_of_date"], "2026-09-18")
+        self.assertEqual(result["research_mandate"]["corp_code"], "00164742")
+        self.find_corp_code.assert_called_once_with("현대차")
 
     @patch("stock_agent.control.request_parser.dart_client.find_ticker_by_name")
     def test_explicit_period_is_preserved(self, find_ticker):
         find_ticker.return_value = "005380"
-        for raw, days in [("현대차 오늘 주가", 1), ("현대차 최근 30일 주가", 30)]:
+        for raw, days, start in [
+            ("현대차 오늘 주가", 1, "2026-08-25"),
+            ("현대차 최근 30일 주가", 30, "2026-07-27"),
+        ]:
             with self.subTest(raw=raw):
                 parsed = ParsedRequest(
                     company_candidates=["현대차"], research_question="주가",
@@ -49,15 +74,73 @@ class ParserDateContextTest(unittest.TestCase):
                 result = _validate_parsed_request(raw, parsed)
                 self.assertEqual(result["research_mandate"]["period_days"], days)
                 self.assertEqual(result["research_mandate"]["as_of_date"], "2026-08-25")
+                self.assertEqual(result["research_mandate"]["query_start_date"], start)
+                self.assertEqual(result["research_mandate"]["query_end_date"], "2026-08-25")
+
+    @patch("stock_agent.control.request_parser.dart_client.find_ticker_by_name", return_value="005380")
+    def test_missing_corp_code_rejects_request(self, find_ticker):
+        self.find_corp_code.return_value = None
+        parsed = ParsedRequest(company_candidates=["현대차"], research_question="실적")
+
+        result = _validate_parsed_request("현대차 실적", parsed)
+
+        self.assertNotIn("research_mandate", result)
+        self.assertIn("DART 회사 식별자", result["input_error"])
+
+    @patch("stock_agent.control.request_parser.dart_client.find_ticker_by_name", return_value="005380")
+    def test_zero_period_is_rejected_instead_of_defaulting(self, find_ticker):
+        parsed = ParsedRequest(
+            company_candidates=["현대차"], research_question="주가", period_days=0,
+        )
+
+        result = _validate_parsed_request("현대차 0일 주가", parsed)
+
+        self.assertNotIn("research_mandate", result)
+        self.assertIn("1일 이상", result["input_error"])
+        self.find_corp_code.assert_not_called()
+
+    @patch("stock_agent.control.request_parser.dart_client.find_ticker_by_name", return_value="005380")
+    def test_investment_horizon_does_not_change_query_period(self, find_ticker):
+        parsed = ParsedRequest(
+            company_candidates=["현대차"], research_question="장기 보유에 적합한가",
+            as_of_date="2026-08-25", investment_horizon="3년",
+        )
+
+        result = _validate_parsed_request("현대차를 3년 보유해도 될까", parsed)
+
+        mandate = result["research_mandate"]
+        self.assertEqual(mandate["investment_horizon"], "3년")
+        self.assertEqual(mandate["period_days"], 30)
+        self.assertEqual(mandate["query_start_date"], "2026-07-27")
+        self.assertEqual(mandate["query_end_date"], "2026-08-25")
+
+    @patch("stock_agent.control.request_parser.dart_client.find_ticker_by_name", return_value="005380")
+    def test_explicit_date_uses_seoul_today_for_future_boundary(self, find_ticker):
+        for as_of_date, valid in [("2026-09-18", True), ("2026-09-19", False)]:
+            with self.subTest(as_of_date=as_of_date):
+                parsed = ParsedRequest(
+                    company_candidates=["현대차"], research_question="주가",
+                    as_of_date=as_of_date,
+                )
+
+                result = _validate_parsed_request("현대차 주가", parsed)
+
+                if valid:
+                    self.assertEqual(result["research_mandate"]["as_of_date"], as_of_date)
+                else:
+                    self.assertNotIn("research_mandate", result)
+                    self.assertIn("미래", result["input_error"])
 
 
 class ResearchMandateScopeTest(unittest.TestCase):
     """검증된 Mandate가 근거 기반 투자 의견을 허용하는지 확인한다."""
 
+    @patch("stock_agent.control.request_parser.dart_client.find_corp_code", return_value="00126380")
     @patch("stock_agent.control.request_parser.dart_client.find_ticker_by_name")
     def test_allows_grounded_investment_opinion_without_order_execution(
         self,
         find_ticker_by_name,
+        find_corp_code,
     ) -> None:
         """투자 의견은 허용하고 수익 보장과 자동 주문은 제한한다."""
         find_ticker_by_name.return_value = "005930"

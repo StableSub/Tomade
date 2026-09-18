@@ -18,7 +18,7 @@ from langchain_core.callbacks import BaseCallbackHandler
 logger = logging.getLogger(__name__)
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _DEFAULT_TRACE_ROOT = _PROJECT_ROOT / "traces"
-_WORKER_NODES = frozenset({"business", "macro_sector", "event_catalyst"})
+_WORKER_NODES = frozenset({"business", "macro_sector", "event_catalyst", "technical", "sentiment"})
 _CURRENT_TRAJECTORY: ContextVar["TrajectoryRecorder | None"] = ContextVar(
     "stock_agent_trajectory",
     default=None,

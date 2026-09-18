@@ -2,6 +2,7 @@
 
 import datetime
 from typing import Literal
+from zoneinfo import ZoneInfo
 
 from stock_agent.debug import trace_node_output
 from stock_agent.gateways.agent import create_tool_agent
@@ -22,7 +23,7 @@ def request_parsing_node(state: StockAgentState) -> dict:
         유효하지 않으면 `input_error`를 반환해 후속 노드를 중단시킨다.
     """
     raw_user_input = state["raw_user_input"].strip()
-    today = datetime.date.today().isoformat()
+    today = datetime.datetime.now(ZoneInfo("Asia/Seoul")).date().isoformat()
     parser = create_tool_agent(
         [],
         build_system_prompt("request_parser", current_date=today),
@@ -82,7 +83,7 @@ def _validate_parsed_request(raw_input: str, parsed: ParsedRequest) -> dict:
     if date_error:
         return {"parsed_request": parsed, "input_error": date_error}
 
-    period_days = parsed.period_days or 30
+    period_days = 30 if parsed.period_days is None else parsed.period_days
     if period_days < 1 or period_days > 3650:
         return {
             "parsed_request": parsed,
@@ -96,13 +97,21 @@ def _validate_parsed_request(raw_input: str, parsed: ParsedRequest) -> dict:
             "input_error": "종목 외에 알고 싶은 내용을 함께 입력해주세요.",
         }
 
+    corp_code = dart_client.find_corp_code(corp_name)
+    if not corp_code:
+        return {"parsed_request": parsed, "input_error": "DART 회사 식별자를 확인할 수 없습니다."}
+
     mandate: ResearchMandate = {
         "original_question": raw_input,
         "research_question": research_question,
         "ticker": ticker,
         "corp_name": corp_name,
+        "corp_code": corp_code,
         "as_of_date": as_of_date,
         "period_days": period_days,
+        "query_start_date": (datetime.date.fromisoformat(as_of_date) - datetime.timedelta(days=period_days - 1)).isoformat(),
+        "query_end_date": as_of_date,
+        "investment_horizon": parsed.investment_horizon,
         "purpose": "근거 기반 종목 리서치와 투자 판단 지원",
         "constraints": [
             "투자 의견에는 근거, 판단 조건, 반대 요인과 불확실성을 함께 제시한다.",
@@ -116,7 +125,7 @@ def _validate_parsed_request(raw_input: str, parsed: ParsedRequest) -> dict:
 
 def _resolve_as_of_date(value: str | None) -> tuple[str, str | None]:
     """Parser의 날짜 후보를 ISO 날짜로 검증하고 미래 날짜를 거부한다."""
-    today = datetime.date.today()
+    today = datetime.datetime.now(ZoneInfo("Asia/Seoul")).date()
     if not value:
         return today.isoformat(), None
     try:

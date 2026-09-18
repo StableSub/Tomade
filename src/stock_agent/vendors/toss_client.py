@@ -8,6 +8,8 @@ from decimal import Decimal
 from zoneinfo import ZoneInfo
 
 import requests
+
+from stock_agent.control.external_budget import check_external_budget
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -32,6 +34,7 @@ def _get_access_token(rejected_token: str | None = None) -> str:
         if _token is not None and time.monotonic() < _token_expires_at:
             return _token
 
+        check_external_budget()
         response = requests.post(
             f"{_BASE_URL}/oauth2/token",
             data={
@@ -54,6 +57,7 @@ def _get(path: str, params: dict, *, account_seq: int | None = None) -> dict | l
     headers = {"Authorization": f"Bearer {_get_access_token()}"}
     if account_seq is not None:
         headers["X-Tossinvest-Account"] = str(account_seq)
+    check_external_budget()
     response = requests.get(
         f"{_BASE_URL}{path}",
         params=params,
@@ -64,6 +68,7 @@ def _get(path: str, params: dict, *, account_seq: int | None = None) -> dict | l
         # 동시 요청이 이미 갱신한 토큰은 재발급하지 않고 재사용한다. 재시도는 한 번뿐이다.
         rejected_token = headers["Authorization"].removeprefix("Bearer ")
         headers["Authorization"] = f"Bearer {_get_access_token(rejected_token)}"
+        check_external_budget()
         response = requests.get(
             f"{_BASE_URL}{path}", params=params, headers=headers, timeout=30,
         )

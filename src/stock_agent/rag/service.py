@@ -11,6 +11,7 @@ from pathlib import Path
 import numpy as np
 from openai import OpenAI
 
+from stock_agent.control.external_budget import check_external_budget
 from stock_agent.rag.parser import VERSION, ENCODING, parse_archive, make_chunks
 from stock_agent.vendors.dart_client import download_disclosure_original
 
@@ -25,9 +26,11 @@ def embed_texts(texts: list[str]) -> np.ndarray:
     OPENAI_API_KEY를 사용하며 API 비용이 발생한다. 모델은 MODEL로 고정한다.
     공급자 오류는 그대로 전파하며 다른 모델로 자동 전환하지 않는다.
     """
+    check_external_budget()
     client = OpenAI(timeout=30, max_retries=0)
     vectors = []
     for start in range(0, len(texts), 64):
+        check_external_budget()
         result = client.embeddings.create(model=MODEL, input=texts[start:start + 64])
         vectors.extend(item.embedding for item in sorted(result.data, key=lambda d: d.index))
     values = np.asarray(vectors, dtype=np.float32)
@@ -102,6 +105,7 @@ def _read_parsed(parsed: Path) -> tuple[list[dict], list[dict]] | None:
 
 
 def _prepare_report_locked(report: dict, root: Path, embed) -> dict:
+    check_external_budget()
     corp, receipt, published = report["corp_code"], report["rcept_no"], report["rcept_dt"]
     if not re.fullmatch(r"\d{8}", corp) or not re.fullmatch(r"\d{14}", receipt):
         raise ValueError("잘못된 공시 식별자")
@@ -145,7 +149,9 @@ def _prepare_report_locked(report: dict, root: Path, embed) -> dict:
                     and sorted(fts_ids) == sorted(ids)):
                 return {"receipt": receipt, "chunks": len(chunks), "cached": True, "raw_hash": digest}
     else:
+        check_external_budget()
         blocks = parse_archive(payload, receipt)
+        check_external_budget()
         chunks = make_chunks(blocks)
         parsed.mkdir(parents=True, exist_ok=True)
         for name, values in [("blocks", blocks), ("chunks", chunks)]:
@@ -166,6 +172,7 @@ def _prepare_report_locked(report: dict, root: Path, embed) -> dict:
         indexed_signature = None
     vectors = _load_vectors(index, ids) if indexed_signature == signature else None
     if vectors is None:
+        check_external_budget()
         vectors = np.asarray(embed([c["search_text"] for c in chunks]), dtype=np.float32)
         if vectors.ndim != 2 or len(vectors) != len(chunks) or not np.isfinite(vectors).all():
             raise ValueError("청크·벡터 모양 또는 값 불일치")

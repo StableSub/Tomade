@@ -4,6 +4,8 @@ import os
 from urllib.parse import urlencode
 
 import requests
+
+from stock_agent.control.external_budget import check_external_budget
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -67,6 +69,7 @@ def _get(endpoint: str, params: dict) -> dict:
     if not api_key:
         raise ProviderError("missing_credentials", "YOUTUBE_API_KEY 설정이 필요합니다.")
     try:
+        check_external_budget()
         response = requests.get(
             f"{_BASE_URL}/{endpoint}",
             params={**params, "key": api_key},

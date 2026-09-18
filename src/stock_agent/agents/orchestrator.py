@@ -9,7 +9,7 @@ from pydantic import BaseModel, model_validator
 from stock_agent.gateways.agent import create_tool_agent, stream_agent_text
 from stock_agent.tools.user_memory import create_memory_tool, read_user_memory
 from stock_agent.prompts.builder import build_system_prompt
-from stock_agent.state import ResearchPlan, ResearchTask, StockAgentState
+from stock_agent.state import ResearchPlan, ResearchTask, StockAgentState, WorkerReport, WorkerError
 
 T = TypeVar("T")
 
@@ -94,11 +94,17 @@ def _format_worker_reports(state: StockAgentState, plan: ResearchPlan) -> str:
         "business": ("Business Worker", "business_report"),
         "macro_sector": ("Macro and Sector Worker", "macro_sector_report"),
         "event_catalyst": ("Event and Catalyst Worker", "event_catalyst_report"),
+        "technical": ("Technical Worker", "technical_report"),
+        "sentiment": ("Sentiment Worker", "sentiment_report"),
     }
     sections = []
     for task in plan.tasks:
         title, field = report_fields[task.agent]
         report = state.get(field, "조사 결과 없음")
+        if isinstance(report, (WorkerReport, WorkerError)):
+            report = report.model_dump_json()
+        elif isinstance(report, dict):
+            report = json.dumps(report, ensure_ascii=False)
         sections.append(f"=== {title} ===\n{report}")
     return "\n\n".join(sections)
 
@@ -126,7 +132,7 @@ def _normalize_plan(plan: ResearchPlan) -> ResearchPlan:
             }
         )
 
-    order = ["business", "macro_sector", "event_catalyst"]
+    order = ["business", "macro_sector", "event_catalyst", "technical", "sentiment"]
     tasks = [unique_tasks[name] for name in order if name in unique_tasks]
     return ResearchPlan(planning_summary=plan.planning_summary, tasks=tasks)
 

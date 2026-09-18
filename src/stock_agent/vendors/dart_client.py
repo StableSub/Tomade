@@ -6,6 +6,8 @@ import zipfile
 import xml.etree.ElementTree as ET
 
 import requests
+
+from stock_agent.control.external_budget import check_external_budget
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -32,6 +34,7 @@ def _load_company_data() -> None:
     if _corp_codes is not None:
         return  # 이미 로드됨
 
+    check_external_budget()
     response = requests.get(
         f"{_BASE_URL}/corpCode.xml",
         params={"crtfc_key": _get_api_key()},
@@ -108,6 +111,7 @@ def get_disclosures(corp_name: str, days: int = 30, max_count: int = 10) -> list
     end = datetime.date.today()
     begin = end - datetime.timedelta(days=days)
 
+    check_external_budget()
     response = requests.get(
         f"{_BASE_URL}/list.json",
         params={
@@ -169,6 +173,7 @@ def list_disclosure_reports(corp_code: str, start: str, end: str,
             params["pblntf_detail_ty"] = report_type
         if disclosure_type is not None:
             params["pblntf_ty"] = disclosure_type
+        check_external_budget()
         response = requests.get(f"{_BASE_URL}/list.json", params=params, timeout=(5, 30))
         response.raise_for_status()
         data = response.json()
@@ -206,6 +211,7 @@ def download_disclosure_original(receipt_id: str) -> bytes:
 
     if not re.fullmatch(r"\d{14}", receipt_id):
         raise ValueError("접수번호는 14자리 숫자여야 합니다.")
+    check_external_budget()
     response = requests.get(f"{_BASE_URL}/document.xml", params={
         "crtfc_key": _get_api_key(), "rcept_no": receipt_id,
     }, timeout=(5, 30))

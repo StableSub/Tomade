@@ -2,6 +2,7 @@
 
 import datetime
 import json
+import inspect
 import time
 from collections.abc import Callable
 from functools import wraps
@@ -47,6 +48,49 @@ def trace_node_output(node_name: str) -> Callable[[Callable[P, R]], Callable[P, 
 
     def decorator(func: Callable[P, R]) -> Callable[P, R]:
         """대상 노드 함수를 출력 추적 wrapper로 감싼다."""
+
+        @wraps(func)
+        async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+            """노드를 실행하고 결과 또는 예외를 출력한 뒤 원래 동작을 유지한다."""
+            if _PRIVATE_RUN.get():
+                return await func(*args, **kwargs)
+            started_at = datetime.datetime.now().astimezone()
+            started_perf = time.perf_counter()
+            state_before = args[0] if args else kwargs.get("state")
+            try:
+                result = await func(*args, **kwargs)
+            except Exception as error:
+                record_node_timing(
+                    node_name,
+                    started_at,
+                    started_perf,
+                    status="error",
+                    state_before=state_before,
+                    error=error,
+                )
+                with _PRINT_LOCK:
+                    _print_header(node_name, "ERROR")
+                    print(f"{type(error).__name__}: {error}")
+                    print("=" * 72, flush=True)
+                raise
+
+            record_node_timing(
+                node_name,
+                started_at,
+                started_perf,
+                status="completed",
+                state_before=state_before,
+                output=result,
+            )
+            with _PRINT_LOCK:
+                _print_header(node_name, "OUTPUT")
+                _print_result(result)
+                print("=" * 72, flush=True)
+            return result
+
+
+        if inspect.iscoroutinefunction(func):
+            return async_wrapper
 
         @wraps(func)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:

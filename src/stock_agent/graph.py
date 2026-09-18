@@ -5,6 +5,8 @@ from langgraph.graph import END, START, StateGraph
 from stock_agent.agents.business import business_agent_node
 from stock_agent.agents.event_catalyst import event_catalyst_agent_node
 from stock_agent.agents.macro_sector import macro_sector_agent_node
+from stock_agent.agents.technical import technical_agent_node
+from stock_agent.agents.sentiment import sentiment_agent_node
 from stock_agent.agents.orchestrator import upper_agent_node
 from stock_agent.control.request_parser import request_parsing_node
 from stock_agent.state import StockAgentState
@@ -34,10 +36,12 @@ def build_graph():
     workers.add_node("business", business_agent_node)
     workers.add_node("macro_sector", macro_sector_agent_node)
     workers.add_node("event_catalyst", event_catalyst_agent_node)
+    workers.add_node("technical", technical_agent_node)
+    workers.add_node("sentiment", sentiment_agent_node)
     workers.add_edge(START, "request_parser")
     workers.add_conditional_edges("request_parser", route_research_workers,
-                                  {name: name for name in ("business", "macro_sector", "event_catalyst", END)})
-    for worker in ("business", "macro_sector", "event_catalyst"):
+                                  {name: name for name in ("business", "macro_sector", "event_catalyst", "technical", "sentiment", END)})
+    for worker in ("business", "macro_sector", "event_catalyst", "technical", "sentiment"):
         workers.add_edge(worker, END)
     worker_graph = workers.compile()
 

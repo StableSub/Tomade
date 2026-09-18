@@ -7,6 +7,8 @@ from datetime import date, datetime, timedelta
 
 import requests
 
+from stock_agent.control.external_budget import check_external_budget
+
 _BASE_URL = "https://opendart.fss.or.kr/api"
 _REPORT_CODES = {("사업보고서", 12): "11011", ("반기보고서", 6): "11012",
                  ("분기보고서", 3): "11013", ("분기보고서", 9): "11014"}
@@ -26,6 +28,7 @@ def _request(endpoint: str, params: dict) -> dict:
     if not key:
         raise FinancialAPIError("missing_configuration", "DART_OPENAPI_KEY 설정 필요")
     try:
+        check_external_budget()
         response = requests.get(f"{_BASE_URL}/{endpoint}.json",
                                 params={"crtfc_key": key, **params}, timeout=(5, 20))
         response.raise_for_status()
