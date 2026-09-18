@@ -65,6 +65,9 @@ class EvalContractTest(unittest.TestCase):
             result = run_eval.run_parsing_case(case, 1, verbose=False)
         self.assertEqual(result["status"], "pass")
         self.assertEqual(result["actual"]["research_mandate"]["as_of_date"], case["today"])
+        self.assertEqual(result["actual"]["research_mandate"]["corp_code"], "00000001")
+        self.assertEqual(result["actual"]["research_mandate"]["query_start_date"],
+                         (datetime.date.fromisoformat(case["today"]) - datetime.timedelta(days=29)).isoformat())
         self.assertIn(case["today"], create_agent.call_args.args[1])
         self.assertEqual(
             fake.invoke.call_args.args[0]["messages"],

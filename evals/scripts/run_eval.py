@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 from types import SimpleNamespace
 from unittest.mock import patch
+from zoneinfo import ZoneInfo
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SRC_DIR = PROJECT_ROOT / "src"
@@ -187,13 +188,27 @@ def run_parsing_case(
         def today(cls):
             return fixed_today
 
+    class EvalDateTime(datetime.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            fixed = cls(fixed_today.year, fixed_today.month, fixed_today.day,
+                        12, tzinfo=ZoneInfo("Asia/Seoul"))
+            return fixed.astimezone(tz) if tz is not None else fixed.replace(tzinfo=None)
+
     try:
         # Parser 모듈만 고정한다. 실행 시간·Trace의 실제 시계는 변경하지 않는다.
         with (
-            patch("stock_agent.control.request_parser.datetime", SimpleNamespace(date=EvalDate)),
+            patch("stock_agent.control.request_parser.datetime", SimpleNamespace(
+                date=EvalDate, datetime=EvalDateTime, timedelta=datetime.timedelta)),
             patch(
                 "stock_agent.control.request_parser.dart_client.find_ticker_by_name",
                 side_effect=lambda name: companies.get(name.strip()),
+            ),
+            # 기존 Parsing 평가는 corp_code 정합성을 채점하지 않는다. 외부 호출을
+            # 막기 위해 fixture에 있는 회사에만 합성 식별자를 제공한다.
+            patch(
+                "stock_agent.control.request_parser.dart_client.find_corp_code",
+                side_effect=lambda name: "00000001" if name.strip() in companies else None,
             ),
         ):
             output = invoke_node(
