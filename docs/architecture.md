@@ -6,7 +6,7 @@
 
 ### v2 종목 조사 경로
 
-현재 v2 작업은 `codex/agent-v2`, `/Users/anjeongseob/.codex/worktrees/agent-v2/stock_agent`에서 진행한다. 이전 `feature/disclosure-rag` 파일럿을 이어 받은 개발 브랜치이며 main 병합 여부·검증 결과와 아래 구현 구조는 구분한다.
+현재 v2 작업은 `feature/agent-v2`, `/Users/anjeongseob/.codex/worktrees/agent-v2/stock_agent`에서 진행한다. 이전 `feature/disclosure-rag` 파일럿을 이어 받은 개발 브랜치이며 main 병합 여부·검증 결과와 아래 구현 구조는 구분한다.
 
 ```mermaid
 flowchart TD
