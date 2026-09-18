@@ -24,7 +24,7 @@ from backend.model_settings import router as model_settings_router
 from stock_agent.gateways.llm import model_configuration, model_session
 
 logger = logging.getLogger(__name__)
-WORKER_NODES = {"business", "macro_sector", "event_catalyst"}
+WORKER_NODES = {"business", "macro_sector", "event_catalyst", "technical", "sentiment"}
 
 
 class ResearchRequest(BaseModel):
@@ -196,12 +196,16 @@ async def _stream_research_events_traced(
                         {"run_id": run_id, "node": node},
                     )
 
+                public_output = _public_node_output(node, output)
+                report = public_output.get(f"{node}_report")
+                report_status = report.get("status") if isinstance(report, dict) else None
                 yield _sse(
                     "node.completed",
                     {
                         "run_id": run_id,
                         "node": node,
-                        "output": jsonable_encoder(output),
+                        "output": public_output,
+                        **({"status": report_status} if report_status in {"complete", "partial", "unavailable", "error"} else {}),
                     },
                 )
 
@@ -274,6 +278,15 @@ async def _stream_research_events_traced(
                 "message": "대화 실행 중 오류가 발생했습니다." if chat else "리서치 실행 중 오류가 발생했습니다.",
             },
         )
+
+
+def _public_node_output(node: str, output: dict[str, Any]) -> dict[str, Any]:
+    """화면에 필요한 노드 산출물만 직렬화하며 사용자 메모리·내부 State는 제외한다."""
+    fields = {
+        "upper_agent": ("intent", "research_plan", "final_answer"),
+        "request_parser": ("parsed_request", "research_mandate", "input_error"),
+    }.get(node, (f"{node}_report",))
+    return jsonable_encoder({field: output[field] for field in fields if field in output})
 
 
 def _selected_worker_names(output: dict[str, Any]) -> set[str]:

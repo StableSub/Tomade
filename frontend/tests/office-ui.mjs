@@ -1316,9 +1316,84 @@ async function workspacePanels(browser) {
 }
 
 
+async function v2Reports(browser) {
+  for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }]) {
+    const f = await fixture(browser, { viewport, reducedMotion: 'reduce' });
+    const { page } = f;
+    try {
+      const allWorkers = [...workers, 'technical', 'sentiment'];
+      await submit(page, '삼성전자 사업, 거시환경, 사건, 기술 지표와 YouTube 반응을 조사해줘.');
+      await emit(page, [started('upper_agent'), completed('upper_agent', {
+        intent: 'research', research_plan: { tasks: allWorkers.map(agent => ({ agent })) },
+      }), started('request_parser'), completed('request_parser', {}), ...allWorkers.map(started)]);
+      assert.equal(await page.locator('#researchWorkers button').count(), 5);
+      assert.equal(await page.locator('.office-agent').count(), 4, 'Adding report roles preserves office artwork');
+      await page.locator('#researchWorkers [data-worker="technical"]').click();
+      assert.ok((await page.locator('#journalState').textContent()).includes('조사 중'));
+      const evidence = {
+        evidence_id: 'technical-price', kind: 'metric', content: { sma_20: 72000, latest_close: 73440, distance_sma_20_pct: 2 },
+        source: { provider: '모의 시세', url: 'https://example.com/technical' },
+        published_at: null, observation_start: '2026-08-20', observation_end: '2026-09-17',
+        retrieved_at: '2026-09-18T10:00:00+09:00', limitations: ['설명용 모의 수치'],
+      };
+      const technical = {
+        agent: 'technical', status: 'partial',
+        findings: [{ question_index: 0, kind: 'fact', statement: '종가는 20일 평균보다 2% 위에 위치', evidence_ids: ['technical-price'] },
+          { question_index: 0, kind: 'inference', statement: '<img src=x onerror="window.__unsafeReport=true"> 상승 지속은 판단 불가', evidence_ids: ['technical-price'] }],
+        evidence: [evidence, { ...evidence, evidence_id: 'invalid-url', content: '위험 링크 차단', source: { url: 'javascript:alert(1)' } }],
+        unanswered_questions: [{ question_index: 1, reason: '60거래일 자료 부족' }], limitations: ['가격 위치만 해석'],
+      };
+      await emit(page, [
+        completed('business', { business_report: businessReport }),
+        completed('macro_sector', { macro_sector_report: { agent: 'macro_sector', status: 'complete', findings: [{ question_index: 0, kind: 'fact', statement: '공식 발표 확인', evidence_ids: [] }], evidence: [], unanswered_questions: [], limitations: [] } }),
+        completed('event_catalyst', { event_catalyst_report: { agent: 'event_catalyst', status: 'unavailable', findings: [], evidence: [], unanswered_questions: [{ question_index: 0, reason: '사건 원문 미확보' }], limitations: [] } }),
+        completed('technical', { technical_report: technical }),
+        completed('sentiment', { sentiment_report: { agent: 'sentiment', status: 'error', code: 'worker_timeout', message: 'YouTube 댓글 수집 시간 초과', retryable: true } }),
+      ]);
+      await page.waitForFunction(() => document.querySelector('#journalOutput')?.textContent.includes('60거래일 자료 부족'));
+      const output = await page.locator('#journalOutput').textContent();
+      assert.ok(output.includes('확인한 사실') && output.includes('해석') && output.includes('72000') && output.includes('모의 시세'));
+      assert.ok(!output.includes('[object Object]') && !output.includes('technical_report'));
+      assert.equal(await page.locator('#journalOutput img, #journalOutput a[href^="javascript:"]').count(), 0);
+      assert.equal(await page.evaluate(() => Boolean(window.__unsafeReport)), false);
+      assert.equal(await page.locator('#journalOutput a[href="https://example.com/technical"]').count(), 1);
+      const currentHash = await page.evaluate(() => location.hash);
+      await page.locator('.evidence-links a').first().click();
+      assert.equal(await page.evaluate(() => location.hash), currentHash, 'Evidence navigation preserves the saved conversation URL');
+      const layout = await page.locator('#agentJournal').evaluate(dialog => {
+        const bounds = dialog.getBoundingClientRect(), body = dialog.querySelector('#journalOutput');
+        return { inside: bounds.left >= 0 && bounds.right <= innerWidth && bounds.top >= 0 && bounds.bottom <= innerHeight, overflow: body.scrollWidth > body.clientWidth + 1 };
+      });
+      assert.ok(layout.inside && !layout.overflow, 'Structured reports fit desktop and mobile');
+      await page.locator('#journalOutput').evaluate(node => node.scrollTop = 0);
+      await page.screenshot({ path: `${screenshots}/v2-technical-${viewport.width}.png` });
+      await page.locator('#journalWorkers [data-worker="sentiment"]').click();
+      assert.equal(await page.locator('#journalWorkers [data-worker="sentiment"]').getAttribute('data-state'), 'error');
+      assert.ok((await page.locator('#journalOutput').textContent()).includes('YouTube 댓글 수집 시간 초과'));
+      await page.locator('#journalWorkers [data-worker="event_catalyst"]').click();
+      assert.ok((await page.locator('#journalOutput').textContent()).includes('근거 없음'));
+      await emit(page, [started('upper_agent'), completed('upper_agent', { intent: 'research', final_answer: finalAnswer }), event('run.completed', { final_answer: finalAnswer })], true);
+      await waitReady(page);
+      assert.equal(await page.locator('#agentJournal').isVisible(), false);
+      assert.ok((await page.locator('#managerSpeech').textContent()).includes(finalAnswer));
+      assert.equal(await page.locator('#researchWorkers [data-worker="technical"]').getAttribute('data-state'), 'partial');
+      assert.equal(await page.locator('#researchWorkers [data-worker="sentiment"]').getAttribute('data-state'), 'error');
+      await page.screenshot({ path: `${screenshots}/v2-completed-${viewport.width}.png` });
+      await page.locator('#researchWorkers [data-worker="business"]').click();
+      assert.ok((await page.locator('#journalOutput').textContent()).includes(businessReport), 'Legacy string reports remain readable');
+      f.check();
+    } finally { await f.dispose(); }
+  }
+  console.log('PASS v2 reports: five roles, structured evidence, partial/unavailable/error, safe links, final answer, legacy reports, desktop and mobile');
+}
+
+
 await mkdir(screenshots, { recursive: true });
 const browser = await playwright.chromium.launch({ headless: true, channel: process.env.OFFICE_BROWSER_CHANNEL });
 try {
+  if (process.env.OFFICE_V2_ONLY === "1") {
+    await v2Reports(browser);
+  } else {
   await fullRoomFitting(browser);
   await modularObjects(browser);
   await spriteRendering(browser);
@@ -1331,6 +1406,8 @@ try {
   await kirbyWalking(browser, 2);
   await mobile(browser);
   await reducedMotion(browser);
+  await v2Reports(browser);
+  }
   console.log(`Office UI regression checks passed. Screenshots: ${pathToFileURL(screenshots).href}`);
 } finally {
   await browser.close();

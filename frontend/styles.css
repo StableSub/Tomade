@@ -488,6 +488,22 @@ h1,h2,p {
 .workspace-dialog .journal-heading { padding: 24px 32px; }
 .workspace-dialog :is(button,select):focus-visible, .conversation-controls :is(button,select):focus-visible { outline: 2px solid #748c74; outline-offset: 2px; }
 .conversation-controls { display: flex; flex: none; gap: 10px; align-items: center; padding: 0 48px 16px; }
+.research-workers { display: flex; flex: none; flex-wrap: wrap; gap: 6px; padding: 0 48px 12px; }
+.research-workers[hidden] { display: none; }
+.research-workers button { padding: 7px 10px; border: 1px solid #d9dfd8; border-radius: 8px; background: #f4f6f1; color: #425449; font: inherit; font-size: 12px; cursor: pointer; }
+.research-workers button:is([data-state=running],[aria-pressed=true]) { border-color: #527c67; background: #e8f1e9; }
+.research-workers button:is([data-state=error],[data-state=partial],[data-state=unavailable]) { color: #8c562b; background: #fff5e8; border-color: #e2c8a8; }
+.research-workers button[data-state=skipped] { color: #737973; background: transparent; }
+.research-workers button:focus-visible { outline: 2px solid #527c67; outline-offset: 2px; }
+.journal-workers { padding: 14px 32px 0; }
+.report-status, .finding-kind { color: #52715c; font-size: 13px; font-weight: 600; }
+.report-status[data-status=error] { color: #9b493e; }
+.report-finding + .report-finding, .report-evidence { margin-top: 20px; border-top: 1px solid #e4e8e2; padding-top: 16px; }
+.report-finding p { margin-top: 5px; }
+.evidence-links, .evidence-dates { font-size: 12px; overflow-wrap: anywhere; }
+.evidence-values { display: grid; grid-template-columns: minmax(90px, 1fr) minmax(0, 2fr); gap: 4px 12px; font-size: 13px; }
+.evidence-values :is(dt,dd) { margin: 0; overflow-wrap: anywhere; }
+.evidence-values dt { color: #68756a; }
 .conversation-controls select { flex: 1; min-width: 0; height: 42px; padding: 0 12px; border: 1px solid #dbdedb; border-radius: 8px; background: #fff; color: #343b42; font: inherit; font-size: 14px; }
 .primary-button,.quiet-button { min-height: 42px; padding: 10px 16px; border: 1px solid transparent; border-radius: 8px; font-size: 14px; white-space: nowrap; }
 .primary-button { background: #ca5545; color: #fff; }
@@ -519,6 +535,8 @@ h1,h2,p {
   #portfolioDialog { width: calc(100vw - 24px); height: calc(100dvh - 32px); max-height: calc(100dvh - 32px); }
   .workspace-dialog .journal-heading { padding: 16px 20px; }
   .conversation-controls { padding: 0 20px 16px; gap: 6px; }
+  .research-workers { padding: 0 20px 12px; }
+  .journal-workers { padding: 12px 20px 0; }
   .primary-button,.quiet-button { min-height: 40px; font-size: 13px; padding: 8px 14px; }
   .conversation-notice { margin: 0 20px 10px; }
   .dialog-scroll { padding: 24px 20px 28px; }

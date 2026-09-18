@@ -1,6 +1,6 @@
 # API 명세 — Tomade
 
-> 2026-09-17 모델 설정·로그인 API 추가. Chat·대화 저장·포트폴리오와 기존 Research SSE 계약.
+> 2026-09-18 v2: 5개 Worker, 근거가 연결된 구조화 보고서와 역할별 완료 상태 추가. Chat·대화 저장·포트폴리오 계약 유지.
 
 ## 1. 목적
 
@@ -94,7 +94,7 @@ PUT은 저장된 구독 인증 또는 API 키가 없거나 실행 중이면 409,
 - 단일 자연어 질문 전송
 - 노드 단위 Server-Sent Events Streaming
 - 노드 시작·완료·선택 안 됨 상태
-- Worker와 상위 Agent 종합의 Token Streaming
+- Worker의 선택적 진행 텍스트와 상위 Agent 종합의 Token Streaming
 - 노드 산출물
 - 최종 답변
 - 입력 및 실행 오류
@@ -147,7 +147,7 @@ Cache-Control: no-cache
 
 ```text
 event: node.completed
-data: {"run_id":"run-123","node":"business","output":{"business_report":"..."}}
+data: {"run_id":"run-123","node":"business","status":"unavailable","output":{"business_report":{"agent":"business","status":"unavailable","findings":[],"evidence":[],"unanswered_questions":[{"question_index":0,"reason":"공시 원문 확보 실패"}],"limitations":["사업 현황 판단 불가"]}}}
 
 ```
 
@@ -161,9 +161,11 @@ request_parser
 business
 macro_sector
 event_catalyst
+technical
+sentiment
 ```
 
-현재 노드 식별자는 `upper_agent`, `request_parser`, `business`, `macro_sector`, `event_catalyst`다. 프론트에서는 상위 Agent를 부장 캐릭터로, 세 Worker를 조사 캐릭터로 표시하며 입력 검증은 현재 부장 답변 영역과 접근성 상태로 안내한다.
+현재 노드 식별자는 상위 Agent·Parser와 위의 5개 Worker다. 기존 사무실 캐릭터·배치는 유지하며 대화창의 조사 상태 버튼과 조사 노트의 역할 선택에서 모든 Worker 결과에 접근한다. 입력 검증은 부장 답변 영역과 접근성 상태로 안내한다.
 
 ## 5. Event 명세
 
@@ -185,15 +187,17 @@ data: {"run_id":"run-123","connection":{"provider":"openai_codex","auth_mode":"s
 
 ### 5.3 `node.delta`
 
-`{run_id, node, delta}`. Worker 보고서와 상위 Agent 종합의 텍스트 조각이다. 일반 답변은 구조화 출력 완료 후 전달하므로 같은 방식의 토큰 스트림을 보장하지 않는다.
+`{run_id, node, delta}`. 선택적 Worker 진행 텍스트와 상위 Agent 종합의 텍스트 조각이다. Worker의 검증된 구조화 보고서는 `node.completed`에서 확정한다. 일반 답변은 구조화 출력 완료 후 전달하므로 같은 방식의 토큰 스트림을 보장하지 않는다.
 
 ### 5.4 `node.completed`
 
-`{run_id, node, output}`. 노드의 State Update를 전달한다. 상위 Agent의 첫 조사 출력에는 intent와 research_plan, 종합 출력에는 final_answer가 들어간다.
+`{run_id, node, output, status?}`. 화면에 필요한 State 필드만 전달한다. 상위 Agent는 `intent`, `research_plan`, `final_answer`, Parser는 `parsed_request`, `research_mandate`, `input_error`, Worker는 자신의 `*_report`만 포함한다. 사용자 메모리·최근 대화·다른 Worker 결과 등 내부 State는 제외한다.
+
+Worker의 `status`는 보고서와 같은 `complete`, `partial`, `unavailable`, `error`다. `error`도 해당 Worker의 실행 종료를 뜻하며 다른 결과를 모아 최종 답변을 만들 수 있다. 전역 실행 실패를 뜻하는 `run.error`와 구분한다. 상위 Agent·Parser에는 이 필드를 붙이지 않는다.
 
 ### 5.5 `node.skipped`
 
-`{run_id, node}`. 조사에서는 선택하지 않은 Worker, 일반 답변에서는 request_parser와 세 Worker를 표시한다.
+`{run_id, node}`. 조사에서는 선택하지 않은 Worker, 일반 답변에서는 request_parser와 5개 Worker를 표시한다.
 
 ### 5.6 `run.completed`
 
@@ -229,7 +233,7 @@ data: {"run_id":"run-123","node":"business","code":"node_execution_failed","mess
 
 ## 6. 노드별 Output
 
-`output`은 각 LangGraph 노드가 반환한 State Update 구조를 유지한다.
+`output`은 공개 허용 필드에 한해 각 LangGraph 노드의 State Update 구조를 유지한다. Pydantic 모델은 JSON 객체로 직렬화한다.
 
 ### 6.1 Request Parser
 
@@ -290,31 +294,65 @@ Plan의 `tasks`에 포함된 Worker는 `node.started`, 포함되지 않은 Worke
 
 ### 6.3 Worker
 
-Business:
+| 노드 | Output 필드 |
+| --- | --- |
+| `business` | `business_report` |
+| `macro_sector` | `macro_sector_report` |
+| `event_catalyst` | `event_catalyst_report` |
+| `technical` | `technical_report` |
+| `sentiment` | `sentiment_report` |
+
+각 필드에는 `WorkerReport` 또는 `WorkerError` 객체를 포함한다. 예시는 설명용 수치다.
 
 ```json
 {
-  "business_report": "# Business Report\n\n..."
+  "technical_report": {
+    "agent": "technical",
+    "status": "partial",
+    "findings": [
+      {
+        "question_index": 0,
+        "statement": "기준일 종가는 20일 평균보다 2% 위에 위치",
+        "kind": "fact",
+        "evidence_ids": ["technical-1"]
+      }
+    ],
+    "evidence": [
+      {
+        "evidence_id": "technical-1",
+        "kind": "metric",
+        "content": {"distance_sma_20_pct": 2.0},
+        "source": {"provider": "Toss", "url": null},
+        "published_at": null,
+        "observation_start": "2026-08-20",
+        "observation_end": "2026-09-17",
+        "retrieved_at": "2026-09-18T10:00:00+09:00",
+        "limitations": []
+      }
+    ],
+    "unanswered_questions": [{"question_index": 1, "reason": "60거래일 자료 부족"}],
+    "limitations": ["현재 위치만으로 상승 추세 지속을 판단할 수 없음"]
+  }
 }
 ```
 
-Macro/Sector:
+실행 오류 예시:
 
 ```json
 {
-  "macro_sector_report": "# Macro / Sector Report\n\n..."
+  "sentiment_report": {
+    "agent": "sentiment",
+    "status": "error",
+    "code": "worker_timeout",
+    "message": "YouTube 반응 조사가 제한 시간 내 완료되지 않았습니다.",
+    "retryable": true
+  }
 }
 ```
 
-Event/Catalyst:
+UI는 확인한 사실·해석, 연결된 근거·출처, 미응답 질문, 한계를 구분한다. 원문 링크는 HTTP(S)만 허용하고 모델·외부 자료 텍스트는 HTML로 실행하지 않는다. 상태 `unavailable`은 중립 의견이 아니며 `error`는 자료 부재와 구분한다. `retryable`은 재시도 가능 여부이며 자동 재실행하지 않는다.
 
-```json
-{
-  "event_catalyst_report": "# Event / Catalyst Report\n\n..."
-}
-```
-
-Worker가 둘 이상 선택되면 병렬로 실행되므로 `node.delta`와 완료 이벤트 순서는 고정하지 않는다. 프론트엔드는 `node`별 Buffer를 분리한다.
+Worker가 둘 이상 선택되면 병렬 실행하므로 진행·완료 이벤트 순서는 고정하지 않는다. 프론트는 `node`별 상태와 산출물을 분리하고 최종 답변은 기존 Markdown 문자열로 유지한다. Worker 산출물은 현재 실행에서만 열람하며 저장된 대화에는 사용자 질문·최종 답변만 포함한다.
 
 ### 6.4 같은 상위 Agent — 종합
 
@@ -352,17 +390,23 @@ data: {"run_id":"run-123","node":"business"}
 event: node.skipped
 data: {"run_id":"run-123","node":"macro_sector"}
 
+event: node.skipped
+data: {"run_id":"run-123","node":"technical"}
+
+event: node.skipped
+data: {"run_id":"run-123","node":"sentiment"}
+
 event: node.started
 data: {"run_id":"run-123","node":"event_catalyst"}
 
 event: node.delta
-data: {"run_id":"run-123","node":"event_catalyst","delta":"주요 가격 변동일은 "}
+data: {"run_id":"run-123","node":"event_catalyst","delta":"공시와 사건 원문을 "}
 
 event: node.delta
-data: {"run_id":"run-123","node":"event_catalyst","delta":"2026-08-20입니다."}
+data: {"run_id":"run-123","node":"event_catalyst","delta":"확인 중입니다."}
 
 event: node.completed
-data: {"run_id":"run-123","node":"event_catalyst","output":{"event_catalyst_report":"주요 가격 변동일은 2026-08-20입니다."}}
+data: {"run_id":"run-123","node":"event_catalyst","status":"unavailable","output":{"event_catalyst_report":{"agent":"event_catalyst","status":"unavailable","findings":[],"evidence":[],"unanswered_questions":[{"question_index":0,"reason":"기준일 내 사건 원문 확보 실패"}],"limitations":["가격 변동 원인 단정 불가"]}}}
 
 event: node.started
 data: {"run_id":"run-123","node":"upper_agent"}
@@ -404,7 +448,7 @@ SSE 변환:
 
 ```text
 event: node.completed
-data: {"run_id":"run-123","node":"business","output":{"business_report":"..."}}
+data: {"run_id":"run-123","node":"business","status":"unavailable","output":{"business_report":{"agent":"business","status":"unavailable","findings":[],"evidence":[],"unanswered_questions":[{"question_index":0,"reason":"공시 원문 확보 실패"}],"limitations":["사업 현황 판단 불가"]}}}
 
 ```
 

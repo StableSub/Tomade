@@ -1,20 +1,23 @@
-import { OfficeScene, paintPortrait, type AgentId } from "./office-scene";
+import { OfficeScene, paintPortrait, type AgentActivity, type AgentId } from "./office-scene";
 import { OfficeRoom } from "./office-room";
 import { createOfficeCamera } from "./office-camera";
 import { PortfolioCharacter } from "./portfolio-character";
 import { showRequestConnection } from "./settings";
 
-type NodeName = AgentId | "request_parser";
+type WorkerId = Exclude<AgentId, "upper_agent"> | "technical" | "sentiment";
+type NodeName = AgentId | WorkerId | "request_parser";
 type NodeState = "idle" | "running" | "done" | "skipped" | "error";
 type NodeOutput = string | Record<string, unknown>;
 type Phase = "ready" | "planning" | "validating" | "researching" | "synthesizing" | "done" | "error" | "pending";
 interface SseEvent { type: string; data: Record<string, unknown> }
 interface Conversation { id: string; title: string }
 interface SavedMessage { role: "user" | "assistant"; content: string; status: "pending" | "completed" | "error" | "interrupted" }
-const workers: AgentId[] = ["business", "macro_sector", "event_catalyst"];
+const workers: WorkerId[] = ["business", "macro_sector", "event_catalyst", "technical", "sentiment"];
 const nodes: NodeName[] = ["upper_agent", "request_parser", ...workers];
-const labels: Record<NodeName, string> = { upper_agent: "부장 Agent", request_parser: "질문 확인", business: "패트 - 비즈니스", macro_sector: "매트 - 섹터", event_catalyst: "게왹이 - 이벤트" };
-const reportFields: Partial<Record<NodeName, string>> = { business: "business_report", macro_sector: "macro_sector_report", event_catalyst: "event_catalyst_report", upper_agent: "final_answer" };
+const labels: Record<NodeName, string> = { upper_agent: "부장 Agent", request_parser: "질문 확인", business: "패트 - 비즈니스", macro_sector: "매트 - 섹터", event_catalyst: "게왹이 - 이벤트", technical: "Technical · 기술 분석", sentiment: "Sentiment · YouTube 반응" };
+const workerLabels: Record<WorkerId, string> = { business: "비즈니스", macro_sector: "매크로·섹터", event_catalyst: "이벤트", technical: "기술 분석", sentiment: "YouTube 반응" };
+const reportFields: Partial<Record<NodeName, string>> = { business: "business_report", macro_sector: "macro_sector_report", event_catalyst: "event_catalyst_report", technical: "technical_report", sentiment: "sentiment_report", upper_agent: "final_answer" };
+const reportStatusLabels: Record<string, string> = { complete: "조사 완료", partial: "일부 근거 확보", unavailable: "근거 없음", error: "조사 오류" };
 const welcome = "어떤 기업을 함께 살펴볼까요?";
 
 function element<T extends HTMLElement>(id: string): T {
@@ -45,7 +48,7 @@ let pendingResponse = false;
 let phase: Phase = "ready";
 let latestAnswer = welcome;
 let latestIsMarkdown = false;
-let selectedWorkers = new Set<AgentId>();
+let selectedWorkers = new Set<WorkerId>();
 let nodeOutputs: Partial<Record<NodeName, NodeOutput>> = {};
 let nodeBuffers: Partial<Record<NodeName, string>> = {};
 let nodeStates: Partial<Record<NodeName, NodeState>> = {};
@@ -64,6 +67,23 @@ const scene = new OfficeScene(officeWorld, selectAgent, motionPreference);
 const portfolioCharacter = new PortfolioCharacter(element<HTMLCanvasElement>("portfolioSprite"), motionPreference);
 paintPortrait(element<HTMLCanvasElement>("managerPortrait"), "upper_agent");
 paintPortrait(element<HTMLCanvasElement>("replyPortrait"), "upper_agent");
+
+// New research roles share the report UI without changing the approved office artwork.
+function isOfficeAgent(id: NodeName): id is AgentId {
+  return id !== "request_parser" && id !== "technical" && id !== "sentiment";
+}
+function setActivity(id: NodeName, activity: AgentActivity): void {
+  if (isOfficeAgent(id)) scene.setActivity(id, activity);
+}
+for (const containerId of ["researchWorkers", "journalWorkers"]) {
+  for (const id of workers) {
+    const button = document.createElement("button");
+    button.type = "button"; button.dataset.worker = id;
+    button.setAttribute("aria-haspopup", "dialog");
+    button.addEventListener("click", () => openAgentJournal(id));
+    element(containerId).append(button);
+  }
+}
 
 function escapeHtml(value: string): string {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
@@ -101,6 +121,45 @@ function renderMarkdown(source: string): string {
   }
   closeList();
   if (code) html += `<pre><code>${escapeHtml(code.join("\n"))}</code></pre>`;
+  return html;
+}
+
+function record(value: unknown): Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+function textList(value: unknown): string {
+  return Array.isArray(value) && value.length ? `<ul>${value.map(item => `<li>${escapeHtml(String(item))}</li>`).join("")}</ul>` : "";
+}
+function renderEvidenceContent(value: unknown): string {
+  if (value === null || value === undefined) return "<span>값 없음</span>";
+  if (Array.isArray(value)) return `<ul>${value.map(item => `<li>${renderEvidenceContent(item)}</li>`).join("")}</ul>`;
+  if (typeof value === "object") return `<dl class="evidence-values">${Object.entries(value).map(([key, item]) => `<dt>${escapeHtml(key)}</dt><dd>${renderEvidenceContent(item)}</dd>`).join("")}</dl>`;
+  return escapeHtml(String(value));
+}
+function renderWorkerReport(report: Record<string, unknown>): string {
+  const status = typeof report.status === "string" ? report.status : "";
+  let html = `<p class="report-status" data-status="${escapeHtml(status)}">${escapeHtml(reportStatusLabels[status] ?? "조사 결과")}</p>`;
+  if (status === "error") return html + `<p>${escapeHtml(String(report.message ?? "조사를 완료하지 못했습니다."))}</p>`;
+  const evidence = Array.isArray(report.evidence) ? report.evidence.map(record) : [];
+  const findings = Array.isArray(report.findings) ? report.findings.map(record) : [];
+  if (findings.length) html += "<h3>조사 결과</h3>" + findings.map(finding => {
+    const refs = Array.isArray(finding.evidence_ids) ? finding.evidence_ids.map(id => evidence.findIndex(item => item.evidence_id === id)).filter(index => index >= 0) : [];
+    const links = refs.map(index => `<a href="#research-evidence-${index}">근거 ${index + 1}</a>`).join(" · ");
+    const label = finding.kind === "inference" ? "해석" : "확인한 사실";
+    return `<article class="report-finding"><span class="finding-kind">${label}</span>${renderMarkdown(String(finding.statement ?? ""))}${links ? `<p class="evidence-links">${links}</p>` : ""}</article>`;
+  }).join("");
+  const unanswered = Array.isArray(report.unanswered_questions) ? report.unanswered_questions.map(record) : [];
+  if (unanswered.length) html += "<h3>확인하지 못한 내용</h3><ul>" + unanswered.map(item => `<li>${typeof item.question_index === "number" ? `질문 ${item.question_index + 1}: ` : ""}${escapeHtml(String(item.reason ?? "근거 부족"))}</li>`).join("") + "</ul>";
+  if (Array.isArray(report.limitations) && report.limitations.length) html += "<h3>해석 범위와 한계</h3>" + textList(report.limitations);
+  if (evidence.length) html += "<h3>근거 자료</h3>" + evidence.map((item, index) => {
+    const source = record(item.source);
+    const title = String(source.title ?? source.provider ?? source.name ?? "원문 자료");
+    const url = typeof source.url === "string" && /^https?:\/\//.test(source.url) ? source.url : undefined;
+    const link = url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noreferrer">${escapeHtml(title)} ↗</a>` : escapeHtml(title);
+    const dates = [["공개", item.published_at], ["관측 시작", item.observation_start], ["관측 종료", item.observation_end], ["수집", item.retrieved_at]].filter(([, value]) => value).map(([label, value]) => `${label}: ${escapeHtml(String(value))}`).join(" · ");
+    const location = source.location ? `<p>${escapeHtml(String(source.location))}</p>` : "";
+    return `<section class="report-evidence" id="research-evidence-${index}"><h3>근거 ${index + 1} · ${link}</h3>${location}${typeof item.content === "string" ? renderMarkdown(item.content) : renderEvidenceContent(item.content)}${dates ? `<p class="evidence-dates">${dates}</p>` : ""}${textList(item.limitations)}</section>`;
+  }).join("");
   return html;
 }
 function setSpeech(text: string, markdown = false): void {
@@ -189,7 +248,7 @@ function announceAnswer(): void {
   element("announcement").textContent = phase === "done" ? "부장의 답변이 도착했습니다." : "요청을 완료하지 못했습니다. 부장의 안내를 확인하세요.";
 }
 function updateStatus(): void {
-  const done = [...selectedWorkers].filter(id => nodeStates[id] === "done").length;
+  const done = [...selectedWorkers].filter(id => nodeStates[id] === "done" || nodeStates[id] === "error").length;
   const text: Record<Phase, string> = {
     ready: "자유 시간", planning: "부장이 질문을 읽는 중", validating: "조사 준비 중",
     researching: `조사 중 ${done} / ${selectedWorkers.size}`, synthesizing: "부장이 결과를 정리하는 중",
@@ -198,6 +257,17 @@ function updateStatus(): void {
   sessionState.querySelector("span")!.textContent = text[phase];
   sessionState.dataset.state = ["ready", "done", "error"].includes(phase) ? phase : "running";
   managerDialog.dataset.busy = String(chatBusy && phase !== "ready");
+  element("researchWorkers").hidden = !planSeen && !selectedWorkers.size;
+  for (const button of document.querySelectorAll<HTMLButtonElement>("[data-worker]")) {
+    const id = button.dataset.worker as WorkerId;
+    const report = nodeOutputs[id];
+    const status = typeof report === "object" && typeof report.status === "string" ? report.status : undefined;
+    const state = nodeStates[id] ?? "idle";
+    const stateLabel = status && reportStatusLabels[status] || { idle: "대기", running: "조사 중", done: "조사 완료", skipped: "미배정", error: "조사 오류" }[state];
+    button.textContent = `${workerLabels[id]} · ${stateLabel}`;
+    button.dataset.state = status ?? state;
+    button.setAttribute("aria-pressed", String(agentJournal.open && agentJournal.dataset.agent === id));
+  }
 }
 function setChatBusy(busy: boolean): void {
   chatBusy = busy;
@@ -218,18 +288,20 @@ function resetResearch(): void {
   nodeStates = {}; nodeOutputs = {}; nodeBuffers = {}; selectedWorkers = new Set(); planSeen = false;
   scene.reset();
   if (agentJournal.open) agentJournal.close();
+  updateStatus();
 }
 function refreshJournal(): void {
-  const id = agentJournal.dataset.agent as AgentId | undefined;
+  const id = agentJournal.dataset.agent as WorkerId | undefined;
   if (!id) return;
   const state = nodeStates[id] ?? "idle";
   const stateLabels: Record<NodeState, string> = { idle: "자유 시간", running: "조사 중", done: "보고 완료", skipped: "이번 조사에는 참여하지 않아요", error: "조사가 중단되었어요" };
   element("journalTitle").textContent = labels[id];
-  element("journalState").textContent = stateLabels[state];
   const output = nodeOutputs[id];
+  const reportStatus = typeof output === "object" && typeof output.status === "string" ? reportStatusLabels[output.status] : undefined;
+  element("journalState").textContent = reportStatus ?? stateLabels[state];
   const target = element("journalOutput");
   if (typeof output === "string" && output) target.innerHTML = renderMarkdown(output);
-  else if (output) { const pre = document.createElement("pre"); pre.textContent = JSON.stringify(output, null, 2); target.replaceChildren(pre); }
+  else if (typeof output === "object") target.innerHTML = renderWorkerReport(output);
   else {
     const empty: Record<NodeState, string> = {
       idle: "아직 조사한 내용이 없습니다.",
@@ -241,11 +313,12 @@ function refreshJournal(): void {
     target.textContent = empty[state];
   }
 }
-function openAgentJournal(id: AgentId): void {
-  scene.setSelected(id);
+function openAgentJournal(id: WorkerId): void {
+  scene.setSelected(isOfficeAgent(id) ? id : null);
   agentJournal.dataset.agent = id;
   refreshJournal();
   if (!agentJournal.open) agentJournal.showModal();
+  updateStatus();
 }
 async function conversationRequest<T>(path = "", method = "GET"): Promise<T> {
   const response = await fetch(`/api/conversations${path}`, { method });
@@ -327,7 +400,7 @@ async function* readSseEvents(response: Response): AsyncGenerator<SseEvent> {
 function stopWithError(message: string): void {
   for (const id of workers) {
     if (nodeStates[id] === "running") nodeStates[id] = "error";
-    scene.setActivity(id, nodeStates[id] === "error" ? "error" : "idle");
+    setActivity(id, nodeStates[id] === "error" ? "error" : "idle");
   }
   nodeStates.upper_agent = "error";
   scene.setActivity("upper_agent", "error");
@@ -347,7 +420,7 @@ function handleResearchEvent(event: SseEvent): boolean {
       scene.setActivity(node, "working");
       setSpeech(planSeen ? "팀원들의 조사 결과를 모아 답변을 정리하고 있어요." : "질문을 확인하고 있어요. 필요한 조사를 정해볼게요.");
     } else if (node === "request_parser") { phase = "validating"; setSpeech("회사와 조사 기간을 확인하고 있어요."); }
-    else { selectedWorkers.add(node); scene.setActivity(node, "working"); phase = "researching"; setSpeech("팀원들이 각자 자리에서 조사하고 있어요. 캐릭터를 누르면 조사 내용을 볼 수 있어요."); }
+    else { selectedWorkers.add(node); setActivity(node, "working"); phase = "researching"; setSpeech("각 에이전트가 조사 중이에요. 위의 조사 항목을 누르면 근거와 진행 상황을 볼 수 있어요."); }
   } else if (event.type === "node.delta" && node) {
     nodeBuffers[node] = (nodeBuffers[node] ?? "") + String(event.data.delta ?? "");
     nodeOutputs[node] = nodeBuffers[node]!;
@@ -355,23 +428,24 @@ function handleResearchEvent(event: SseEvent): boolean {
   } else if (event.type === "node.completed" && node) {
     const output = (event.data.output ?? {}) as Record<string, unknown>;
     const field = reportFields[node];
-    nodeOutputs[node] = field && typeof output[field] === "string" ? output[field] as string : output;
-    nodeStates[node] = "done";
-    if (node === "upper_agent" && output.intent === "research") {
+    const report = field ? output[field] : undefined;
+    nodeOutputs[node] = typeof report === "string" || report && typeof report === "object" ? report as NodeOutput : output;
+    nodeStates[node] = report && typeof report === "object" && (report as Record<string, unknown>).status === "error" ? "error" : "done";
+    if (node === "upper_agent" && output.intent === "research" && !output.final_answer) {
       planSeen = true;
       const plan = output.research_plan as { tasks?: { agent?: string }[] } | undefined;
-      selectedWorkers = new Set((plan?.tasks ?? []).map(task => task.agent).filter((id): id is AgentId => workers.includes(id as AgentId)));
+      selectedWorkers = new Set((plan?.tasks ?? []).map(task => task.agent).filter((id): id is WorkerId => workers.includes(id as WorkerId)));
       phase = "validating";
       setSpeech("조사할 내용을 정했어요. 입력을 확인한 뒤 팀원들에게 전달할게요.");
-    } else if (workers.includes(node as AgentId)) scene.setActivity(node as AgentId, "done");
+    } else if (workers.includes(node as WorkerId)) setActivity(node, nodeStates[node] === "error" ? "error" : "done");
   } else if (event.type === "node.skipped" && node) {
     nodeStates[node] = "skipped";
-    if (node !== "request_parser") { selectedWorkers.delete(node); scene.setActivity(node, "idle"); }
+    if (node !== "request_parser") { selectedWorkers.delete(node as WorkerId); setActivity(node, "idle"); }
   } else if (event.type === "run.completed") {
     setSpeech(String(event.data.final_answer ?? "전달된 최종 답변이 없습니다."), true);
     nodeOutputs.upper_agent = latestAnswer; nodeStates.upper_agent = "done";
     // Clear any unfinished visual state even if the server short-circuits a research run.
-    for (const id of workers) if (nodeStates[id] === "running") { nodeStates[id] = "skipped"; scene.setActivity(id, "idle"); }
+    for (const id of workers) if (nodeStates[id] === "running") { nodeStates[id] = "skipped"; setActivity(id, "idle"); }
     scene.setActivity("upper_agent", "done"); phase = "done";
     updateStatus(); refreshJournal(); announceAnswer(); return true;
   } else if (event.type === "run.error") {
@@ -431,7 +505,14 @@ element("refreshConversation").addEventListener("click", () => {
   }
 });
 for (const button of document.querySelectorAll<HTMLButtonElement>("[data-close]")) button.addEventListener("click", () => element<HTMLDialogElement>(button.dataset.close!).close());
-agentJournal.addEventListener("close", () => scene.setSelected(managerDialog.hidden ? null : "upper_agent"));
+agentJournal.addEventListener("close", () => { scene.setSelected(managerDialog.hidden ? null : "upper_agent"); updateStatus(); });
+agentJournal.addEventListener("click", event => {
+  const link = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>('a[href^="#research-evidence-"]') : null;
+  if (link) {
+    event.preventDefault();
+    document.getElementById(link.hash.slice(1))?.scrollIntoView({ block: "nearest" });
+  }
+});
 document.addEventListener("keydown", event => {
   if (event.key === "Escape" && !managerDialog.hidden && ![agentJournal, portfolioDialog, element<HTMLDialogElement>("settingsDialog")].some(dialog => dialog.open)) { event.preventDefault(); closeManager(); }
 });
