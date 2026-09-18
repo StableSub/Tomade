@@ -5,6 +5,7 @@ import hashlib
 import json
 import re
 import sqlite3
+import threading
 from pathlib import Path
 
 import numpy as np
@@ -15,6 +16,7 @@ from stock_agent.vendors.dart_client import download_disclosure_original
 
 MODEL = "text-embedding-3-small"
 DEFAULT_ROOT = Path(__file__).resolve().parents[3] / "data" / "disclosures"
+_PREPARATION_LOCK = threading.RLock()
 
 
 def embed_texts(texts: list[str]) -> np.ndarray:
@@ -61,52 +63,121 @@ def _database(root):
     return db
 
 
-def prepare_report(report: dict, root: Path = DEFAULT_ROOT, *, embed=embed_texts) -> dict:
-    """조회된 공시 하나의 ZIP·블록·청크·FTS·벡터를 로컬에 저장한다.
+def _write_json(path: Path, value) -> None:
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2), encoding="utf-8")
+    temporary.replace(path)
 
-    Args: report는 DART 목록의 실제 항목, root는 공통 저장소, embed는 배치 임베딩 함수.
-    Returns: 원문 해시·청크 수·캐시 재사용 여부. 기존 원문은 재다운로드하지 않는다.
-    Raises: 미확인 정정/철회는 ValueError. 다운로드·파싱·임베딩 실패를 전파한다.
-    DB 등록은 파일 준비 뒤 수행한다. 초기 파일럿은 단일 writer 호출만 지원한다.
-    """
-    root = Path(root)
+
+def _load_vectors(index: Path, ids: list[str]) -> np.ndarray | None:
+    try:
+        stored_ids = json.loads((index / "chunk_ids.json").read_text(encoding="utf-8"))
+        vectors = np.load(index / "vectors.npy", allow_pickle=False)
+    except (OSError, ValueError, EOFError):
+        return None
+    if (stored_ids != ids or vectors.ndim != 2 or len(vectors) != len(ids)
+            or not len(ids) or not np.isfinite(vectors).all()
+            or np.any(np.linalg.norm(vectors, axis=1) == 0)):
+        return None
+    return vectors
+
+
+def _read_parsed(parsed: Path) -> tuple[list[dict], list[dict]] | None:
+    try:
+        blocks = [json.loads(line) for line in (parsed / "blocks.jsonl").read_text(encoding="utf-8").splitlines()]
+        chunks = [json.loads(line) for line in (parsed / "chunks.jsonl").read_text(encoding="utf-8").splitlines()]
+    except (OSError, ValueError):
+        return None
+    if not blocks or not chunks:
+        return None
+    block_keys = {"block_id", "parent_id", "text"}
+    chunk_keys = {"chunk_id", "block_id", "block_index", "parent_id", "search_text", "text"}
+    if (any(not isinstance(b, dict) or not block_keys <= b.keys() for b in blocks)
+            or any(not isinstance(c, dict) or not chunk_keys <= c.keys() for c in chunks)):
+        return None
+    if any(not isinstance(c["block_index"], int) or not 0 <= c["block_index"] < len(blocks)
+           or blocks[c["block_index"]]["block_id"] != c["block_id"] for c in chunks):
+        return None
+    return blocks, chunks
+
+
+def _prepare_report_locked(report: dict, root: Path, embed) -> dict:
     corp, receipt, published = report["corp_code"], report["rcept_no"], report["rcept_dt"]
     if not re.fullmatch(r"\d{8}", corp) or not re.fullmatch(r"\d{14}", receipt):
         raise ValueError("잘못된 공시 식별자")
     dt.datetime.strptime(published, "%Y%m%d")
-    if "정정" in report["report_nm"] or any(c in report.get("rm", "") for c in "정철"):
-        raise ValueError("정정·철회 관계 확인이 필요한 문서는 파일럿에서 준비하지 않습니다.")
+    if any(term in report["report_nm"] for term in ("정정", "철회")) or any(c in report.get("rm", "") for c in "정철"):
+        raise ValueError("정정·철회 관계를 확인하지 못한 공시는 준비하지 않습니다.")
     raw = root / "raw" / corp / receipt
     raw.mkdir(parents=True, exist_ok=True)
     archive = raw / "source.zip"
     if not archive.exists():
         payload = download_disclosure_original(receipt)
         temporary = raw / "source.zip.tmp"
-        temporary.write_bytes(payload); temporary.replace(archive)
+        temporary.write_bytes(payload)
+        temporary.replace(archive)
     payload = archive.read_bytes()
     digest = hashlib.sha256(payload).hexdigest()
     index = root / "indexes" / VERSION / receipt
-    with _database(root) as db:
-        existing = db.execute("SELECT * FROM reports WHERE receipt=?", (receipt,)).fetchone()
-        if existing and existing["model"] == MODEL and existing["version"] == VERSION and existing["raw_hash"] == digest:
-            if (index / "vectors.npy").exists():
-                count = db.execute("SELECT COUNT(*) FROM chunks WHERE receipt=?", (receipt,)).fetchone()[0]
-                return {"receipt": receipt, "chunks": count, "cached": True, "raw_hash": digest}
-    blocks = parse_archive(payload, receipt)
-    chunks = make_chunks(blocks)
     parsed = root / "parsed" / receipt / VERSION
-    parsed.mkdir(parents=True, exist_ok=True)
-    for name, values in [("blocks", blocks), ("chunks", chunks)]:
-        (parsed / f"{name}.jsonl").write_text("".join(json.dumps(v, ensure_ascii=False) + "\n" for v in values))
+    try:
+        manifest = json.loads((raw / "manifest.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        manifest = {}
+    parsed_values = None
+    if (manifest.get("raw_hash") == digest and manifest.get("parser_version") == VERSION
+            and manifest.get("corp_code") == corp and manifest.get("rcept_dt") == published):
+        parsed_values = _read_parsed(parsed)
+    if parsed_values is not None:
+        blocks, chunks = parsed_values
+        ids = [c["chunk_id"] for c in chunks]
+        vectors = _load_vectors(index, ids)
+        with _database(root) as db:
+            existing = db.execute("SELECT * FROM reports WHERE receipt=?", (receipt,)).fetchone()
+            stored = db.execute("SELECT id, vector_row, payload FROM chunks WHERE receipt=? ORDER BY vector_row", (receipt,)).fetchall()
+            fts_ids = [r[0] for r in db.execute("SELECT id FROM chunks_fts WHERE receipt=?", (receipt,))]
+            if (existing and existing["model"] == MODEL and existing["version"] == VERSION
+                    and existing["raw_hash"] == digest and existing["corp"] == corp
+                    and existing["published"] == published and vectors is not None
+                    and [r["id"] for r in stored] == ids
+                    and [r["vector_row"] for r in stored] == list(range(len(ids)))
+                    and [json.loads(r["payload"]) for r in stored] == chunks
+                    and sorted(fts_ids) == sorted(ids)):
+                return {"receipt": receipt, "chunks": len(chunks), "cached": True, "raw_hash": digest}
+    else:
+        blocks = parse_archive(payload, receipt)
+        chunks = make_chunks(blocks)
+        parsed.mkdir(parents=True, exist_ok=True)
+        for name, values in [("blocks", blocks), ("chunks", chunks)]:
+            destination = parsed / f"{name}.jsonl"
+            temporary = destination.with_suffix(".jsonl.tmp")
+            temporary.write_text("".join(json.dumps(v, ensure_ascii=False) + "\n" for v in values), encoding="utf-8")
+            temporary.replace(destination)
+    if not chunks:
+        raise ValueError("검색할 청크가 없습니다.")
     manifest = dict(report, raw_hash=digest, parser_version=VERSION,
-                    retrieved_at=dt.datetime.now(dt.timezone.utc).isoformat())
-    (raw / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2))
-    vectors = embed([c["search_text"] for c in chunks])
-    if len(vectors) != len(chunks): raise ValueError("청크·벡터 수 불일치")
-    index.mkdir(parents=True, exist_ok=True)
-    with (index / "vectors.tmp").open("wb") as f: np.save(f, vectors)
-    (index / "vectors.tmp").replace(index / "vectors.npy")
-    (index / "chunk_ids.json").write_text(json.dumps([c["chunk_id"] for c in chunks]))
+                    retrieved_at=manifest.get("retrieved_at", dt.datetime.now(dt.timezone.utc).isoformat()))
+    _write_json(raw / "manifest.json", manifest)
+    ids = [c["chunk_id"] for c in chunks]
+    signature = {"raw_hash": digest, "model": MODEL, "version": VERSION}
+    try:
+        indexed_signature = json.loads((index / "manifest.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        indexed_signature = None
+    vectors = _load_vectors(index, ids) if indexed_signature == signature else None
+    if vectors is None:
+        vectors = np.asarray(embed([c["search_text"] for c in chunks]), dtype=np.float32)
+        if vectors.ndim != 2 or len(vectors) != len(chunks) or not np.isfinite(vectors).all():
+            raise ValueError("청크·벡터 모양 또는 값 불일치")
+        if np.any(np.linalg.norm(vectors, axis=1) == 0):
+            raise ValueError("빈 임베딩 벡터")
+        index.mkdir(parents=True, exist_ok=True)
+        with (index / "vectors.tmp").open("wb") as file:
+            np.save(file, vectors)
+        (index / "vectors.tmp").replace(index / "vectors.npy")
+        _write_json(index / "chunk_ids.json", ids)
+        _write_json(index / "manifest.json", signature)
+    # 이 트랜잭션 완료가 준비 완료 표시. 중간 실패 시 파일은 다음 호출에서 재사용.
     with _database(root) as db:
         db.execute("DELETE FROM chunks_fts WHERE receipt=?", (receipt,))
         db.execute("DELETE FROM chunks WHERE receipt=?", (receipt,))
@@ -119,6 +190,33 @@ def prepare_report(report: dict, root: Path = DEFAULT_ROOT, *, embed=embed_texts
                        (chunk["chunk_id"], receipt, " ".join(_terms(chunk["search_text"]))))
     return {"receipt": receipt, "blocks": len(blocks), "chunks": len(chunks),
             "cached": False, "raw_hash": digest, "embedding_model": MODEL}
+
+
+def prepare_report(report: dict, root: Path = DEFAULT_ROOT, *, embed=embed_texts) -> dict:
+    """공시 하나의 원문·추출·색인을 잠금 안에서 확인하고 부족한 단계만 준비한다.
+
+    Args: report는 DART 실제 항목, root는 저장소, embed는 배치 임베딩 함수.
+    Returns: 접수번호·청크 수·캐시 재사용 여부. 원문과 완료된 단계를 재사용한다.
+    Raises: 미확인 정정/철회와 입력·파싱 오류는 ValueError. 외부·저장 오류는 전파.
+    파일 저장 후 SQLite 트랜잭션으로 준비 완료를 기록하며 단일 프로세스만 지원한다.
+    """
+    with _PREPARATION_LOCK:
+        return _prepare_report_locked(report, Path(root), embed)
+
+
+def ensure_disclosures_ready(reports: list[dict], root: Path = DEFAULT_ROOT,
+                             *, embed=embed_texts) -> list[dict]:
+    """확정된 최대 두 공시를 준비하고 검색 가능한 접수번호별 결과를 반환한다.
+
+    Args: reports는 회사·기준일·정정 검사까지 끝난 대상 목록, root는 저장소.
+    Returns: 준비 결과 목록. 잠금 획득 뒤 원문·청크·색인 상태를 다시 확인한다.
+    Raises: 두 건 초과는 ValueError. 각 문서의 준비 실패는 호출자에게 전파한다.
+    다운로드·임베딩·로컬 파일 및 SQLite 쓰기가 발생할 수 있다.
+    """
+    if len(reports) > 2:
+        raise ValueError("한 번에 준비할 공시는 최대 두 건입니다.")
+    with _PREPARATION_LOCK:
+        return [_prepare_report_locked(report, Path(root), embed) for report in reports]
 
 
 def search_evidence(query: str, corp_code: str, as_of_date: str,
@@ -201,3 +299,16 @@ def search_evidence(query: str, corp_code: str, as_of_date: str,
             vector_rank=semantic.index(cid)+1 if cid in semantic else None))
         if len(evidence) >= limit: break
     return evidence
+
+
+def retrieve_evidence(query: str, corp_code: str, as_of_date: str,
+                      root: Path = DEFAULT_ROOT, *, receipt_ids: list[str],
+                      section_hint: str = "", limit: int = 5, embed=embed_texts) -> list[dict]:
+    """준비된 대상 접수번호 안에서 기존 파일럿의 순위 결합 방식으로 검색한다.
+
+    Args: 회사·기준일·접수번호는 코드가 고정하고 query/section_hint만 모델 입력.
+    Returns: 원문·부모 문맥·위치가 포함된 검색 근거. 미검색은 빈 목록.
+    Raises: 입력·색인 불일치 및 임베딩 오류를 전파한다. 원문 준비를 반복하지 않는다.
+    """
+    return search_evidence(query, corp_code, as_of_date, root, receipt_ids=receipt_ids,
+                           section_hint=section_hint, limit=limit, embed=embed)

@@ -1,4 +1,4 @@
-"""외부 API 없이 원문 보존·캐시·검색 경계·Tool 예산을 검증한다."""
+"""외부 API 없이 원문 보존·캐시·검색 경계·고정 Tool 입력을 검증한다."""
 
 import io
 import json
@@ -68,14 +68,20 @@ class RagTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             with self.assertRaises(ValueError): prepare_report(dict(REPORT, rm="정"), Path(tmp), embed=fake_embed)
 
-    @patch("stock_agent.tools.disclosure_rag.search_evidence", return_value=[])
-    def test_tool_fixed_scope_and_budget(self, search):
+    @patch("stock_agent.tools.disclosure.retrieve_evidence", return_value=[])
+    @patch("stock_agent.tools.disclosure.ensure_disclosures_ready")
+    @patch("stock_agent.tools.disclosure.discover_disclosures",
+           return_value={"reports": [REPORT], "limitations": [], "reason": None})
+    def test_tool_fixed_scope_runtime_owns_budget(self, discover, ready, search):
         tool = make_disclosure_search_tool("00126380", "2026-03-10")
-        for _ in range(3): tool.invoke({"question": "차입금"})
-        fourth = json.loads(tool.invoke({"question": "다시 검색"}))
-        self.assertEqual(fourth["status"], "budget_exhausted")
-        self.assertEqual(search.call_count, 3)
+        for _ in range(4):
+            result = json.loads(tool.invoke({"question": "차입금"}))
+            self.assertEqual(result["status"], "unavailable")
+            self.assertEqual(result["reason"], "no_hits")
+        self.assertEqual(search.call_count, 4)
         self.assertEqual(search.call_args.args[1:3], ("00126380", "2026-03-10"))
+        self.assertEqual(search.call_args.kwargs["receipt_ids"], [REPORT["rcept_no"]])
+        self.assertEqual(set(tool.args), {"question", "section_hint"})
 
     @patch("stock_agent.vendors.dart_client._get_api_key", return_value="test-only")
     @patch("stock_agent.vendors.dart_client.requests.get")
