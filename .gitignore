@@ -6,7 +6,7 @@
 # Python
 __pycache__/
 *.pyc
-.venv/
+.venv
 
 # Python 패키징 산출물
 *.egg-info/
@@ -14,7 +14,7 @@ build/
 dist/
 
 # Frontend
-node_modules/
+node_modules
 
 # 테스트 / 커버리지
 .pytest_cache/

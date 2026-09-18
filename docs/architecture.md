@@ -1,8 +1,64 @@
 # 아키텍처 — Tomade
 
-> 2026-09-14 코드 대조. 배포 단위가 아닌 요청 처리 흐름과 책임을 설명한다.
+> 2026-09-18 v2 조사 경로·Tool·구조화 보고서 반영. 배포 단위가 아닌 요청 처리 흐름과 책임을 설명한다.
 
 ## 현재 구현 범위
+
+### v2 종목 조사 경로
+
+현재 v2 작업은 `codex/agent-v2`, `/Users/anjeongseob/.codex/worktrees/agent-v2/stock_agent`에서 진행한다. 이전 `feature/disclosure-rag` 파일럿을 이어 받은 개발 브랜치이며 main 병합 여부·검증 결과와 아래 구현 구조는 구분한다.
+
+```mermaid
+flowchart TD
+    Q["사용자 질문"] --> U["upper_agent<br/>직접 답변 또는 ResearchPlan"]
+    U -->|직접 답변| A["final_answer"]
+    U -->|조사| P["request_parser<br/>후보 추출 + DART·Python 검증"]
+    P --> G["ResearchMandate + 자기 ResearchTask<br/>선택된 최대 5개 Worker 병렬 실행"]
+    G --> T["일반 Worker<br/>한도 내 Tool 호출"]
+    G --> F["Technical·Sentiment<br/>코드가 먼저 고정 자료 수집"]
+    T --> E["EvidenceLedger<br/>원본 근거·날짜·크기 확인"]
+    F --> E
+    E --> D["WorkerDraft<br/>모델의 주장 + 근거 ID"]
+    D --> R["finish_report<br/>질문 누락·근거 ID 검사"]
+    R --> W["WorkerReport 또는 WorkerError"]
+    W --> S["같은 upper_agent<br/>참조된 근거와 한계를 종합"]
+    S --> A
+```
+
+`agents/worker.py`의 `run_worker()`가 일반 Worker의 조사 루프를 직접 제어한다. Tool 목록은 각 역할 모듈이 고정하고 Tool factory는 검증된 종목·회사·기간을 묶어 모델이 다른 대상으로 바꾸지 못하게 한다. 모델은 허용된 검색어·목차 힌트 등만 선택한다. Technical은 지표 Tool을 한 번 선조회하고 Sentiment는 일반 Python 수집 함수를 실행한 뒤 구조화 보고서 모델을 한 번 호출한다. 사용 가능한 근거가 없으면 보고서 모델 호출을 생략한다.
+
+| Worker | 자료와 허용 기능 | 호출 예산 | 전체 기한 |
+| --- | --- | --- | --- |
+| Business | `search_disclosure_evidence`, `get_financial_evidence` | 총 5회, 공시 3회·재무 2회 이내 | 600초 |
+| Macro / Sector | `search_web` | 3회 | 180초 |
+| Event / Catalyst | `get_market_evidence`, `search_web`, `search_disclosure_evidence` | 총 5회, 시세 1회·웹 3회·공시 3회 이내 | 600초 |
+| Technical | `get_technical_evidence` 선조회 | 1회 | 180초 |
+| Sentiment | `collect_sentiment_evidence`, 모델 Tool 없음 | 표본 준비 1회 | 180초 |
+
+조사 판단 모델은 최대 6회, 별도 `WorkerDraft` 생성은 최대 1회다. 전체 기한의 1/3(최대 120초)을 보고서 생성에 예약하여 Business·Event는 조사 480초·보고 최대 120초, 다른 역할은 조사 120초·보고 최대 60초로 나눈다. 조사 모델이 시간 초과해도 확보한 근거가 있으면 보고 단계로 전환한다. 모델 호출 한 번은 120초, 일반 Tool은 90초, 공시 Tool은 480초 상한이며 해당 단계의 남은 시간이 더 짧으면 그 시간을 적용한다. 같은 Tool·같은 인자의 반복은 실행 전에 차단한다. 자료를 확보했으면 한도 안에서 보고하고, 보고서 형식·근거 참조가 잘못되면 자동 재시도 없이 `WorkerError`로 분리한다. 취소는 추가 호출·응답 전달을 중단하지만 이미 시작된 동기 외부 HTTP의 즉시 종료까지 보장하지 않는다.
+
+#### 근거와 보고서의 책임
+
+- `EvidenceLedger`가 공개일·관측 종료일을 기준일과 대조하고, 실제 Tool이 만든 Evidence만 보관한다. Business는 24개, 다른 일반 Worker는 12개, Sentiment는 40개 상한이다. 본문은 4,000자, 댓글은 600자로 제한한다.
+- 모델 출력 `WorkerDraft`에는 주장·질문 번호·근거 ID·미확인 이유만 둔다. `finish_report()`가 모든 질문의 답변 또는 미확인 분류, 존재하는 근거 ID 참조를 검사한 뒤 **참조한 원본 Evidence만** `WorkerReport`에 붙인다.
+- 근거 일부 확보는 `partial`, 정상적인 근거 미확보는 `unavailable`, 통신·기한·출력 계약 실패는 `WorkerError`다. 일부 역할 실패로 다른 역할의 결과를 버리지 않고 종합 단계에 함께 전달한다.
+- Worker 입력은 자기 `ResearchTask`와 공통 `ResearchMandate`다. 사용자 기억·최근 대화·다른 Worker 보고서는 제공하지 않는다. 상위 Agent는 선택된 결과만 JSON으로 받아 사실·해석·충돌·한계를 설명한다.
+- ID의 존재·질문 누락 검사는 인용 문장의 의미나 투자 판단의 정확성을 검증하는 기능과 별개다. 최종 답변은 Markdown 문자열이며 상위 Agent의 최종 주장 전체를 독립 검증하는 노드는 없다.
+
+#### Tool 내부 데이터 경로
+
+| 기능 | 코드의 처리 | 주요 한계 |
+| --- | --- | --- |
+| 공시 RAG | DART 발견 → 준비 상태 확인·원문 다운로드 → 문단·표 청킹 → SQLite FTS5 + NumPy 벡터 → RRF·부모 문맥 → 최대 5개 근거 | Business는 550달력일 정기보고서 최신·이전 기간 최대 2건, Event는 요청 기간 최신 2건. 정정 관계 불명은 제외 |
+| 재무 | DART 정기보고서 선택 → CFS 우선·자료 없음만 OFS → 접수번호·기간·통화 대조 → Decimal 계산 | 초기 12월 결산 회사·최신 회계기간. 정정된 수치의 완전한 과거 재현은 미지원 |
+| 웹 | Tavily Search 최대 5개 → 날짜 필터 → 상위 3개 Extract → 원문별 최대 1,600자 | 공개일은 제공처 추정. `search_snippet`과 원문 발췌 구분, 과거 버전 복원 미지원 |
+| 시세 | 확정된 종목·기간의 일봉과 급등락일, 1일 요청은 1분봉을 30분 구간으로 집계 | 일봉이 1개뿐이면 기간 수익률은 `null`. 최근 전일 대비 등락률은 `latest_daily_change_pct`로 별도 반환 |
+| 기술 | 완료된 일봉 120달력일, 부족 시 365일까지 한 번 확장 → XKRX 세션 대조 → SMA20/60·이격률·거래량 비율·변동성 | 당일 봉 제외. 조정 정책·과거 당시 가격 재현 미검증, 예상 거래일 누락은 관련 지표 계산 불가 |
+| 댓글 | 회사·금융 주제 영상 최대 3개 → 영상당 댓글 최대 50개 → 작성·수정일·관련성·중복 필터 → 최대 40개 | 최상위 댓글만 사용. 10개 미만 등은 부분 확보, 전체 투자자 대표성 없음 |
+
+RAG 원문·청크·벡터·목록은 `data/disclosures/`에 저장한다. 새 요청도 공시를 먼저 발견해 대상 목록을 정하고, 단일 프로세스 잠금 후 준비 상태를 재확인한다. 이미 완료한 원문·파싱·색인 단계는 재사용한다. **검색 결과 없음은 원문 부재와 다르며 자동 재색인의 사유가 아니다.** 임베딩은 `text-embedding-3-small`과 `OPENAI_API_KEY`를 사용하므로 모델을 Codex 구독으로 호출해도 별도 API 사용량이 발생한다.
+
+공시 공개일·YouTube 댓글 작성일·웹 추정 공개일·가격 관측일은 서로 다른 시간 정보다. 현재 시점에 조회한 수정 본문·수정주가를 과거 당시 데이터로 완전히 복원한다고 보장하지 않는다. 외부 본문·댓글은 명령이 아닌 조사 자료로 취급한다. 상세 필드는 [스키마](schema.md#종목-조사--v2)를 따른다.
 
 ### 도트 사무실 UI
 
@@ -56,12 +112,12 @@
 
 ### 계층형 프롬프트와 입력 조립
 
-- `src/stock_agent/prompts/`의 `orchestrator.md`, `request_parser.md`, `business.md`, `macro_sector.md`, `event_catalyst.md`가 IDENTITY·CONSTRAINTS·CAPABILITIES·CONTEXT·BEHAVIOR·KNOWLEDGE 순서의 고정 지침을 관리한다. `common.md`는 전체 공통 제약과 Worker 공통 제약·보고 방식을 제공한다.
+- `src/stock_agent/prompts/`의 `orchestrator.md`, `request_parser.md`, `business.md`, `macro_sector.md`, `event_catalyst.md`, `technical.md`, `sentiment.md`가 IDENTITY·CONSTRAINTS·CAPABILITIES·CONTEXT·BEHAVIOR·KNOWLEDGE 순서의 고정 지침을 관리한다. `common.md`는 전체 공통 제약과 Worker 공통 제약·보고 방식을 제공한다.
 - `prompts/builder.py`의 `build_system_prompt()`는 코드가 지정한 역할의 파일과 공통 구역을 호출마다 읽는다. 고정 문구를 조립한 다음 전달받은 동적 값을 한 번만 삽입하며, 사용자 텍스트 안의 중괄호를 다시 해석하지 않는다. 필수 파일·구역·변수 누락이나 불필요한 입력 변수는 오류로 처리한다.
 - 상위 Agent는 같은 템플릿에 현재 날짜와 `initial`/`synthesis` 단계, 준비된 사용자 기억·세션 요약을 넣는다. 기억이 없으면 빈 문자열을 사용한다. 메모리 조회·저장·DB·모델 호출은 Builder의 책임이 아니다.
 - Parser는 오늘 날짜만 시스템 프롬프트에 넣고 현재 질문은 별도 user 메시지로 유지한다. Worker는 조사 조건·자신의 목표·질문·완료 기준을 기존 user 메시지로 받으며, 시스템 프롬프트에는 이 필드의 의미와 역할 지침을 넣는다.
 - Tool 권한과 출력 스키마는 기존 코드에 둔다. Worker는 사용자 기억·최근 대화·다른 Worker 보고서를 모델 입력에 넣지 않는다. 실행 중 수집한 근거는 Tool 호출·결과 메시지로 유지한다.
-- Event/Catalyst의 Market 선행 조회 안내는 BEHAVIOR로 모았다. 선행 순서·근거 충실성·보고서 완료 기준은 프롬프트로 유도하며 독립 검증을 추가한 것은 아니다. 공시 본문 미조회·오늘 기준 공시 목록·검색 본문 일부 반환의 한계를 각 역할 지침에 반영한다.
+- Event/Catalyst는 가격 변동 원인 질문에서 시세를 먼저 확인하고 예정 일정 질문에서는 공시·발표부터 조사하도록 안내한다. 이 선택의 적절성·근거 충실성·완료 기준의 의미는 프롬프트에 의존하며, 코드가 Tool 권한·조건·예산·보고서 참조를 별도로 검사한다.
 - Markdown 파일은 Python 패키지 데이터로 포함한다. 단기 요약 모델과 포트폴리오 분류·해설 모델은 이번 분리 대상이 아니다.
 
 ### 상위 Agent와 LangGraph
@@ -87,7 +143,7 @@
 - 우측 상단 설정 창(`frontend/settings.ts`)은 `backend/model_settings.py`에서 서버의 실제 선택 공급자·역할별 모델·키 유무·저장된 인증 상태를 조회한다. 토큰·계정 식별자는 응답에 포함하지 않으며 조회만으로 모델 연결 성공을 판정하지 않는다. Chat/Research의 `run.started.connection`은 해당 요청이 선택한 방식도 전달한다.
 - 웹 기기 로그인은 CLI와 같은 `CodexAuth.start_login()`·`poll_login()`을 사용한다. 서버 단일 프로세스에 대기 세션 하나만 보관하고 창이 열렸을 때만 간격을 지켜 승인 조회한다. 로그인 성공은 인증 저장까지만 수행하며 공급자 변경은 별도 적용 버튼으로 요청한다.
 - 명시적 전환은 `.env`의 `LLM_PROVIDER` 저장 → 프로세스 환경 갱신 → 모델 캐시 비우기 순서다. `model_session()`이 Chat·Research·포트폴리오 진단 전체 실행을 감싸 진행 중 전환을 거부한다. 모델 ID·API 키·LangGraph 노드·Tool·Memory 계약은 바꾸지 않는다. 여러 서버 프로세스 사이의 설정 동기화는 지원하지 않는다.
-- 구독 역할 편집은 `PUT /api/settings/codex/models`로 네 역할의 모델·추론을 검증하고 기존 `.env`를 복사한 임시 파일을 완성한 뒤 원자적으로 교체한다. 성공 후 프로세스 환경과 캐시를 갱신한다. 실행 중 또는 API Key 방식에서는 거부한다. 모델은 기존 역할별 변수, 추론은 `CODEX_<역할>_REASONING_EFFORT`에 저장하며 구독에서만 Responses `reasoning.effort`로 전달한다. 빈 값은 공급자 기본 추론이다. Reviewer 호출 경로는 없고 세 Worker는 공통 설정을 유지한다.
+- 구독 역할 편집은 `PUT /api/settings/codex/models`로 네 역할의 모델·추론을 검증하고 기존 `.env`를 복사한 임시 파일을 완성한 뒤 원자적으로 교체한다. 성공 후 프로세스 환경과 캐시를 갱신한다. 실행 중 또는 API Key 방식에서는 거부한다. 모델은 기존 역할별 변수, 추론은 `CODEX_<역할>_REASONING_EFFORT`에 저장하며 구독에서만 Responses `reasoning.effort`로 전달한다. 빈 값은 공급자 기본 추론이다. Reviewer 호출 경로는 없고 다섯 Worker는 공통 설정을 유지한다.
 - `gateways/llm.py:get_chat_model()`이 `openai`, `openrouter`, `openai_codex`를 선택한다. 구독은 `LLM_PROVIDER=openai_codex`로 명시적으로 선택하며 API 키 유무에 따른 기존 자동 선택은 API 공급자에만 적용한다. 역할별 모델 선택과 Agent·Tool·프롬프트·Memory 흐름은 유지한다.
 - `gateways/codex_auth.py`의 CLI가 기기 코드 OAuth 로그인을 제공한다. `CODEX_AUTH_PATH` 또는 `~/.config/stock-agent/codex-auth.json`에 프로젝트 전용 세션을 저장하며 다른 앱의 Codex 인증 파일은 읽거나 수정하지 않는다. 파일은 현재 사용자 소유의 일반 파일·권한 600을 요구한다. 임시 파일과 원자적 교체로 갱신하며 로그아웃은 로컬 파일만 삭제한다.
 - 호출 시 최신 토큰을 읽고 만료 60초 전부터 갱신한다. 파일 잠금으로 스레드·프로세스의 동시 갱신을 직렬화하며 잠금 대기는 60초로 제한한다. 401이면 거절된 토큰과 현재 저장 토큰을 비교해 이미 갱신된 값은 재사용하고 한 번만 재요청한다. 인증 누락·취소·갱신 실패·429에 API Key fallback은 없다.
@@ -120,17 +176,17 @@
 ### Request Parsing
 
 - `PARSER_MODEL` 사용
-- 회사 후보·조사 질문·기준일·기간 추출
+- 회사 후보·조사 질문·기준일·자료 조회 기간·투자 기간 추출
 - 상대 날짜 계산용 기준 날짜는 시스템 메시지에, 사용자 원문은 user 메시지에 분리한다. 원문에 날짜·기간이 없으면 null을 추출하고 Python에서 오늘·30일을 적용한다.
 - Pydantic `ParsedRequest` 반환
 - Tool과 금융 분석 없음
 
 ### Deterministic Input Validation
 
-- DART 회사명 확인과 내부 종목코드 자동 변환
+- DART 회사명 확인과 종목코드·회사 식별자 확정
 - 복수 종목 거부
 - 날짜 형식과 미래 날짜 검사
-- 기간 기본값·범위 검사
+- 기간 미지정만 30일 기본값, 1~3650일 범위 검사. KST 기준일과 포함형 조회 시작·종료일 생성
 - 잘못된 입력은 `input_error`로 조기 종료
 - 검증된 입력과 공통 제약을 `ResearchMandate`로 생성
 
@@ -144,9 +200,12 @@
 ### Worker Agent
 
 - ResearchPlan에 포함된 Worker만 조건부 edge로 선택해 병렬 실행
-- Business: `get_disclosure`
+- Business: `search_disclosure_evidence`, `get_financial_evidence`
 - Macro/Sector: `search_web`
-- Event/Catalyst: `get_market_evidence`, `search_web`, `get_disclosure`
+- Event/Catalyst: `get_market_evidence`, `search_web`, `search_disclosure_evidence`
+- Technical: 코드가 `get_technical_evidence`를 한 번 호출한 뒤 모델 해석
+- Sentiment: 코드가 `collect_sentiment_evidence`를 실행한 뒤 모델 해석, 모델 Tool 없음
+- 공통 실행기의 구조화 보고서는 역할별 `*_report`에 저장하며 원문 Evidence는 코드가 첨부
 
 ### 같은 상위 Agent — 조사 후 종합
 
@@ -158,7 +217,7 @@
 
 - 직접 지정한 종목 조사와 기존 Research API 실행에만 `traces/YYYY-MM-DD/<run_id>.json` 생성
 - Chat은 검증·Worker 하위 그래프를 기록하며 상위 Agent 호출·일반 답변은 제외한다. 조사 전용 API는 상위 Agent 호출까지 기록한다. 포트폴리오 진단은 제외한다.
-- Evidence ID는 완료된 Tool 호출 ID이며 주장·인용의 타당성을 검증한 결과가 아님
+- Trace의 `evidence_tool_call_ids`는 완료된 Tool 호출 ID. v2 `Evidence.evidence_id`는 본문·계산·댓글 항목의 별도 ID이며 둘을 같은 식별자로 취급하지 않음
 - Worker 내부 Tool 이름·인자·결과와 Evidence Tool 호출 ID 기록
 - 기록 범위 안의 Parser·상위 Agent·Worker 모델 호출 횟수 기록
 - 상위 LangGraph 노드별 실행 시간 기록
@@ -189,9 +248,10 @@ raw_user_input
 - **계획과 실행 분리:** LLM이 Structured Plan을 작성하고 LangGraph가 Worker 경로를 제어한다. Worker별 Tool 권한은 코드로 제한한다.
 - **계좌 진단 분리:** 숫자는 Python으로 계산하고 AI는 업종 추정·해설을 담당한다. 계좌 구성 진단 때문에 종목 리서치 전체를 실행하지 않는다.
 - **대화 원문과 모델 맥락 분리:** DB 원문은 유지하고 모델에는 누적 요약과 최근 완료된 10턴을 전달한다. 요약 손실과 장문 입력 한도는 별도 평가가 필요하다.
-- **DART:** 회사 확인·공시 목록을 제공한다. 공시 본문·재무 수치를 가져오지 않으며 목록 조회는 오늘 기준이다. 비정상 응답 코드가 빈 목록으로 처리되는 한계가 있다.
-- **Tavily:** 검색 결과의 제목·URL·본문 일부를 제공한다. 원문 전체를 읽거나 자료 공개일을 강제 검증하지 않는다.
-- **Toss:** 시세·보유 현황·상품 정보를 제공한다. 계좌 진단은 국내 원화 일반 주식으로 제한한다.
+- **DART:** 회사 확인·공시 원문·구조화 재무를 조회한다. 공시 선택 수·기간과 정정 관계 미확인 항목의 보수적 제외로 검색 범위가 제한되며, 재무 API의 현재 수정값을 과거 값으로 사용할 수 없으면 자료 미확보로 보고한다.
+- **Tavily:** 날짜를 확인할 수 없는 후보를 제외하고 원문 추출을 시도한다. 제공처의 추정 공개일·검색 발췌·현재 웹 본문은 과거 원본 확인과 구분한다.
+- **Toss:** 시세·보유 현황·상품 정보를 제공한다. Technical은 정밀도 보존 일봉과 XKRX 캘린더로 계산하며 누락·조정 정책 한계를 유지한다. 계좌 진단은 국내 원화 일반 주식으로 제한한다.
+- **YouTube:** 회사 관련 영상의 댓글 표본만 제공한다. 실제 투자자 여부·시장 전체 대표성은 확인하지 않는다.
 - 모든 외부 근거의 기준일 준수·금융적 정확성은 보장되지 않는다. 자동 평가는 [평가 안내](../evals/README.md)의 제한된 계약 범위다.
 
 ## 코드 구조
@@ -220,11 +280,12 @@ src/stock_agent/
 ├── trajectory.py
 ├── control/
 │   └── request_parser.py
-├── agents/
+├── agents/                 # upper + 5 Workers, worker.py 실행·근거·보고서 검증
 ├── gateways/
 ├── portfolio/              # schemas·analysis·service
-├── tools/
-└── vendors/
+├── tools/                  # 회사·기간이 고정된 LLM 인터페이스와 댓글 수집
+├── rag/                    # 공시 발견·원문·청킹·결합 검색
+└── vendors/                # DART·Tavily·Toss·YouTube 실제 호출
 ```
 
 전면 입구는 `office-shell-v1/entrance-v2.png`의 연결된 ㄱ자 목재·문턱·두 단 계단으로 구성한다. `createFrontSection`이 같은 소스로 직원실 438×44, 부장실 282×32 하단부를 독립 조립하며, 작은 별도 끝단 조각을 덧붙이던 배치를 대체한다.
@@ -232,8 +293,10 @@ src/stock_agent/
 대화 기록 선택·새 대화·삭제는 부장 대화창의 상단에 통합되어 있다. 별도 기록 모달과 우측 상단 기록·포트폴리오 버튼은 없다. 기존 질문·답변을 같은 대화 본문에 복원하며 사용자 질문은 오른쪽에 표시한다. 포트폴리오는 직원 사무실 오른쪽 아래 빈 칸을 산책하는 서류를 든 커비를 누르면 흰색 패널로 열린다. `portfolio-character.ts`가 `office-kirby-v2/walking-atlas.png`의 청록색 키 배경을 메모리에서 제거한다. 정면·후면·오른쪽 각 4프레임을 표시 크기×DPR의 Canvas로 한 번만 최근접 샘플링하고 왼쪽은 반전한다. 기준 격자는 96×96, CSS 크기는 약 6.48cqw로 직원과 같은 0.54 게임단위/픽셀 비율을 유지한다. 원본의 좁은 외곽 영역을 매트의 기본 외곽선과 같은 2도트 기준의 안쪽 윤곽으로 대체한다. 곡선은 원형 거리로 계산해 수평 상단과 대각선 구간의 두께 차이를 줄인다. 소품용 두꺼운 외곽선을 덧붙이지 않는다. 완성 프레임을 해상도별로 캐시하고 Canvas·CSS 크기와 이동 위치를 기기 픽셀에 정렬해 이중 축소·위치 변화에 따른 테두리 깜빡임을 줄인다. (356,405)·(418,405)·(418,338)·(356,338)의 빈 공간을 순환하고 걸음 프레임은 이동 거리에 연동한다. 도착·포커스·마우스 올림·포트폴리오 열기·모션 감소에서 멈추고, 숨겨진 페이지는 RAF를 중단한다. 커비는 화면 진입점이며 Backend Agent/Worker가 아니다. 기존 네 캐릭터의 산책·착석은 유지한다. 포트폴리오의 최초 열기 시 지연 로딩과 API 실행 규칙은 유지한다.
 
 
-## 공시 RAG 파일럿 · Worker 통합 전
+## 공시 RAG 파일럿 기록 · 2026-09-17
 
-`rag/parser.py`가 DART ZIP의 문단·표를 부모/자식 청크로 추출하고, `rag/service.py`가 `data/disclosures/`에 원문·SQLite FTS5·NumPy 벡터를 저장한다. 검색은 회사·기준일·선택 공시 필터 → BM25/벡터 → RRF → 주변 문맥 반환 순서다. `tools/disclosure_rag.py`는 조건을 고정하고 호출을 최대 3회로 제한하는 Tool factory다. 기존 Worker 그래프에는 아직 등록하지 않았다.
+다음은 Worker 통합 이전 파일럿 당시의 기록이다. 현재 구현은 위 v2 경로를 따르며, 아래 검색 검사 결과는 통합 이후의 품질 점수로 재해석하지 않는다.
 
-삼성전자 공시 1개에서 실제 검색을 수행했으며 지정 원문 위치 검사 1/3 통과, 2/3 실패다. 실패 후 개선은 수행하지 않았다. 정정 관계 자동 처리·기간 비교 계산·동시 수집은 미구현이다. [구현 범위와 검증 결과](disclosure-rag-pilot.md)를 참고한다.
+`rag/parser.py`가 DART ZIP의 문단·표를 부모/자식 청크로 추출하고, `rag/service.py`가 `data/disclosures/`에 원문·SQLite FTS5·NumPy 벡터를 저장한다. 검색은 회사·기준일·선택 공시 필터 → BM25/벡터 → RRF → 주변 문맥 반환 순서다. `tools/disclosure_rag.py`는 조건을 고정하고 호출을 최대 3회로 제한하는 Tool factory다. 당시 Worker 그래프에는 등록하지 않았다.
+
+삼성전자 공시 1개에서 실제 검색을 수행했으며 지정 원문 위치 검사 1/3 통과, 2/3 실패다. 당시 실패 후 개선은 수행하지 않았으며, 정정 관계 자동 처리·기간 비교 계산·동시 수집은 미구현이었다. [구현 범위와 검증 결과](disclosure-rag-pilot.md)를 참고한다.

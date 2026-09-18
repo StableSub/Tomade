@@ -1,6 +1,6 @@
 # 현재 스키마 — stock_agent
 
-> 2026-09-17 모델 연결 설정 추가. 목표 설계와 현재 계약을 구분한다.
+> 2026-09-18 v2 조사 계약 반영. 현재 코드의 입출력과 실행 경계를 설명한다.
 
 ## 모델 연결 설정
 
@@ -70,39 +70,153 @@ resolved_questions의 네 문자열을 요구한다. 공백만 있는 값은 거
 호출 한도 도달 시 done=true를 추가한다. 파일은 `memory/local/USER.md`이며 항목 구분자는 `\n§\n`이다.
 새 API·DB 컬럼은 추가하지 않는다.
 
-## 종목 조사
+## 종목 조사 · v2
 
-`src/stock_agent/state.py`가 현재 정의다.
+`src/stock_agent/state.py`의 실제 모델과 `agents/worker.py`의 실행 검증 기준이다. 상위 Agent의 첫 판단이 파싱보다 앞선다.
 
-| 타입 | 실제 필드 |
+```mermaid
+flowchart TD
+    Q["raw_user_input"] --> U["UpperDecision<br/>직접 답변 또는 ResearchPlan"]
+    U -->|일반 질문| A["final_answer"]
+    U -->|조사| P["ParsedRequest<br/>현재 질문의 후보 추출"]
+    P --> V["DART·Python 검증<br/>ResearchMandate"]
+    U -.-> T["ResearchTask<br/>자기 역할의 질문·완료 기준"]
+    V --> W["선택 Worker의 입력"]
+    T --> W
+    W --> E["Tool·수집 코드<br/>Evidence 생성"]
+    E --> D["모델 WorkerDraft<br/>판단과 근거 ID 선택"]
+    D --> R["코드 검증 + 원본 근거 첨부<br/>WorkerReport 또는 WorkerError"]
+    R --> S["같은 상위 Agent<br/>final_answer 문자열"]
+```
+
+### ParsedRequest — 모델이 추출한 후보
+
+| 필드 | 의미 |
 | --- | --- |
-| ParsedRequest | company_candidates, research_question, as_of_date, period_days, needs_clarification, clarification_reason |
-| ResearchMandate | original_question, research_question, ticker, corp_name, as_of_date, period_days, purpose, constraints |
-| ResearchTask | agent, objective, questions, completion_criteria |
-| ResearchPlan | planning_summary, tasks |
-| StockAgentState | memory_enabled, short_term_summary, recent_messages, raw_user_input, intent, research_only, run_id, parsed_request, input_error, research_mandate, research_plan, business_report, macro_sector_report, event_catalyst_report, final_answer |
+| `company_candidates` | 회사명 후보 목록. 기본 빈 목록 |
+| `research_question` | 회사·날짜 표현을 정리한 조사 질문 |
+| `as_of_date` | 기준일 후보. 미지정은 `null` |
+| `period_days` | 자료 조회 기간 후보. 미지정은 `null` |
+| `investment_horizon` | 사용자가 밝힌 투자 기간 문자열. 자료 조회 기간과 구분, 없으면 `null` |
+| `needs_clarification` | 모호한 대상·복수 종목 등 확인 필요 여부 |
+| `clarification_reason` | 확인이 필요한 이유. 없으면 `null` |
 
-ParsedRequest·ResearchTask·ResearchPlan은 Pydantic 모델이다. 날짜·기간 후보는 null이 가능하며 이후 Python이 검증·기본값 처리를 한다. ResearchMandate와 StockAgentState는 TypedDict이므로 그 자체가 런타임 검증을 실행하지 않는다.
+Pydantic 출력 형식 검증 이후 Python에서 모호함 → 회사 후보 → 기준일 → 기간 → 빈 질문 → DART 회사 코드 순서로 검증한다. 기준일 기본값은 KST 오늘, 조회 기간 기본값은 `None`일 때만 30일이다. 0·음수·3650일 초과는 거부하며 미래 기준일도 거부한다. 상대 날짜·별칭·질문 의미의 추출 정확성은 모델 판단이다.
 
-AgentName은 business / macro_sector / event_catalyst다. Plan tasks와 Task questions·completion_criteria는 최소 1개다. 같은 Agent 작업의 병합과 질문·완료 기준 최대 4개 처리는 스키마가 아니라 `_normalize_plan()`에서 수행한다.
+### ResearchPlan · ResearchTask — 조사할 내용
 
-### 입력 검증 순서와 계획 정규화
-
-상위 Agent가 조사 계획을 만든 뒤 Parser가 현재 질문에서 후보를 추출한다. 검증 코드는 다음 순서로 처리한다.
-
-| 순서 | 코드 검증·정규화 |
+| 필드 | 의미 |
 | --- | --- |
-| 1 | needs_clarification이면 사유와 함께 조기 종료 |
-| 2 | 회사 후보를 DART에서 확인; 미확인·0개·복수 회사 거부 |
-| 3 | 기준일 미지정은 오늘; 잘못된 ISO 날짜·미래 날짜 거부 |
-| 4 | 기간 기본값 30일, 허용 범위 1~3650일 |
-| 5 | 공백을 제거한 조사 질문이 비면 거부; 성공 시 Mandate 생성 |
+| `ResearchPlan.planning_summary` | 역할 선택과 조사 방향 설명 |
+| `ResearchPlan.tasks` | 하나 이상의 역할별 작업 |
+| `ResearchTask.agent` | `business`, `macro_sector`, `event_catalyst`, `technical`, `sentiment` 중 하나 |
+| `ResearchTask.objective` | 해당 역할의 조사 목표 |
+| `ResearchTask.questions` | 답할 질문 목록. 최소 1개 |
+| `ResearchTask.completion_criteria` | 조사에서 확인할 내용. 최소 1개 |
 
-현재 기간 기본값은 `parsed.period_days or 30`으로 처리하므로 0도 30으로 바뀐다. 0을 오류로 거부하는 구현은 아니다. 상대 날짜·별칭·질문 의미의 정확한 추출은 프롬프트에 의존한다.
+`_normalize_plan()`이 같은 역할의 작업을 병합하고 첫 목표를 유지한다. 질문·완료 기준의 중복을 제거해 각각 최대 4개로 제한하며 역할 순서를 고정한다. 완료 기준의 의미적 충족 여부를 독립 판정하는 코드는 없다.
 
-`ResearchMandate.original_question`은 Parser에 전달한 현재 원문이다. `_normalize_plan()`은 같은 Worker 작업을 병합하고 첫 objective를 유지하며 questions·completion_criteria를 중복 제거해 각각 최대 4개로 제한한다. 완료 기준의 실제 충족 여부를 독립 검증하는 코드는 없다.
+### ResearchMandate — 검증된 공통 조사 조건
 
-Worker 보고서와 최종 답변은 문자열이다. WorkerReport·Evidence·Confidence 구조화 모델과 심볼릭 검증 노드는 미구현이다.
+| 필드 | 의미 |
+| --- | --- |
+| `original_question` | Parser가 받은 현재 사용자 원문 |
+| `research_question` | 검증한 조사 질문 |
+| `ticker` | 국내 종목 코드 |
+| `corp_name` | 확인된 회사명 |
+| `corp_code` | DART 회사 식별자 |
+| `as_of_date` | 분석 기준일 `YYYY-MM-DD` |
+| `period_days` | 자료 조회 달력일 수, 1~3650 |
+| `query_start_date` | `as_of_date − (period_days − 1)`로 계산한 조회 시작일 |
+| `query_end_date` | 조회 종료일. 현재는 `as_of_date`와 동일 |
+| `investment_horizon` | 투자 기간 맥락. 조회 기간으로 자동 변환하지 않는 값 |
+| `purpose` | 근거 기반 조사·투자 판단 지원이라는 목적 |
+| `constraints` | 사실·해석·시점·자동 주문 제외에 관한 공통 지침 |
+
+시작일과 종료일은 모두 포함한다. `ResearchMandate`는 TypedDict이며 그 자체의 런타임 검증 기능은 없고 Parser 검증 코드와 Tool 생성·호출 경계에서 확인한다. 재무·기술 지표의 계산에 필요한 과거 자료 범위는 사건 조회 기간과 별개다.
+
+### Evidence — 코드가 확보한 원문·수치·댓글
+
+| 필드 | 의미 |
+| --- | --- |
+| `evidence_id` | 수집·계산 코드가 부여한 비어 있지 않은 근거 ID |
+| `kind` | `excerpt`, `metric`, `comment` |
+| `content` | 원문 문자열 또는 수치·산식 등이 담긴 객체 |
+| `source` | 제공처·URL·공시 위치·댓글 ID 등 자료별 출처 객체 |
+| `published_at` | 공개·작성 시각. 확인되지 않으면 `null` |
+| `observation_start` | 관측·계산 기간의 시작. 없으면 `null` |
+| `observation_end` | 관측·계산 기간의 종료. 없으면 `null` |
+| `retrieved_at` | 수집 시각 |
+| `limitations` | 절단·가격 조정·시점 확인 등 근거별 한계 |
+
+`EvidenceLedger`는 수집 근거의 날짜·중복 ID·입력 크기를 검사하고 원본을 보존한다. 공개일이 기준일보다 늦으면 제외한다. 공개일 없는 자료는 관측 종료일이 있는 `metric`만 허용하며 관측 종료일도 기준일 이하여야 한다. ID가 같으면서 내용이 다르면 오류다.
+
+Business는 최대 24개, 다른 일반 Worker는 12개, Sentiment는 40개를 보관한다. 문자열은 항목당 4,000자, 댓글은 600자로 자르고 한계를 표시한다. 4,000자를 넘는 구조화 객체는 잘라서 깨진 수치로 만들지 않고 항목 전체를 제외한다. 이 날짜 검사는 수정된 원문의 과거 버전이나 가격 조정의 과거 재현을 보장하지 않는다.
+
+### WorkerDraft → WorkerReport — 모델 판단과 원본 근거 결합
+
+모델은 `WorkerDraft`만 작성한다. `Evidence`·역할은 코드가 부착하므로 모델이 출처 본문을 새로 작성하는 출력 필드는 없다.
+
+| 필드 | 의미 |
+| --- | --- |
+| `WorkerDraft.status` | `complete`, `partial`, `unavailable` |
+| `WorkerDraft.findings` | 질문별 사실·해석 목록 |
+| `WorkerDraft.unanswered_questions` | 답하지 못했거나 일부만 답한 질문과 이유 |
+| `WorkerDraft.limitations` | 모델이 설명한 판단의 한계 |
+| `Finding.question_index` | 자기 `questions` 목록에서 0부터 시작한 질문 번호 |
+| `Finding.statement` | 비어 있지 않은 주장 |
+| `Finding.kind` | `fact` 또는 `inference` |
+| `Finding.evidence_ids` | 실제 받은 근거 ID 하나 이상 |
+| `UnansweredQuestion.question_index` | 미확인 질문 번호 |
+| `UnansweredQuestion.reason` | 비어 있지 않은 미확인 사유 |
+| `WorkerReport.agent` | 실행 코드가 확정한 역할 |
+| `WorkerReport.evidence` | 주장이 실제 참조한 원본 Evidence만 포함한 목록 |
+
+`WorkerDraft`, `Finding`, `UnansweredQuestion`은 추가 필드를 거부한다. `finish_report()`는 질문 번호가 배정 범위를 벗어나거나 누락되지 않았는지, 인용 ID가 실제 확보한 ID인지 검사한다. 부분 답변 질문은 `findings`와 `unanswered_questions` 양쪽에 나타날 수 있다. 코드가 수집한 한계와 Tool 실패 이유도 보고서에 합친다.
+
+| 상태 | 의미 |
+| --- | --- |
+| `complete` | 답변이 있고 미확인 질문 없음 |
+| `partial` | 답변과 미확인 질문이 모두 존재 |
+| `unavailable` | 답변 없이 미확인 질문만 존재 |
+
+근거를 하나도 얻지 못했고 실행 오류도 없으면 코드가 모든 질문을 미확인으로 한 `unavailable` 보고서를 생성한다. ID·형식 검증은 주장의 금융적 정확성이나 원문이 주장을 충분히 지지하는지에 대한 의미 검증과 별개다.
+
+### WorkerError — 정상적인 자료 부족과 다른 실행 실패
+
+| 필드 | 의미 |
+| --- | --- |
+| `agent` | 실패한 역할 |
+| `status` | 고정값 `error` |
+| `code` | 시간 초과·출력 형식·통신 등 오류 종류 |
+| `message` | 실패 원인 안내 |
+| `retryable` | 재실행 가능성 정보. 자동 재시도 실행을 의미하지 않음 |
+
+근거 없이 Tool 오류만 남거나 유효한 보고서를 만들 수 없으면 `WorkerError`를 반환한다. 다른 Worker는 계속 처리하고 상위 Agent에 성공 보고서와 오류를 함께 전달한다. 사용자 취소는 오류 보고서로 바꾸지 않고 호출자로 전파한다.
+
+### StockAgentState — 단계별 결과의 저장 위치
+
+| 필드 | 의미 |
+| --- | --- |
+| `raw_user_input` | 현재 질문 |
+| `run_id` | 요청 실행 식별자 |
+| `research_only` | 직접 답변 대신 조사 계획을 요구하는 내부 옵션 |
+| `memory_enabled` | 로컬 Chat의 상위 Agent 기억 사용 여부 |
+| `short_term_summary` | 상위 Agent에 제공할 세션 요약 |
+| `recent_messages` | 상위 Agent에 제공할 최근 완료된 대화 |
+| `intent` | `general` 또는 `research` |
+| `research_plan` | 상위 Agent의 조사 계획 |
+| `parsed_request` | Parser 추출 후보 |
+| `input_error` | 입력 검증 실패 안내 |
+| `research_mandate` | 검증된 공통 조사 조건 |
+| `business_report` | Business의 `WorkerReport` 또는 `WorkerError` |
+| `macro_sector_report` | Macro의 `WorkerReport` 또는 `WorkerError` |
+| `event_catalyst_report` | Event의 `WorkerReport` 또는 `WorkerError` |
+| `technical_report` | Technical의 `WorkerReport` 또는 `WorkerError` |
+| `sentiment_report` | Sentiment의 `WorkerReport` 또는 `WorkerError` |
+| `final_answer` | 상위 Agent가 작성한 최종 Markdown 문자열 |
+
+공유 State는 TypedDict이며 Worker별 별도 필드로 병합한다. 모델 입력은 `worker_input()`이 고른 자기 작업과 공통 조사 조건뿐이다. 조사 하위 그래프에는 장기 기억 사용 옵션·최근 대화·요약을 넘기지 않는다. 선택되지 않은 Worker의 결과 필드는 생성하지 않는다. HTTP·SSE의 직렬화는 [API 문서](api.md)의 v2 Worker 결과 계약을 따른다.
 
 ## 포트폴리오
 
@@ -129,8 +243,8 @@ Worker 보고서와 최종 답변은 문자열이다. WorkerReport·Evidence·Co
 - 실행 결과는 실제 모델 설정·버전 해시·미평가 항목과 사례별 반복 집계를 저장한다. 제품 API·공유 State 스키마는 이번 평가 변경으로 바뀌지 않았다.
 
 
-## 공시 근거 검색 · 내부 파일럿 계약
+## 공시 근거 검색 · 2026-09-17 파일럿 당시 계약
 
-공개 API/StockAgentState 변경은 없다. `search_evidence`는 질문, 고정 회사 코드·기준일, 선택 접수번호·목차 힌트를 받으며 `chunk_id`, `block_id`, `parent_id`, `member`, `source_line`, `section`, `kind`, `range`, `text`, `search_text`, `receipt_id`, `published_date`, `source_url`, `context`, `context_truncated`, BM25/벡터 순위와 RRF 점수를 반환한다. `range`는 본문은 문자 오프셋(끝 제외), 표는 원문 표의 행 범위(1부터, 끝 포함)다.
+아래는 v2 Worker 통합 이전의 역사적 계약이다. 현재 `search_disclosure_evidence`는 위의 공통 Evidence·보고서 계약을 사용하며 이 상태 이름은 현행 Worker 결과와 다르다. 당시 공개 API/StockAgentState 변경은 없었다. `search_evidence`는 질문, 고정 회사 코드·기준일, 선택 접수번호·목차 힌트를 받으며 `chunk_id`, `block_id`, `parent_id`, `member`, `source_line`, `section`, `kind`, `range`, `text`, `search_text`, `receipt_id`, `published_date`, `source_url`, `context`, `context_truncated`, BM25/벡터 순위와 RRF 점수를 반환한다. `range`는 본문은 문자 오프셋(끝 제외), 표는 원문 표의 행 범위(1부터, 끝 포함)다.
 
 Tool factory는 `retrieved`, `no_indexed_evidence`, `budget_exhausted`, `error` 상태를 JSON 문자열로 반환한다. `retrieved`는 관련 후보가 있다는 뜻이며 사실 정확성·조사 완료 판정이 아니다. [상세 검증](disclosure-rag-pilot.md).
