@@ -81,3 +81,10 @@
 ### 상위 Agent 통합 이후 평가 범위
 
 현재 routing suite는 별도 Planner가 아닌 상위 Agent의 첫 호출에 research_only를 적용해 Worker 선택을 평가한다. 일반 답변/조사 선택과 최종 종합 품질은 이 점수에 포함되지 않는다. 시스템 프롬프트가 변경됐으므로 이전 기준선과 비교할 때 프롬프트 해시와 입력 조건을 함께 확인한다.
+
+
+## 공시 1개 RAG smoke test
+
+`PYTHONPATH=src .venv/bin/python evals/scripts/check_disclosure_rag.py --env-file .env`
+
+사전에 준비한 삼성전자 20260310002820 공시 색인과 실제 임베딩 API를 사용한다. 정답 위치·구문을 고정한 3개 질문을 검색하고 회사·날짜 필터를 확인한다. 실패해도 자동 수정/재검색하지 않는다. 현재 지정 위치 검사 결과는 1/3 통과이며 종료 코드 1이다. 결과는 `evals/results/disclosure-rag-samsung.json`, 범위·해석은 [파일럿 보고서](../docs/disclosure-rag-pilot.md)에 기록했다.

@@ -1,0 +1,26 @@
+{
+  "description": "검색 전에 원문에서 정답 위치를 고정한 공시 1개 smoke test. 일반 품질 평가가 아님.",
+  "corp_code": "00126380",
+  "receipt_id": "20260310002820",
+  "as_of_date": "2026-09-17",
+  "cases": [
+    {
+      "id": "ds_business",
+      "query": "삼성전자 DS 부문은 어떤 사업들로 구성되어 있나요?",
+      "expected_block_id": "20260310002820:20260310002820.xml:271:0",
+      "expected_phrase": "DRAM, NAND Flash"
+    },
+    {
+      "id": "liquidity_policy",
+      "query": "해외 지역별 자금은 어떤 방식으로 운용하여 유동성 위험에 대응하나요?",
+      "expected_block_id": "20260310002820:20260310002820.xml:6061:0",
+      "expected_phrase": "권역내 자금을 통합운용하여 유동성위험에 대응"
+    },
+    {
+      "id": "borrowing_table",
+      "query": "연결 기준 단기차입금의 차입처와 연이자율 범위를 알려주세요.",
+      "expected_block_id": "20260310002820:20260310002820.xml:21340:0",
+      "expected_phrase": "연이자율"
+    }
+  ]
+}

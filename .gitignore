@@ -47,3 +47,6 @@ data/chat.sqlite3*
 
 # 개인 장기 기억
 /memory/
+
+# 공시 원문·검색 색인
+/data/disclosures/

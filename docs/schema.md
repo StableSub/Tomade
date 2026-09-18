@@ -127,3 +127,10 @@ Worker 보고서와 최종 답변은 문자열이다. WorkerReport·Evidence·Co
 - 기존 E2E 사례의 `evaluation_status=pending`, Grounding 사례의 `evaluation_status=reference_ready`는 자동 실행·채점 대상이 아니다.
 - Grounding의 `fixture`는 `evals/fixtures/`의 근거 파일을 참조하고, `expected_facts`는 지표명·값·단위·절대 허용 오차를 가진다.
 - 실행 결과는 실제 모델 설정·버전 해시·미평가 항목과 사례별 반복 집계를 저장한다. 제품 API·공유 State 스키마는 이번 평가 변경으로 바뀌지 않았다.
+
+
+## 공시 근거 검색 · 내부 파일럿 계약
+
+공개 API/StockAgentState 변경은 없다. `search_evidence`는 질문, 고정 회사 코드·기준일, 선택 접수번호·목차 힌트를 받으며 `chunk_id`, `block_id`, `parent_id`, `member`, `source_line`, `section`, `kind`, `range`, `text`, `search_text`, `receipt_id`, `published_date`, `source_url`, `context`, `context_truncated`, BM25/벡터 순위와 RRF 점수를 반환한다. `range`는 본문은 문자 오프셋(끝 제외), 표는 원문 표의 행 범위(1부터, 끝 포함)다.
+
+Tool factory는 `retrieved`, `no_indexed_evidence`, `budget_exhausted`, `error` 상태를 JSON 문자열로 반환한다. `retrieved`는 관련 후보가 있다는 뜻이며 사실 정확성·조사 완료 판정이 아니다. [상세 검증](disclosure-rag-pilot.md).

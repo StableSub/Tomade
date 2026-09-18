@@ -133,3 +133,65 @@ def get_disclosures(corp_name: str, days: int = 30, max_count: int = 10) -> list
         }
         for item in data.get("list", [])
     ]
+
+
+def list_disclosure_reports(corp_code: str, start: str, end: str,
+                            report_type: str = "A001") -> list[dict]:
+    """명시한 회사·접수 기간의 공시를 모든 페이지에서 조회한다.
+
+    Args: corp_code는 8자리 DART 코드, start/end는 ISO 날짜,
+        report_type은 DART 상세 공시 유형이다.
+    Returns: 접수번호·접수일·정정 비고를 유지한 목록. 데이터 없음만 빈 목록.
+    Raises: 입력 오류는 ValueError, DART 오류는 RuntimeError,
+        통신 오류는 requests.RequestException. API 키는 반환하지 않는다.
+    """
+    import datetime
+    import re
+
+    if not re.fullmatch(r"\d{8}", corp_code):
+        raise ValueError("회사 코드는 8자리 숫자여야 합니다.")
+    begin, finish = datetime.date.fromisoformat(start), datetime.date.fromisoformat(end)
+    if begin > finish or not re.fullmatch(r"[A-J]\d{3}", report_type):
+        raise ValueError("조회 기간 또는 공시 유형이 잘못됐습니다.")
+    reports, page = [], 1
+    while True:
+        response = requests.get(f"{_BASE_URL}/list.json", params={
+            "crtfc_key": _get_api_key(), "corp_code": corp_code,
+            "bgn_de": begin.strftime("%Y%m%d"), "end_de": finish.strftime("%Y%m%d"),
+            "pblntf_detail_ty": report_type, "last_reprt_at": "N",
+            "page_count": 100, "page_no": page,
+        }, timeout=(5, 30))
+        response.raise_for_status()
+        data = response.json()
+        if data.get("status") == "013":
+            return reports
+        if data.get("status") != "000":
+            raise RuntimeError(f"DART 목록 오류: {data.get('status', 'unknown')}")
+        reports.extend(data.get("list", []))
+        if page >= int(data["total_page"]):
+            return reports
+        page += 1
+
+
+def download_disclosure_original(receipt_id: str) -> bytes:
+    """14자리 접수번호의 공시 원문 ZIP을 다운로드한다.
+
+    Returns: 원본 ZIP bytes. 저장 부작용은 없으며 API 호출만 수행한다.
+    Raises: 잘못된 번호·ZIP은 ValueError, DART 오류는 RuntimeError,
+        통신 실패는 requests.RequestException. 오류 메시지에 키를 포함하지 않는다.
+    """
+    import re
+
+    if not re.fullmatch(r"\d{14}", receipt_id):
+        raise ValueError("접수번호는 14자리 숫자여야 합니다.")
+    response = requests.get(f"{_BASE_URL}/document.xml", params={
+        "crtfc_key": _get_api_key(), "rcept_no": receipt_id,
+    }, timeout=(5, 30))
+    response.raise_for_status()
+    payload = response.content
+    if not zipfile.is_zipfile(io.BytesIO(payload)):
+        if b"<!DOCTYPE" in payload.upper() or b"<!ENTITY" in payload.upper():
+            raise ValueError("지원하지 않는 XML 선언입니다.")
+        error = ET.fromstring(payload)
+        raise RuntimeError(f"DART 원문 오류: {error.findtext('status', 'unknown')}")
+    return payload

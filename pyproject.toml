@@ -10,6 +10,8 @@ dependencies = [
     "langchain-openai>=1.6.0,<1.7",
     "langgraph>=1.0",
     "openai",
+    "numpy>=2,<3",
+    "tiktoken>=0.7,<1",
     "python-dotenv",
     "fastapi",
     "uvicorn",
