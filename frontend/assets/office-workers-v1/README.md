@@ -1,0 +1,33 @@
+# Office workers v1
+
+## Asset status
+
+- `patrick-atlas.png`: built-in `image_gen` output, copied unchanged from `/Users/anjeongseob/.codex/generated_images/01a0b502-db8d-7c80-855f-3724454bf758/exec-061b2f37-bbb5-4c6a-99ae-3b34eb61da6a.png`.
+- `spongebob-atlas.png`: built-in `image_gen` output, copied unchanged from `/Users/anjeongseob/.codex/generated_images/01a09e8f-b7c6-7990-aeaf-b83cc9294f84/exec-14a0691d-04a1-411e-ace4-ac100aef3adc.png`. Both workers are connected and render all four poses. Earlier attempts were rejected; the direct generation requested by the user on 2026-09-19 succeeded.
+
+## Atlas contract and rendering
+
+Regular 2×2 equal cells: idle front, standing research, seated back typing A, seated back typing B. No furniture in the image. Original generated alpha is preserved on disk. Runtime removes only faint alpha or a pure cyan fallback key; it never uses magenta removal, which would damage Patrick's pink/purple colors.
+
+The renderer crops cells, shares a scale across all four poses, normalizes to the existing staff's 128×160 native frame (standing body at most 152 pixels), and applies the existing `createPixelSprite` two-native-pixel continuous inner contour with source colors retained. Alpha becomes binary (0/255). `WorkerSpriteRenderer` resamples the native source directly to CSS size × devicePixelRatio with nearest-neighbor sampling, then inks exposed final physical boundary pixels to prevent sparse light corners after fractional sampling. Patrick uses 95% of the usual staff CSS height (10.26cqw) to clear the neighboring walking silhouettes. Standing investigation alternates the research pose with a one-native-pixel vertical shift; seated investigation alternates the two generated frames. Reduced motion holds frame 0.
+
+Default feet anchors, in percentages of the original 800×500 house: technical (38.3,72), sentiment (8.5,64). Both remain in the left employee room without a seat or route; no desks, chairs, or original-character motions changed. `OfficeScene.setWorkerSeat(id, {x,y})` explicitly places a worker at an existing seat anchor and uses seated typing only while working. `setWorkerSeat(id, null)` restores default standing placement. This API does not create furniture.
+
+SpongeBob stands in the left aisle between the business desk and the lower cabinet, away from Mat and Kirby’s walking routes. The same renderer, role journal and explicit seat API serve both workers.
+
+## Patrick prompt
+
+Use case: stylized-concept. Production 2D pixel-art sprite atlas for a cozy top-down RPG office. Create PATRICK STAR (뚱이), pink chubby starfish, recognizable tall conical head, simple small black pupils in joined white eyes, friendly curved smile, green shorts with purple flower shapes. EXACTLY FOUR isolated full-body sprites in a perfectly regular 2 columns x 2 rows grid, equal 512px square cells on a 1024x1024 PNG. Genuine transparent background; if transparency cannot be produced use one perfectly uniform pure CYAN #00ffff backdrop. No magenta backdrop because Patrick is pink. No labels, text, shadows, grid lines or scene. Every sprite entirely inside cell, padding at least 65px. Same body size, baseline and identity for all frames. Pixel-art quality: deliberate square pixel clusters, continuous dark brown almost-black outline 1 to 2 logical pixels thick, consistent coarse grid equivalent to 64x64 logical pixels per cell, hard sharp pixel edges, NO antialiasing, NO blur, NO disconnected contours, flat stepped 3-shade palette. Match a classic pixel Mat character with red sweater and striped beanie rendered about 60 pixels tall: charming chunky 2D game character rather than detailed cartoon illustration. TOP LEFT: FRONT STANDING IDLE, arms resting, feet visible, no prop. TOP RIGHT: FRONT STANDING RESEARCH, holding a small navy clipboard with a simple rising line chart, eyes watching clipboard, one hand pointing at chart; do not add readable words. BOTTOM LEFT: BACK VIEW SEATED RESEARCH A: face completely hidden, arms reaching forward for typing on an invisible table, bent seated legs, no chair/table/keyboard drawn. BOTTOM RIGHT: SAME BACK VIEW SEATED RESEARCH B, tiny alternate hand/forearm typing motion only, same torso and feet. Seated poses are intended for later overlay on existing furniture. Output only atlas.
+
+## SpongeBob retry prompt (rejected; no asset)
+
+SpongeBob SquarePants, fully clothed in his standard white shirt, red tie and brown square pants, cheerful office pixel-art sprite atlas. Square 2 by 2 equal-cell layout: top left idle standing facing front; top right standing holding a document; bottom left seated typing facing back; bottom right second seated typing frame facing back. Full body and shoes visible in each cell, same character proportions and scale, transparent background, no furniture, no text, crisp continuous dark outline, square pixel clusters.
+
+## SpongeBob renewed request, 2026-09-19 (rejected; no asset)
+
+Create a 2 by 2 pixel-art sprite atlas of SpongeBob SquarePants for a friendly office game. SpongeBob wears his standard white shirt, red tie, brown square pants, white socks and black shoes in every frame. Exactly four equal square cells: top left front-facing standing idle, top right front-facing standing holding a small research document, bottom left back-facing seated typing pose A, bottom right back-facing seated typing pose B with a small hand movement. Use the same character size and proportions across frames. Show the entire body including feet, with generous transparent padding. Transparent background, no furniture, no text. Crisp square pixels and a continuous dark outline, suitable for a small 2D game sprite. Return only the atlas.
+
+
+## SpongeBob final prompt (built-in generation, 2026-09-19)
+
+Create a 2D pixel-art sprite sheet of SpongeBob SquarePants for a cozy office game. He wears his familiar white shirt, red tie, brown square pants, white socks and black shoes. Use a transparent background and a regular 2 by 2 grid with four equal cells, every sprite centered with generous padding. Top left: full-body front view standing idle, friendly smile. Top right: full-body front view standing and reading a small research clipboard. Bottom left: full-body rear view in a seated typing pose, without drawing furniture. Bottom right: the same seated rear view with slightly different hand positions for a two-frame typing animation. Consistent character proportions and scale across all cells. Crisp square pixel clusters, clear continuous dark outline, simple stepped shading matching a classic 2D pixel RPG character. No text, labels, grid lines, scenery or ground shadows.

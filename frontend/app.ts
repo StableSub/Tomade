@@ -4,7 +4,7 @@ import { createOfficeCamera } from "./office-camera";
 import { PortfolioCharacter } from "./portfolio-character";
 import { showRequestConnection } from "./settings";
 
-type WorkerId = Exclude<AgentId, "upper_agent"> | "technical" | "sentiment";
+type WorkerId = Exclude<AgentId, "upper_agent">;
 type NodeName = AgentId | WorkerId | "request_parser";
 type NodeState = "idle" | "running" | "done" | "skipped" | "error";
 type NodeOutput = string | Record<string, unknown>;
@@ -14,7 +14,7 @@ interface Conversation { id: string; title: string }
 interface SavedMessage { role: "user" | "assistant"; content: string; status: "pending" | "completed" | "error" | "interrupted" }
 const workers: WorkerId[] = ["business", "macro_sector", "event_catalyst", "technical", "sentiment"];
 const nodes: NodeName[] = ["upper_agent", "request_parser", ...workers];
-const labels: Record<NodeName, string> = { upper_agent: "부장 Agent", request_parser: "질문 확인", business: "패트 - 비즈니스", macro_sector: "매트 - 섹터", event_catalyst: "게왹이 - 이벤트", technical: "Technical · 기술 분석", sentiment: "Sentiment · YouTube 반응" };
+const labels: Record<NodeName, string> = { upper_agent: "부장 Agent", request_parser: "질문 확인", business: "패트 - 비즈니스", macro_sector: "매트 - 섹터", event_catalyst: "게왹이 - 이벤트", technical: "뚱이 - 기술 분석", sentiment: "스폰지밥 - 투자 심리" };
 const workerLabels: Record<WorkerId, string> = { business: "비즈니스", macro_sector: "매크로·섹터", event_catalyst: "이벤트", technical: "기술 분석", sentiment: "YouTube 반응" };
 const reportFields: Partial<Record<NodeName, string>> = { business: "business_report", macro_sector: "macro_sector_report", event_catalyst: "event_catalyst_report", technical: "technical_report", sentiment: "sentiment_report", upper_agent: "final_answer" };
 const reportStatusLabels: Record<string, string> = { complete: "조사 완료", partial: "일부 근거 확보", unavailable: "근거 없음", error: "조사 오류" };
@@ -68,9 +68,9 @@ const portfolioCharacter = new PortfolioCharacter(element<HTMLCanvasElement>("po
 paintPortrait(element<HTMLCanvasElement>("managerPortrait"), "upper_agent");
 paintPortrait(element<HTMLCanvasElement>("replyPortrait"), "upper_agent");
 
-// New research roles share the report UI without changing the approved office artwork.
+// Every worker has a clickable character; only the parser is not an office actor.
 function isOfficeAgent(id: NodeName): id is AgentId {
-  return id !== "request_parser" && id !== "technical" && id !== "sentiment";
+  return id !== "request_parser";
 }
 function setActivity(id: NodeName, activity: AgentActivity): void {
   if (isOfficeAgent(id)) scene.setActivity(id, activity);
@@ -296,6 +296,11 @@ function refreshJournal(): void {
   const state = nodeStates[id] ?? "idle";
   const stateLabels: Record<NodeState, string> = { idle: "자유 시간", running: "조사 중", done: "보고 완료", skipped: "이번 조사에는 참여하지 않아요", error: "조사가 중단되었어요" };
   element("journalTitle").textContent = labels[id];
+  const scope = element("journalScope");
+  scope.hidden = id !== "technical" && id !== "sentiment";
+  scope.textContent = id === "technical"
+    ? "코드로 계산한 이동평균·가격 이격률·거래량·변동성을 해석합니다. 지표만으로 향후 상승이나 매수를 단정하지 않습니다."
+    : id === "sentiment" ? "수집된 YouTube 댓글 표본의 기대와 우려를 해석합니다. 시장 전체 투자자의 심리를 대표하지 않습니다." : "";
   const output = nodeOutputs[id];
   const reportStatus = typeof output === "object" && typeof output.status === "string" ? reportStatusLabels[output.status] : undefined;
   element("journalState").textContent = reportStatus ?? stateLabels[state];
