@@ -1,10 +1,10 @@
 import { createRoomFloor, finishTimber, createFrontSection, extendRoof, matchFrameTimber, paintWindowView, contactShadowImage } from './office-architecture';
-import type { AgentId } from './office-scene';
+import type { SeatedAgentId } from './office-scene';
 import { loadSpriteSource, SpriteRenderer } from './sprite-renderer';
 import { createPixelSprite, fitPixelFrame } from './pixel-style';
 
 /** Percent-based feet positions shared by the furniture and character routes. */
-export const OFFICE_SEATS: Record<AgentId, { x: number; y: number }> = {
+export const OFFICE_SEATS: Record<SeatedAgentId, { x: number; y: number }> = {
   upper_agent: { x: 78, y: 34 },
   business: { x: 15.3, y: 49 },
   macro_sector: { x: 42, y: 49 },
@@ -167,7 +167,7 @@ function placements(): Placement[] {
   add('plant', 635, 96, 22, 26, 11);
   add('tomato', 48, 40, 22, 24, 11);
 
-  for (const agent of ['business', 'macro_sector', 'event_catalyst'] as AgentId[]) {
+  for (const agent of ['business', 'macro_sector', 'event_catalyst'] as SeatedAgentId[]) {
     const feet = OFFICE_SEATS[agent], x = feet.x * 8, y = feet.y * 5;
     add(agent === 'business' ? 'trialDesk' : 'workerDesk', x - 46, y - 95, 138, 72, (y - 23) * 2);
     add(agent === 'macro_sector' ? 'greenChair' : 'blueChair', x - 20, y - 52, 40, 52, y * 2 + 1);

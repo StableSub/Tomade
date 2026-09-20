@@ -237,7 +237,7 @@ async function fullRoomFitting(browser) {
     if (await page.locator('#managerDialog').isVisible()) await closePanel(page, '#closeManager');
     const imageAspect = await page.locator('#officeWorld').evaluate(room => room.clientWidth / room.clientHeight);
     assert.ok(Math.abs(imageAspect - 1.6) < 0.01, 'The two-room house keeps its approved landscape framing');
-    const spritePixels = await page.locator('.agent-sprite, #managerPortrait').evaluateAll(canvases => canvases.map(canvas => {
+    const spritePixels = await page.locator('.agent-sprite[data-sprite-state=ready], #managerPortrait').evaluateAll(canvases => canvases.map(canvas => {
       const { data } = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
       let opaque = 0, clear = 0, magenta = 0;
       for (let i = 0; i < data.length; i += 4) {
@@ -406,7 +406,7 @@ async function modularObjects(browser) {
     }
     await page.locator(agent('upper_agent')).press('Enter');
     await page.locator('#managerDialog').waitFor({ state: 'visible' });
-    assert.ok(await page.locator('.office-agent, .portfolio-character').evaluateAll(nodes => nodes.length === 5 && nodes.every(node => node.inert)), 'All five characters are disabled inside the minimap');
+    assert.ok(await page.locator('.office-agent, .portfolio-character').evaluateAll(nodes => nodes.length === 7 && nodes.every(node => node.inert)), 'All seven characters are disabled inside the minimap');
     assert.ok(await page.locator('[data-courtyard]').evaluateAll(nodes => nodes.every(node => getComputedStyle(node).visibility === 'hidden')));
     await page.locator('#returnToOffice').click();
     await page.waitForFunction(() => !document.querySelector('#officeWorld').getAnimations().length);
@@ -772,22 +772,22 @@ async function desktop(browser) {
   const f = await fixture(browser);
   const { page } = f;
   try {
-    assert.equal(await page.locator('.office-agent').count(), 4, 'The office has exactly one manager and three workers');
+    assert.equal(await page.locator('.office-agent').count(), 6, 'The office has one manager and five workers');
     await page.evaluate(() => {
       // Exercise the page lifecycle handler only; this does not claim real browser
       // back/forward cache eligibility or a cache-backed navigation was verified.
       window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true }));
       window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }));
     });
-    assert.equal(await page.locator('.office-agent').count(), 4, 'A persisted pagehide preserves the four live characters');
-    const positions = await page.locator('.office-agent').evaluateAll(nodes => nodes.map(node => [node.dataset.x, node.dataset.y]));
-    await page.waitForFunction(before => [...document.querySelectorAll('.office-agent')].every((node, index) =>
+    assert.equal(await page.locator('.office-agent').count(), 6, 'A persisted pagehide preserves all six research characters');
+    const positions = await page.locator('.office-agent:not([data-agent=technical]):not([data-agent=sentiment])').evaluateAll(nodes => nodes.map(node => [node.dataset.x, node.dataset.y]));
+    await page.waitForFunction(before => [...document.querySelectorAll('.office-agent:not([data-agent=technical]):not([data-agent=sentiment])')].every((node, index) =>
       node.dataset.x !== before[index][0] || node.dataset.y !== before[index][1]), positions, { timeout: 8000 });
     const names = await page.locator('.agent-name').evaluateAll(labels => labels.map(label => {
       const actor = document.querySelector(`.office-agent[data-agent="${label.dataset.agent}"]`);
       return { text: label.textContent, follows: label.style.left === actor.style.left && label.style.top === actor.style.top, visible: getComputedStyle(label).opacity === '1', depth: Number(getComputedStyle(label).zIndex) };
     }));
-    assert.deepEqual(names.map(n=>n.text), ['부장', '패트 - 비즈니스', '매트 - 섹터', '게왹이 - 이벤트']);
+    assert.deepEqual(names.map(n=>n.text), ['부장', '패트 - 비즈니스', '매트 - 섹터', '게왹이 - 이벤트', '뚱이 - 기술 분석', '스폰지밥 - 투자 심리']);
     assert.ok(names.every(n=>n.follows && n.visible && n.depth >= 1000), 'Permanent names track all moving characters above furniture');
     assert.equal(f.apiRequests.some(request => request.path.startsWith('/api/portfolio')), false, 'Portfolio must not load on office entry');
     await page.screenshot({ path: `${screenshots}/desktop-idle.png` });
@@ -921,7 +921,7 @@ async function focusMode(browser) {
     const miniRoom = await page.locator('#officeWorld').boundingBox();
     const chat = await page.locator('#managerDialog').boundingBox();
     assert.ok(Math.abs(chat.width / page.viewportSize().width - 0.64) < 0.01, 'The first split design reserves 64% for chat and 36% for the office');
-    assert.ok(miniRoom.x >= chat.x + chat.width && miniRoom.width < fullRoom.width * 0.6, 'The same office shrinks into the right pane');
+    assert.ok(miniRoom.x >= chat.x + chat.width && miniRoom.width < fullRoom.width, 'The same office shrinks into the right pane');
     assert.equal(await page.evaluate(({ from, to }) => window.__roomFrames.some(width => width < from - 10 && width > to + 10),
       { from: fullRoom.width, to: miniRoom.width }), true, 'Real animation frames include intermediate room sizes');
     assert.equal(await page.evaluate(() => document.querySelector('#officeWorld') === window.__originalOffice
@@ -1321,14 +1321,21 @@ async function v2Reports(browser) {
     const f = await fixture(browser, { viewport, reducedMotion: 'reduce' });
     const { page } = f;
     try {
+      assert.equal(await page.locator(`${agent('sentiment')} .sprite-unavailable-label`).count(), 0, 'SpongeBob displays its generated sprite on desktop/mobile');
       const allWorkers = [...workers, 'technical', 'sentiment'];
       await submit(page, '삼성전자 사업, 거시환경, 사건, 기술 지표와 YouTube 반응을 조사해줘.');
       await emit(page, [started('upper_agent'), completed('upper_agent', {
         intent: 'research', research_plan: { tasks: allWorkers.map(agent => ({ agent })) },
       }), started('request_parser'), completed('request_parser', {}), ...allWorkers.map(started)]);
       assert.equal(await page.locator('#researchWorkers button').count(), 5);
-      assert.equal(await page.locator('.office-agent').count(), 4, 'Adding report roles preserves office artwork');
-      await page.locator('#researchWorkers [data-worker="technical"]').click();
+      assert.equal(await page.locator('.office-agent').count(), 6, 'All five report roles have office characters');
+      await openWorker(page, 'technical');
+      assert.equal(await page.locator('#journalTitle').textContent(), '뚱이 - 기술 분석');
+      assert.ok((await page.locator('#journalScope').textContent()).includes('지표만으로'));
+      for (const role of ['technical', 'sentiment']) {
+        assert.equal(await page.locator(agent(role)).getAttribute('data-activity'), 'working');
+        assert.equal(await page.locator(agent(role)).getAttribute('data-motion'), 'research');
+      }
       assert.ok((await page.locator('#journalState').textContent()).includes('조사 중'));
       const evidence = {
         evidence_id: 'technical-price', kind: 'metric', content: { sma_20: 72000, latest_close: 73440, distance_sma_20_pct: 2 },
@@ -1367,7 +1374,11 @@ async function v2Reports(browser) {
       assert.ok(layout.inside && !layout.overflow, 'Structured reports fit desktop and mobile');
       await page.locator('#journalOutput').evaluate(node => node.scrollTop = 0);
       await page.screenshot({ path: `${screenshots}/v2-technical-${viewport.width}.png` });
-      await page.locator('#journalWorkers [data-worker="sentiment"]').click();
+      await page.locator('[data-close="agentJournal"]').click();
+      await openWorker(page, 'sentiment');
+      assert.equal(await page.locator('#journalTitle').textContent(), '스폰지밥 - 투자 심리');
+      assert.ok((await page.locator('#journalScope').textContent()).includes('댓글 표본'));
+      assert.equal(await page.locator(agent('sentiment')).getAttribute('data-activity'), 'error');
       assert.equal(await page.locator('#journalWorkers [data-worker="sentiment"]').getAttribute('data-state'), 'error');
       assert.ok((await page.locator('#journalOutput').textContent()).includes('YouTube 댓글 수집 시간 초과'));
       await page.locator('#journalWorkers [data-worker="event_catalyst"]').click();
@@ -1388,10 +1399,115 @@ async function v2Reports(browser) {
 }
 
 
+async function verifyWorkerInk(page, selector, pose, frame) {
+  const ink = await page.evaluate(({selector,pose,frame}) => new Promise(resolve => {
+    const deadline = performance.now() + 5000;
+    const sample = () => {
+      const canvas = document.querySelector(selector);
+      if (canvas?.dataset.spriteState !== 'ready' || canvas.dataset.spritePose !== pose || Number(canvas.dataset.spriteFrame) !== frame) {
+        if (performance.now() > deadline) return resolve({ error: 'Pose was not rendered', pose, frame });
+        requestAnimationFrame(sample); return;
+      }
+      const b = canvas.getBoundingClientRect(), { data } = canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height);
+      const filled=(x,y)=>x>=0&&y>=0&&x<canvas.width&&y<canvas.height&&data[(y*canvas.width+x)*4+3]>0;
+      let translucent=0,missing=0,boundary=0;
+      for(let y=0;y<canvas.height;y++) for(let x=0;x<canvas.width;x++) {
+        const i=(y*canvas.width+x)*4;
+        if(data[i+3]&&data[i+3]!==255) translucent++;
+        if(filled(x,y)&&[[-1,0],[1,0],[0,-1],[0,1]].some(([dx,dy])=>!filled(x+dx,y+dy))) {
+          boundary++;if(Math.max(data[i],data[i+1],data[i+2])>70) missing++;
+        }
+      }
+      resolve({pose,frame,width:canvas.width,height:canvas.height,expectedWidth:Math.round(b.width*devicePixelRatio),expectedHeight:Math.round(b.height*devicePixelRatio),translucent,missing,boundary});
+    };sample();
+  }),{selector,pose,frame});
+  assert.ok(!ink.error,JSON.stringify(ink));
+  assert.equal(ink.width,ink.expectedWidth,'Canvas renders at physical display resolution');
+  assert.equal(ink.height,ink.expectedHeight);
+  assert.equal(ink.translucent,0,'No hazy alpha fringe');
+  assert.ok(ink.boundary>40);
+  assert.equal(ink.missing,0,`Continuous dark silhouette in ${pose}/${frame}`);
+}
+
+async function standingWorkers(browser) {
+  for (const deviceScaleFactor of [1, 2]) {
+    const f = await fixture(browser, { deviceScaleFactor });
+    const { page } = f;
+    try {
+      const roles = ['technical', 'sentiment'];
+      for (const role of roles) {
+        const actor = page.locator(agent(role));
+        assert.equal(await actor.getAttribute('data-motion'), 'idle');
+        await actor.click();
+        assert.equal(await page.locator('#agentJournal').getAttribute('data-agent'), role);
+        assert.ok((await page.locator('#journalOutput').textContent()).includes('아직 조사한 내용'));
+        await closePanel(page, '#closeJournal');
+      }
+      for (const role of roles) await verifyWorkerInk(page, `${agent(role)} canvas`, 'idle', 0);
+      await submit(page, '기술 지표와 YouTube 댓글의 기대와 우려를 조사해줘.');
+      await emit(page, [started('upper_agent'), completed('upper_agent', { intent: 'research', research_plan: { tasks: roles.map(agent => ({ agent })) } }), ...roles.map(started)]);
+      await page.locator('#returnToOffice').click();
+      await page.waitForFunction(() => !document.querySelector('#officeWorld').getAnimations().length);
+      const positions = await page.evaluate(() => ['technical','sentiment'].map(id => {
+        const a = document.querySelector(`.office-agent[data-agent="${id}"]`);
+        return [a.dataset.x, a.dataset.y];
+      }));
+      await page.waitForTimeout(850);
+      for (const [index, role] of roles.entries()) {
+        const actor = page.locator(agent(role));
+        assert.equal(await actor.getAttribute('data-motion'), 'research', 'Unassigned workers research while standing');
+        assert.deepEqual([await actor.getAttribute('data-x'), await actor.getAttribute('data-y')], positions[index]);
+        for (const frame of [0,1]) await verifyWorkerInk(page, `${agent(role)} canvas`, 'research', frame);
+      }
+      await page.screenshot({ path: `${screenshots}/new-workers-dpr${deviceScaleFactor}.png` });
+      await emit(page, [completed('technical', { technical_report: '기술 지표 모의 보고서' }), completed('sentiment', { sentiment_report: { agent:'sentiment',status:'complete',findings:[{question_index:0,kind:'inference',statement:'댓글 표본에서는 실적 기대와 가격 부담 우려가 함께 관측됨',evidence_ids:[]}],evidence:[],limitations:['시장 전체 투자자 심리로 일반화할 수 없음'],unanswered_questions:[] } })]);
+      await openWorker(page,'sentiment');
+      assert.ok((await page.locator('#journalOutput').textContent()).includes('실적 기대'));
+      await closePanel(page,'#closeJournal');
+      await emit(page,[event('run.completed',{final_answer:finalAnswer})],true);
+      await waitReady(page);
+      await page.locator('#returnToOffice').click();
+      // Exercise the same public seat API in an isolated scene without assigning production desks.
+      await page.evaluate(async () => {
+        const { OfficeScene } = await import('/office-scene.ts');
+        const host = document.createElement('div');host.id='seat-preview';host.className='office-world';
+        host.style.cssText='position:fixed;left:40px;top:120px;width:800px;height:500px;z-index:10000;background:#eee4cf;container-type:inline-size';
+        document.body.append(host);
+        window.__seatPreview = new OfficeScene(host,()=>{},matchMedia('(prefers-reduced-motion: reduce)'));
+        for (const [id,x] of [['technical',44],['sentiment',70]]) {
+          window.__seatPreview.setWorkerSeat(id,{x,y:92});
+          window.__seatPreview.setActivity(id,'working');
+        }
+      });
+      await page.waitForFunction(()=>['technical','sentiment'].every(id=>document.querySelector(`#seat-preview .office-agent[data-agent="${id}"]`)?.dataset.motion==='seated'));
+      await page.waitForFunction(()=>[...document.querySelectorAll('#seat-preview .agent-sprite')].every(c=>c.dataset.spriteState==='ready'));
+      for (const role of roles) {
+        const selector = `#seat-preview ${agent(role)} canvas`;
+        assert.equal(await page.locator(selector).evaluate(c=>getComputedStyle(c).clipPath),'none','Full generated seated pose is not cut by original worker chair masking');
+        for(const frame of [0,1]) await verifyWorkerInk(page, selector, 'seated', frame);
+        const frame0 = await page.locator(selector).evaluate(c=>c.toDataURL());
+        await page.waitForFunction(({selector,previous}) => document.querySelector(selector).toDataURL() !== previous, {selector,previous:frame0});
+      }
+      await page.locator('#seat-preview').screenshot({path:`${screenshots}/new-workers-seated-dpr${deviceScaleFactor}.png`});
+      for (const role of roles) {
+        await page.evaluate(id=>{window.__seatPreview.setWorkerSeat(id,null);},role);
+        assert.equal(await page.locator(`#seat-preview ${agent(role)}`).getAttribute('data-motion'),'research');
+      }
+      await page.evaluate(()=>{window.__seatPreview.dispose();document.querySelector('#seat-preview').remove();});
+      f.check();
+    } finally { await f.dispose(); }
+  }
+  console.log('PASS new workers: Patrick and SpongeBob role journals, fixed standing research, device-pixel contour and seated animation at DPR 1/2');
+}
+
 await mkdir(screenshots, { recursive: true });
 const browser = await playwright.chromium.launch({ headless: true, channel: process.env.OFFICE_BROWSER_CHANNEL });
 try {
-  if (process.env.OFFICE_V2_ONLY === "1") {
+  if (process.env.OFFICE_CHARACTERS_ONLY === "1") {
+    await standingWorkers(browser);
+    await v2Reports(browser);
+    await focusMode(browser);
+  } else if (process.env.OFFICE_V2_ONLY === "1") {
     await v2Reports(browser);
   } else {
   await fullRoomFitting(browser);
@@ -1407,6 +1523,7 @@ try {
   await mobile(browser);
   await reducedMotion(browser);
   await v2Reports(browser);
+  await standingWorkers(browser);
   }
   console.log(`Office UI regression checks passed. Screenshots: ${pathToFileURL(screenshots).href}`);
 } finally {

@@ -13,7 +13,7 @@
       <div class="office-scroll" id="officeScroll">
         <div class="office-map">
         <p class="minimap-label" aria-hidden="true">오피스</p>
-        <div class="office-world" id="officeWorld" aria-label="부장과 세 명의 연구원, 포트폴리오 담당 커비가 있는 사무실">
+        <div class="office-world" id="officeWorld" aria-label="부장과 다섯 명의 연구원, 포트폴리오 담당 커비가 있는 사무실">
           <button class="portfolio-character" id="portfolioCharacter" type="button" aria-label="커비 · 포트폴리오 보기" aria-haspopup="dialog">
             <canvas class="portfolio-sprite" id="portfolioSprite" aria-hidden="true"></canvas>
             <span class="character-label">커비 · 포트폴리오</span>
@@ -79,6 +79,7 @@
         <header class="journal-heading"><h2 id="journalTitle">조사 내용</h2><button class="icon-button" data-close="agentJournal" aria-label="조사 노트 닫기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg></button></header>
         <div class="research-workers journal-workers" id="journalWorkers" role="group" aria-label="다른 에이전트 조사 보기"></div>
         <p class="sr-only" id="journalState" role="status" aria-live="polite"></p>
+        <p class="journal-scope" id="journalScope" hidden></p>
         <div class="journal-body markdown-body" id="journalOutput" tabindex="0" role="region" aria-label="조사 내용"></div>
       </dialog>
 
@@ -115,7 +116,7 @@
           <section class="settings-section"><h3>현재 역할별 모델</h3><dl class="model-list" id="modelRoles"></dl></section>
           <section class="settings-section" id="codexModelEditor" hidden>
             <h3>구독 모델 · 추론 깊이 변경</h3>
-            <p class="settings-help">부장은 대화·계획·종합, 조사는 세 Worker가 함께 사용합니다. 포트폴리오 분류·해설도 조사·부장 설정을 따릅니다.</p>
+            <p class="settings-help">부장은 대화·계획·종합, 조사는 다섯 Worker가 함께 사용합니다. 포트폴리오 분류·해설도 조사·부장 설정을 따릅니다.</p>
             <div id="roleModelInputs" class="role-model-inputs"></div>
             <p class="settings-help">기본값은 추론 깊이를 지정하지 않습니다. 높일수록 응답 시간·구독 사용량이 늘 수 있습니다. 목록은 앱의 지원 모델이며 계정의 접근 권한을 보장하지 않습니다.</p>
             <button class="workspace-primary" id="saveRoleModels" type="button">모델 설정 저장</button>

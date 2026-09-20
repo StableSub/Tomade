@@ -1,14 +1,17 @@
 import { OFFICE_SEATS } from './office-room';
+import { isStandingWorker, loadWorkerSprites, workerFrame, WorkerSpriteRenderer, type StandingWorkerId, type WorkerPose } from './office-worker-sprites';
 
-/** The four clickable characters shown in the research office. */
-export type AgentId = 'upper_agent' | 'business' | 'macro_sector' | 'event_catalyst';
+/** Existing workers keep their furniture and movement routes. */
+export type SeatedAgentId = 'upper_agent' | 'business' | 'macro_sector' | 'event_catalyst';
+/** Clickable agent roles shown in the research office. */
+export type AgentId = SeatedAgentId | StandingWorkerId;
 
 /** Research activity supplied by the app's existing run events. */
 export type AgentActivity = 'idle' | 'working' | 'done' | 'error';
 
 type Point = { x: number; y: number };
 type Direction = 'front' | 'back' | 'left' | 'right';
-type Motion = 'walking' | 'seated' | 'idle';
+type Motion = 'walking' | 'seated' | 'idle' | 'research';
 type Waypoint = Point & { edges: string[] };
 type Character = {
   id: AgentId;
@@ -35,7 +38,15 @@ const NAMES: Record<AgentId, string> = {
   business: '패트 - 비즈니스',
   macro_sector: '매트 - 섹터',
   event_catalyst: '게왹이 - 이벤트',
+  technical: '뚱이 - 기술 분석',
+  sentiment: '스폰지밥 - 투자 심리',
 };
+
+const STANDING_POSITIONS: Record<StandingWorkerId, Point> = {
+  technical: { x: 38.3, y: 72 },
+  sentiment: { x: 8.5, y: 64 },
+};
+const SEATED_IDS: SeatedAgentId[] = ['upper_agent', 'business', 'macro_sector', 'event_catalyst'];
 
 // Feet coordinates follow the 16:10 house. The only connection between rooms is the doorway.
 const ROOM_ASPECT = 8 / 5;
@@ -68,19 +79,19 @@ const WAYPOINTS: Record<string, Waypoint> = {
   managerFront: { x: 78, y: 68, edges: ['managerLeft'] },
 };
 
-const DESKS: Record<AgentId, string> = {
+const DESKS: Record<SeatedAgentId, string> = {
   upper_agent: 'managerDesk',
   business: 'businessDesk',
   macro_sector: 'macroDesk',
   event_catalyst: 'eventDesk',
 };
-const STARTS: Record<AgentId, string> = {
+const STARTS: Record<SeatedAgentId, string> = {
   upper_agent: 'managerFront',
   business: 'employeeCenter',
   macro_sector: 'employeeRight',
   event_catalyst: 'employeeLower',
 };
-const WANDER: Record<AgentId, string[]> = {
+const WANDER: Record<SeatedAgentId, string[]> = {
   upper_agent: ['managerLeft', 'managerEntry', 'managerFront'],
   business: ['businessAisle', 'employeeTop', 'employeeCenter', 'employeeLower'],
   macro_sector: ['employeeTop', 'employeeRight', 'employeeCenter'],
@@ -116,7 +127,7 @@ function route(from: string, to: string): string[] {
 }
 
 type SpriteRect = { x: number; y: number; width: number; height: number };
-type SpriteAtlas = { image: HTMLCanvasElement; frames: Record<AgentId, SpriteRect[]> };
+type SpriteAtlas = { image: HTMLCanvasElement; frames: Record<SeatedAgentId, SpriteRect[]> };
 type WalkDirection = Exclude<Direction, 'left'>;
 const WALK_IMAGES: Record<WalkDirection, string> = {
   front: new URL('./assets/office-walk-front.png', import.meta.url).href,
@@ -150,7 +161,7 @@ async function decodeSpriteAtlas(url: string): Promise<SpriteAtlas> {
   }
   ctx.putImageData(pixels, 0, 0);
   const frames = {} as SpriteAtlas['frames'];
-  (Object.keys(NAMES) as AgentId[]).forEach((id, row) => {
+  SEATED_IDS.forEach((id, row) => {
     frames[id] = [];
     for (let column = 0; column < 4; column++) {
       const left = Math.round(column * layer.width / 4);
@@ -187,7 +198,7 @@ function loadWalkingAtlases(): Promise<void> {
 
 function drawCharacter(
   canvas: HTMLCanvasElement,
-  id: AgentId,
+  id: SeatedAgentId,
   direction: Direction,
   frame: number,
   motion: Motion,
@@ -226,6 +237,19 @@ export function paintPortrait(canvas: HTMLCanvasElement, id: AgentId): void {
   canvas.width = 192;
   canvas.height = 192;
   canvas.dataset.spriteState = 'loading';
+  if (isStandingWorker(id)) {
+    void loadWorkerSprites(id).then(frames => {
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(frames[0], 24, 4, 80, 80, 0, 0, 192, 192);
+      canvas.dataset.spriteState = 'ready';
+    }).catch(() => {
+      canvas.dataset.spriteState = 'unavailable';
+      canvas.setAttribute('aria-label', `${NAMES[id]} 초상화가 아직 준비되지 않았습니다.`);
+    });
+    return;
+  }
   void loadSpriteAtlas().then(({ image, frames }) => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -246,6 +270,9 @@ export function paintPortrait(canvas: HTMLCanvasElement, id: AgentId): void {
 export class OfficeScene {
   private readonly characters = new Map<AgentId, Character>();
   private readonly clicks = new AbortController();
+  private readonly workerRenderer = new WorkerSpriteRenderer();
+  private readonly workerSprites = new Map<StandingWorkerId, HTMLCanvasElement[]>();
+  private readonly workerSeats = new Map<StandingWorkerId, Point>();
   private frameId = 0;
   private lastTime = 0;
   private elapsed = 0;
@@ -283,10 +310,11 @@ export class OfficeScene {
       button.append(canvas, status);
       button.addEventListener('click', () => onSelect(id, button), { signal: this.clicks.signal });
       container.append(button, name);
-      const start = STARTS[id];
+      const start = isStandingWorker(id) ? 'employeeCenter' : STARTS[id];
+      const position = isStandingWorker(id) ? STANDING_POSITIONS[id] : WAYPOINTS[start];
       const character: Character = {
         id, button, canvas, status, name, activity: 'idle',
-        position: { x: WAYPOINTS[start].x, y: WAYPOINTS[start].y },
+        position: { x: position.x, y: position.y },
         node: start, edgeStart: start, path: [], purpose: 'wander',
         motion: 'idle', direction: 'front', pause: 0.8 + index * 0.65,
         cycle: 0, speed: 0, walkDistance: 0,
@@ -294,12 +322,32 @@ export class OfficeScene {
       this.characters.set(id, character);
       this.render(character, true);
     });
+    for (const id of ['technical', 'sentiment'] as const) {
+      void loadWorkerSprites(id).then(frames => {
+        if (this.disposed) return;
+        this.workerSprites.set(id, frames);
+        this.render(this.characters.get(id)!, true);
+      }).catch(() => {
+        if (this.disposed) return;
+        const character = this.characters.get(id)!;
+        character.canvas.dataset.spriteState = 'unavailable';
+        character.button.classList.add('sprite-unavailable');
+        character.button.title = '캐릭터 이미지 준비 전입니다. 눌러서 조사 내용을 확인할 수 있습니다.';
+        character.button.setAttribute('aria-label', `${character.button.getAttribute('aria-label')} · 이미지 준비 중`);
+        const unavailable = document.createElement('span');
+        unavailable.className = 'sprite-unavailable-label';
+        unavailable.textContent = '이미지 준비 중';
+        unavailable.setAttribute('aria-hidden', 'true');
+        character.button.append(unavailable);
+      });
+    }
     void Promise.all([loadSpriteAtlas(), loadWalkingAtlases()]).then(() => {
       if (this.disposed) return;
       for (const character of this.characters.values()) this.render(character, true);
     }).catch(() => {
       if (this.disposed) return;
       for (const character of this.characters.values()) {
+        if (isStandingWorker(character.id)) continue;
         character.canvas.dataset.spriteState = 'error';
         character.button.classList.add('sprite-unavailable');
         character.button.title = '캐릭터 이미지를 불러오지 못했습니다. 눌러서 대화와 조사 내용을 확인할 수 있습니다.';
@@ -316,7 +364,9 @@ export class OfficeScene {
     if (!character || character.activity === activity || this.disposed) return;
     character.activity = activity;
     character.pause = 0;
-    if (activity === 'working') {
+    if (isStandingWorker(id)) {
+      this.placeStandingWorker(character);
+    } else if (activity === 'working') {
       this.go(character, DESKS[id], 'desk');
     } else if (activity === 'done') {
       const destination = id === 'upper_agent' ? 'managerFront'
@@ -329,6 +379,34 @@ export class OfficeScene {
     }
     this.render(character, true);
     this.start();
+  }
+
+  /** Explicitly assign an existing seat anchor to a new worker, or restore standing placement.
+   * Coordinates are room percentages. This never creates furniture or changes other agents.
+   * Assigned workers use seated typing only during working activity; null leaves no seat.
+   */
+  setWorkerSeat(id: StandingWorkerId, seat: Point | null): void {
+    if (this.disposed) return;
+    if (seat && (!Number.isFinite(seat.x) || !Number.isFinite(seat.y) || seat.x < 0 || seat.x > 100 || seat.y < 0 || seat.y > 100)) {
+      throw new RangeError('좌석 위치는 0–100 사이의 유한한 방 좌표여야 합니다.');
+    }
+    if (seat) this.workerSeats.set(id, { ...seat });
+    else this.workerSeats.delete(id);
+    const character = this.characters.get(id)!;
+    this.placeStandingWorker(character);
+    this.render(character, true);
+    this.start();
+  }
+
+  private placeStandingWorker(character: Character): void {
+    if (!isStandingWorker(character.id)) return;
+    const seat = this.workerSeats.get(character.id);
+    character.position = { ...(seat ?? STANDING_POSITIONS[character.id]) };
+    character.motion = character.activity === 'working' ? seat ? 'seated' : 'research' : 'idle';
+    character.purpose = character.activity === 'working' ? 'desk' : 'wander';
+    character.direction = seat && character.activity === 'working' ? 'back' : 'front';
+    character.path = [];
+    character.pause = Infinity;
   }
 
   /** Clear the prior run's activity while allowing characters to return through the aisles. */
@@ -350,6 +428,7 @@ export class OfficeScene {
   dispose(): void {
     this.disposed = true;
     this.clicks.abort();
+    this.workerRenderer.dispose();
     cancelAnimationFrame(this.frameId);
     this.frameId = 0;
     this.reducedMotion.removeEventListener('change', this.onMotionPreference);
@@ -406,6 +485,7 @@ export class OfficeScene {
   }
 
   private advance(character: Character, seconds: number): void {
+    if (isStandingWorker(character.id)) return;
     if (!character.path.length) {
       character.pause -= seconds;
       if (character.pause <= 0 && character.purpose !== 'desk') {
@@ -465,13 +545,13 @@ export class OfficeScene {
     button.dataset.purpose = character.purpose;
     button.dataset.walkDistance = character.walkDistance.toFixed(4);
     const label = activity === 'working'
-      ? motion === 'seated' ? id === 'upper_agent' ? '생각 중' : '조사 중' : '자리로 이동'
+      ? motion === 'seated' || motion === 'research' ? id === 'upper_agent' ? '생각 중' : '조사 중' : '자리로 이동'
       : activity === 'done'
         ? id === 'upper_agent' ? '답변 도착' : character.purpose === 'report' && motion === 'walking' ? '보고하러 이동' : '보고 완료'
         : activity === 'error' ? '조사 중단' : motion === 'walking' ? '산책 중' : '대기 중';
     if (character.status.textContent !== label) {
       character.status.textContent = label;
-      button.setAttribute('aria-label', `${NAMES[id]} · ${label} · 클릭하여 대화 또는 조사 내용 보기`);
+      button.setAttribute('aria-label', `${NAMES[id]} · ${label} · 클릭하여 대화 또는 조사 내용 보기${character.canvas.dataset.spriteState === 'unavailable' ? ' · 이미지 준비 중' : ''}`);
     }
     const frame = this.motionReduced || motion === 'idle' ? 0
       : motion === 'walking' ? Math.floor(character.walkDistance / WALK_CYCLE_DISTANCE * 4) % 4
@@ -479,7 +559,16 @@ export class OfficeScene {
     const signature = `${character.direction}-${motion}-${frame}`;
     if (force || button.dataset.frame !== signature) {
       button.dataset.frame = signature;
-      drawCharacter(character.canvas, id, character.direction, frame, motion);
+      if (isStandingWorker(id)) {
+        const frames = this.workerSprites.get(id);
+        const pose: WorkerPose = motion === 'seated' ? 'seated' : motion === 'research' ? 'research' : 'idle';
+        character.canvas.dataset.spritePose = pose;
+        character.canvas.dataset.spriteFrame = String(frame % 2);
+        if (frames) {
+          this.workerRenderer.attach(character.canvas, workerFrame(frames, pose, frame));
+          character.canvas.dataset.spriteState = 'ready';
+        }
+      } else drawCharacter(character.canvas, id, character.direction, frame, motion);
     }
   }
 
